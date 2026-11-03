@@ -22,8 +22,8 @@ Steady state: work median about 269000 us (about 16 frames of budget), draw abou
 
 Decision rule: per-shape stays only if work-median <= 12000 and work-worst <=
 16700. Neither holds. Draw is 94% of work (>= half), so **a command buffer
-looked needed next, but the FFI bench below superseded that.** Update (15.5 ms) is also over a 16.7 ms frame once
-draw is fixed, so the rules need a look afterwards.
+looked needed next, but the FFI bench below superseded that.** Update (15.5 ms) alone would leave 1.2 ms of a 16.7 ms
+frame for drawing, so the rules need a look once draw is fixed.
 
 Memory finding: jolt sizes its allocation window at 16 MB, more than the malloc
 heap left after the 14 MB .dol loads, so the first run died with "out of
