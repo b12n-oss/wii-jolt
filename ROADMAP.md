@@ -83,11 +83,17 @@ comparison and what it taught us about jolt.
   find tilting hard.
 - **raylib from Clojure.** Done for Balloon Pop, through link-time
   registration of the shim's functions (see
-  [Balloon Pop in Clojure](docs/guide/balloon-pop-in-clojure.md)). What
-  remains is a decision: keep that glue, or teach `jolt build --target` about
-  `:jolt/native` static archives so no hand registration is needed. Then, if
-  the Clojure game should hold 60 fps, a faster double-to-fixnum cast and
-  cheaper rules.
+  [Balloon Pop in Clojure](docs/guide/balloon-pop-in-clojure.md)). The games
+  stay in C: the Clojure one plays but drops most frames. Two jolt-side
+  changes could alter that, in this order. First, a cheaper checked `long`
+  cast on 32-bit (4x on this game's drawing; useful on any 32-bit target).
+  Second, a native PowerPC backend: Chez ships `s/ppc32.ss` with big-endian
+  support, and the Wii's 750CL is the G3 family it targeted, so a `tppc32wii`
+  machine type over the existing libogc runtime patch could replace the
+  bytecode interpreter. That is the only change with a chance of 60 fps. It
+  needs a spike: the EABI foreign-call convention and the executable-memory
+  path are the unknowns. Also still open: keep the link-time glue, or teach
+  `jolt build --target` about `:jolt/native` static archives.
 - **The next game** built with the kids: their ideas, their drawings.
 - **Sound.** raylib's `raudio` is left out today. Try miniaudio against libogc,
   or use libogc's own ASND/AESND.
