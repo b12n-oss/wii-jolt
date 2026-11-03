@@ -39,9 +39,11 @@
       aim))
 
 (defn- top-up
-  "Back to 24 balloons and 100 particles, players aiming at their fixed points."
+  "Back to 24 balloons and 100 particles, players aiming at their fixed points,
+   and the round pinned in :play with a full clock however long the run is."
   [g]
-  (let [g (loop [g g] (if (< (count (:balloons g)) target-balloons) (recur (r/spawn-balloon g)) g))
+  (let [g (assoc g :mode :play :mode-time 0.0)
+        g (loop [g g] (if (< (count (:balloons g)) target-balloons) (recur (r/spawn-balloon g)) g))
         n (count (:particles g))]
     (aim (if (< n target-particles)
            (update g :particles into (map fixed-particle (range n target-particles)))
@@ -94,10 +96,10 @@
         (gfx/begin! draw/sky-top)
         (draw/draw g t)
         (let [t2 (gfx/time-us)]
-          (gfx/circle! -50 240 20 draw/white)
+          (gfx/circle! -10 240 20 draw/white)
           (gfx/end!)
           (when (zero? frame)
-            (println (str app ": offscreen-circle x=-50 y=240 drawn")))
+            (println (str app ": edge-circle x=-10 y=240 r=20 drawn")))
           (let [samples (conj samples {:update-us (stats/elapsed-us t0 t1)
                                        :draw-us (stats/elapsed-us t1 t2)
                                        :frame-us fus})

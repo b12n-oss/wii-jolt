@@ -29,7 +29,9 @@
        ["chez"       "chez-wii/build/chez.dol"            true  "Chez Scheme 10.4.1 (tpb32b) evaluating a test list"]
        ["jolt-hello" "jolt-hello/build/jolt-hello.dol"    true  "Clojure via jolt: fib, bignums, maps, sets, hashes"]
        ["jolt-stress" "jolt-balloons/build/jolt-stress.dol" false "Clojure drawing cost: a busy Balloon Pop frame, timed"]
-       ["jolt-ffi-bench" "jolt-balloons/build/jolt-ffi-bench.dol" false "Clojure FFI cost benchmark"]])
+       ["jolt-ffi-bench" "jolt-balloons/build/jolt-ffi-bench.dol" false "Clojure FFI cost benchmark"]
+       ["jolt-stress-stub" "jolt-balloons/build/jolt-stress-stub.dol" false "Split measurement: the stress frame with every C draw function stubbed out"]
+       ["jolt-const-draw" "jolt-balloons/build/jolt-const-draw.dol" false "Split measurement: the stress frame's 368 calls with constant arguments"]])
 
     (defn app [nm] (first (filter (fn [a] (= nm (first a))) apps)))
 
@@ -216,6 +218,9 @@
      (row "build:jolt-hello" "cross-build jolt-hello with jolt build --target tpb32b")
      (row "build:jolt-stress" "cross-build the Clojure drawing stress test")
      (row "build:jolt-ffi-bench" "cross-build the Clojure FFI cost benchmark")
+     (row "gfx-pack-stub" "the graphics pack with a shim whose draw functions return at once")
+     (row "build:jolt-stress-stub" "cross-build the stress test against the stub-draw pack")
+     (row "build:jolt-const-draw" "cross-build the constant-arguments draw test")
      (row "sd" "collect every built app into build/sd/apps for an SD card")
      (hdr "Run in Dolphin")
      (doseq [[nm _ _ what] apps] (row (str "run:" nm) what))
@@ -336,6 +341,27 @@
   {:doc "Cross-build jolt-hello for the Wii with jolt build --target tpb32b"
    :task (sh! "scripts/jolt-wii-build" "jolt-hello" "hello.core" "jolt-hello")}
 
+  gfx-pack-stub
+  {:doc "Assemble .work/pack-tpb32b-gfx-stub: the shim compiled with -DJG_STUB_DRAW (needs bb pack first)"
+   :depends [build:raylib]
+   :task (sh! "scripts/make-gfx-pack" "--stub-draw")}
+
+  build:jolt-stress-stub
+  {:doc "Cross-build balloons.stress against the stub-draw pack (draw time = Clojure + crossing)"
+   :depends [gfx-pack-stub]
+   :task (do
+           (sh! "env" (str "JOLT_WII_PACK=" repo-root "/.work/pack-tpb32b-gfx-stub")
+                (str "JOLT_WII_CC=" repo-root "/scripts/wii-cc-sdl")
+                "scripts/jolt-wii-build" "jolt-balloons" "balloons.stress" "jolt-stress-stub"))}
+
+  build:jolt-const-draw
+  {:doc "Cross-build the constant-arguments draw test (crossing + raylib, little Clojure math)"
+   :depends [gfx-pack]
+   :task (do
+           (sh! "env" (str "JOLT_WII_PACK=" repo-root "/.work/pack-tpb32b-gfx")
+                (str "JOLT_WII_CC=" repo-root "/scripts/wii-cc-sdl")
+                "scripts/jolt-wii-build" "jolt-balloons" "balloons.const-draw" "jolt-const-draw"))}
+
   build:jolt-stress
   {:doc "Cross-build the Clojure drawing stress test (busy Balloon Pop frame, timed)"
    :depends [gfx-pack]
@@ -430,8 +456,22 @@
 
   run:jolt-stress
   {:doc "Boot the Clojure drawing stress test in Dolphin and print its timing lines"
-   :task (let [r (run-in-dolphin "jolt-stress" 45)]
+   :task (let [r (run-in-dolphin "jolt-stress" 170)]
            (doseq [l (:lines r)] (when (str/starts-with? l "jolt-stress: ") (println l)))
+           (println (:shot r))
+           (when (:crashed? r) (println "CRASHED") (System/exit 1)))}
+
+  run:jolt-stress-stub
+  {:doc "Boot the stub-draw stress build in Dolphin and print its timing lines (they carry the jolt-stress prefix)"
+   :task (let [r (run-in-dolphin "jolt-stress-stub" 170)]
+           (doseq [l (:lines r)] (when (str/starts-with? l "jolt-stress: ") (println l)))
+           (println (:shot r))
+           (when (:crashed? r) (println "CRASHED") (System/exit 1)))}
+
+  run:jolt-const-draw
+  {:doc "Boot the constant-arguments draw test in Dolphin and print its timing lines"
+   :task (let [r (run-in-dolphin "jolt-const-draw" 170)]
+           (doseq [l (:lines r)] (when (str/starts-with? l "jolt-const-draw: ") (println l)))
            (println (:shot r))
            (when (:crashed? r) (println "CRASHED") (System/exit 1)))}
 

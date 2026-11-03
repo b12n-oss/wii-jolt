@@ -8,6 +8,10 @@ CFLAGS := -O2 -Wall $(MACHDEP) -I../vendor/raylib \
 
 all: build/jolt_gfx.o
 
+build/jolt_gfx_stub.o: jolt_gfx.c jolt_gfx.h
+	mkdir -p build
+	$(CC) $(CFLAGS) -DJG_STUB_DRAW -c $< -o $@
+
 build/jolt_gfx.o: jolt_gfx.c jolt_gfx.h
 	mkdir -p build
 	$(CC) $(CFLAGS) -c $< -o $@

@@ -11,6 +11,15 @@
 
 #define NCHAN 4
 
+// -DJG_STUB_DRAW (scripts/make-gfx-pack --stub-draw): every drawing function
+// returns at once, so a frame's draw time is the Clojure side plus the FFI
+// crossing, with no raylib work. Measurement builds only.
+#ifdef JG_STUB_DRAW
+#define JG_STUB() return 0
+#else
+#define JG_STUB() ((void)0)
+#endif
+
 static bool rumbling[NCHAN];
 
 static Color rgba(U c)
@@ -39,32 +48,38 @@ U jg_seed(void) { return (U)(gettime() & 0x0FFFFFFF); }
 
 U jg_gradient_v(U x, U y, U w, U h, U top, U bottom)
 {
+    JG_STUB();
     DrawRectangleGradientV((int)x, (int)y, (int)w, (int)h, rgba(top), rgba(bottom));
     return 0;
 }
 U jg_rect(U x, U y, U w, U h, U c)
 {
+    JG_STUB();
     DrawRectangle((int)x, (int)y, (int)w, (int)h, rgba(c));
     return 0;
 }
 U jg_rect_rounded(U x, U y, U w, U h, U roundness, U c)
 {
+    JG_STUB();
     Rectangle r = { (float)(int)x, (float)(int)y, (float)(int)w, (float)(int)h };
     DrawRectangleRounded(r, (float)(int)roundness / 100.0f, 8, rgba(c));
     return 0;
 }
 U jg_circle(U x, U y, U r, U c)
 {
+    JG_STUB();
     DrawCircle((int)x, (int)y, (float)(int)r, rgba(c));
     return 0;
 }
 U jg_ellipse(U x, U y, U rx, U ry, U c)
 {
+    JG_STUB();
     DrawEllipse((int)x, (int)y, (float)(int)rx, (float)(int)ry, rgba(c));
     return 0;
 }
 U jg_triangle(U x1, U y1, U x2, U y2, U x3, U y3, U c)
 {
+    JG_STUB();
     DrawTriangle((Vector2){ (float)(int)x1, (float)(int)y1 },
                  (Vector2){ (float)(int)x2, (float)(int)y2 },
                  (Vector2){ (float)(int)x3, (float)(int)y3 }, rgba(c));
@@ -72,33 +87,42 @@ U jg_triangle(U x1, U y1, U x2, U y2, U x3, U y3, U c)
 }
 U jg_line(U x1, U y1, U x2, U y2, U c)
 {
+    JG_STUB();
     DrawLine((int)x1, (int)y1, (int)x2, (int)y2, rgba(c));
     return 0;
 }
 U jg_line_thick(U x1, U y1, U x2, U y2, U thick, U c)
 {
+    JG_STUB();
     DrawLineEx((Vector2){ (float)(int)x1, (float)(int)y1 },
                (Vector2){ (float)(int)x2, (float)(int)y2 }, (float)(int)thick, rgba(c));
     return 0;
 }
 U jg_ring(U x, U y, U inner, U outer, U c)
 {
+    JG_STUB();
     DrawRing((Vector2){ (float)(int)x, (float)(int)y }, (float)(int)inner,
              (float)(int)outer, 0.0f, 360.0f, 24, rgba(c));
     return 0;
 }
 U jg_poly(U x, U y, U sides, U radius, U rot, U c)
 {
+    JG_STUB();
     DrawPoly((Vector2){ (float)(int)x, (float)(int)y }, (int)sides,
              (float)(int)radius, (float)(int)rot, rgba(c));
     return 0;
 }
 U jg_text(U s, U x, U y, U size, U c)
 {
+    JG_STUB();
     DrawText((const char *)s, (int)x, (int)y, (int)size, rgba(c));
     return 0;
 }
-U jg_text_width(U s, U size) { return (U)MeasureText((const char *)s, (int)size); }
+U jg_text_width(U s, U size)
+{
+    JG_STUB();
+    return (U)MeasureText((const char *)s, (int)size);
+}
 
 // Wiimote channel ch. Each call probes the channel itself.
 U jg_connected(U ch)
