@@ -14,6 +14,8 @@
 #include <ogc/lwp_watchdog.h>   // gettime(), for the RNG seed
 #include <stdio.h>
 #include <math.h>
+#include <stdint.h>
+#include <stdlib.h>
 
 static const Color PLAYER_COLORS[MAX_PLAYERS] = {
     { 40, 120, 255, 255 },   // P1 blue
@@ -223,6 +225,49 @@ static void log_events(const Game *g, Mode *last_mode, int last_score[MAX_PLAYER
     }
 }
 
+// ---------------------------------------------------------------- frame timing
+// One line every FRAME_SAMPLES frames, same fields and units as the Clojure
+// game's wii.frame-stats/summary-line so the two can be compared.
+#define FRAME_SAMPLES 120
+#define FRAME_BUDGET_US 20000
+
+static int cmp_u32(const void *a, const void *b)
+{
+    uint32_t x = *(const uint32_t *)a, y = *(const uint32_t *)b;
+    return (x > y) - (x < y);
+}
+
+// Lower middle of the sorted values (sorts a copy).
+static uint32_t median_u32(const uint32_t *v, int n)
+{
+    uint32_t tmp[FRAME_SAMPLES];
+    for (int i = 0; i < n; i++) tmp[i] = v[i];
+    qsort(tmp, (size_t)n, sizeof tmp[0], cmp_u32);
+    return tmp[(n - 1) / 2];
+}
+
+static void print_frame_summary(const uint32_t *upd, const uint32_t *drw, const uint32_t *frm, int n)
+{
+    uint32_t work[FRAME_SAMPLES];
+    uint32_t work_worst = 0, frame_worst = 0;
+    int dropped = 0;
+    for (int i = 0; i < n; i++) {
+        work[i] = upd[i] + drw[i];
+        if (work[i] > work_worst) work_worst = work[i];
+        if (frm[i] > frame_worst) frame_worst = frm[i];
+        if (frm[i] > FRAME_BUDGET_US) dropped++;
+    }
+    printf("balloons: frames n=%d update-median-us=%u draw-median-us=%u work-median-us=%u "
+           "work-worst-us=%u frame-worst-us=%u dropped=%d\n",
+           n, (unsigned)median_u32(upd, n), (unsigned)median_u32(drw, n),
+           (unsigned)median_u32(work, n), (unsigned)work_worst, (unsigned)frame_worst, dropped);
+}
+
+static uint32_t elapsed_us(uint64_t t0, uint64_t t1)
+{
+    return (uint32_t)ticks_to_microsecs(t1 - t0);
+}
+
 int main(int argc, char *argv[])
 {
     (void)argc; (void)argv;
@@ -240,9 +285,13 @@ int main(int argc, char *argv[])
     Mode last_mode = g.mode;
     int last_score[MAX_PLAYERS] = { 0 };
     float t = 0;
+    uint32_t upd_us[FRAME_SAMPLES], drw_us[FRAME_SAMPLES], frm_us[FRAME_SAMPLES];
+    int nsamples = 0;
 
     while (!WindowShouldClose()) {
+        uint64_t t_start = gettime();
         float dt = GetFrameTime();
+        uint32_t interval_us = (uint32_t)(dt * 1e6f);
         if (dt > 0.05f) dt = 0.05f;   // a long frame shouldn't teleport balloons
         t += dt;
 
@@ -252,10 +301,20 @@ int main(int argc, char *argv[])
         for (int p = 0; p < MAX_PLAYERS; p++)
             wiimote_rumble(p, g.players[p].rumble > 0 && g.mode != MODE_DEMO);
         log_events(&g, &last_mode, last_score);
+        uint64_t t_updated = gettime();
 
         BeginDrawing();
         draw(&g, t);
+        uint64_t t_drawn = gettime();
         EndDrawing();
+
+        upd_us[nsamples] = elapsed_us(t_start, t_updated);
+        drw_us[nsamples] = elapsed_us(t_updated, t_drawn);
+        frm_us[nsamples] = interval_us;
+        if (++nsamples == FRAME_SAMPLES) {
+            print_frame_summary(upd_us, drw_us, frm_us, nsamples);
+            nsamples = 0;
+        }
     }
 
     wiimote_rumble_all_off();
