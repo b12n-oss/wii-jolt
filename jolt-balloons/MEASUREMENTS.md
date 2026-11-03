@@ -22,13 +22,62 @@ Steady state: work median about 269000 us (about 16 frames of budget), draw abou
 
 Decision rule: per-shape stays only if work-median <= 12000 and work-worst <=
 16700. Neither holds. Draw is 94% of work (>= half), so **P2.T3 (the command
-buffer) is needed next.** Update (15.5 ms) is also over a 16.7 ms frame once
+buffer) looked needed next, but the FFI bench below superseded that.** Update (15.5 ms) is also over a 16.7 ms frame once
 draw is fixed, so the rules need a look afterwards.
 
 Memory finding: jolt sizes its allocation window at 16 MB, more than the malloc
 heap left after the 14 MB .dol loads, so the first run died with "out of
 memory" after about 14 frames. `jolt-gfx/jolt_gfx.c` now sets
 `JOLT_GC_TRIP_BYTES=2097152` in its constructor. With it the runs are stable.
+
+## FFI cost on the Wii, and why there is no command buffer
+
+The first measurement put draw at 94% of work, which suggested batching draw
+calls into a command buffer. Before building one, `balloons.ffi-bench`
+(`bb run:jolt-ffi-bench`, Dolphin, idle profile, MMU on, 2000 operations per
+case) timed the pieces a buffer would use. Two runs gave identical numbers,
+since Dolphin's clock is emulated. The bench draws a 4x4 rect, so it shows
+crossing cost only, not the cost of real shapes.
+
+```
+ffi-bench: empty-loop n=2000 total-us=1061 per-op-ns=530
+ffi-bench: defcfn-noarg n=2000 total-us=7857 per-op-ns=3928
+ffi-bench: defcfn-5arg-fixnum n=2000 total-us=35921 per-op-ns=17960
+ffi-bench: defcfn-5arg-bignum-colour n=2000 total-us=39608 per-op-ns=19804
+ffi-bench: wiigfx-rect n=2000 total-us=39797 per-op-ns=19898
+ffi-bench: ffi-write-int32 n=2000 total-us=97600 per-op-ns=48800
+ffi-bench: bulk-fill n=2000 total-us=16262 per-op-ns=8131
+ffi-bench: bulk-copy n=2000 total-us=178028 per-op-ns=89014
+ffi-bench: vector-conj n=2000 total-us=44887 per-op-ns=22443
+```
+
+| Operation | Per op |
+|---|---|
+| empty loop iteration | 0.5 us |
+| `defcfn` call, no arguments | 3.9 us |
+| `defcfn` call, 5 fixnum arguments | 18.0 us |
+| same, with a bignum colour | 19.8 us |
+| `wii.gfx/rect` (the wrapper) | 19.9 us |
+| `ffi/write` of one `:int32` | 48.8 us |
+| fill an int-array element with `aset` | 8.1 us |
+| `write-array :int32`, per element | 89.0 us |
+| `conj` onto a persistent vector | 22.4 us |
+
+What it shows:
+
+- A whole 5-argument C call costs about 18 us, so 368 calls are about 7 ms of
+  the 253 ms draw time. The crossing is not the bottleneck. The rest is spent
+  inside the C draw functions.
+- One `ffi/write :int32` costs 2.7 times as much as that whole call. A buffer
+  of 5 fields per shape would cost about 244 us per shape against 18 us for the
+  direct call.
+- The bulk path is no better: one `write-array :int32` of 2000 elements took
+  178 ms. The reason was not isolated.
+- Encoding a command as a vector costs about as much as the call it avoids.
+
+Decision: a command buffer made of `ffi/write` calls would cost more than the
+per-shape calls it replaces, so the per-shape design stays and the work went
+into the draw functions themselves (see the split and profile sections).
 
 ## Where the draw time goes (split measurement)
 
@@ -194,7 +243,8 @@ Frame budget: update (15.5 ms) plus draw (60 ms) is 75 ms of work against a
 16.7 ms frame at 60 fps, about 4.5 times too slow. Even with a free draw, the
 update alone is under budget only barely (15.5 of 16.7 ms).
 
-Screenshot check: `bb run:jolt-stress` takes its shot after 170 s, which was
+Screenshot check: `bb run:jolt-stress` took its shot after 170 s when this
+run was made (it waits 100 s now), which was
 mid-run before the optimisation (1800 frames at 267 ms is about 8 minutes) but
 is after the exit now (1800 frames at 75 ms is about 135 s), so the first after
 run found no Dolphin window. Retaken with `scripts/dolphin-shot
@@ -223,5 +273,6 @@ dropped frames, total                                      0                    
 Lines of code (wc -l):
   balloons:        747   examples/balloons/{game.h,game.c,main.c}
   jolt-balloons:   602   jolt-balloons/src/balloons/{rules,draw,main}.clj
-  glue (Clojure side only):   398   jolt-gfx/jolt_gfx.c, jolt_gfx.h, src/wii/gfx.clj, src/wii/frame_stats.clj
+  glue the Clojure game needs, C:        262   jolt-gfx/jolt_gfx.c, jolt_gfx.h
+  glue the Clojure game needs, Clojure:  131   jolt-gfx/src/wii/gfx.clj, src/wii/frame_stats.clj
 ```
