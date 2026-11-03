@@ -21,5 +21,6 @@ JOLT_TARGET_CC="${JOLT_WII_CC:-$ROOT/scripts/wii-cc}" \
 mkdir -p "build/sd/apps/$APP"
 cp "build/$APP.dol" "build/sd/apps/$APP/boot.dol"
 # JOLT_WII_NO_META=1: measurement builds are not apps, so they get no Homebrew Channel meta.xml.
-[ -f meta.xml ] && [ -z "${JOLT_WII_NO_META:-}" ] && cp meta.xml "build/sd/apps/$APP/" || true
+if [ -n "${JOLT_WII_NO_META:-}" ]; then rm -f "build/sd/apps/$APP/meta.xml"
+elif [ -f meta.xml ]; then cp meta.xml "build/sd/apps/$APP/"; fi
 ls -la "build/$APP.dol"

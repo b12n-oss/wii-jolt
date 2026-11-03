@@ -94,6 +94,11 @@
       (let [[_ profile] (first (filter (fn [gm] (= nm (first gm))) games))]
         (run-in-dolphin nm 40 :user (auto-user profile) :shot-name (str nm "-wiimote"))))
 
+    (defn demo-secs
+      "The demo window (seconds) from the game's games row: the 6th element."
+      [nm]
+      (nth (first (filter (fn [gm] (= nm (first gm))) games)) 5))
+
     (defn scripted-pass?
       "The scripted remote joined (countdown), the round started, and player 1
        scored during it."
@@ -514,15 +519,15 @@
 
   run:balloons
   {:doc "Boot Balloon Pop in Dolphin, wait for the robot demo, print its events"
-   :task (print-game-run "balloons" (run-in-dolphin "balloons" 20))}
+   :task (print-game-run "balloons" (run-in-dolphin "balloons" (demo-secs "balloons")))}
 
   run:starcatcher
   {:doc "Boot Star Catcher in Dolphin, wait for the robot demo, print its events"
-   :task (print-game-run "starcatcher" (run-in-dolphin "starcatcher" 20))}
+   :task (print-game-run "starcatcher" (run-in-dolphin "starcatcher" (demo-secs "starcatcher")))}
 
   run:shakerace
   {:doc "Boot Shake Race in Dolphin, wait for the robot demo, print its events"
-   :task (print-game-run "shakerace" (run-in-dolphin "shakerace" 20))}
+   :task (print-game-run "shakerace" (run-in-dolphin "shakerace" (demo-secs "shakerace")))}
 
   run:balloons-wiimote
   {:doc "A round of Balloon Pop with a scripted Wiimote: A to join, the pointer sweeps"
@@ -575,7 +580,7 @@
 
   run:jolt-balloons
   {:doc "Boot Balloon Pop in Clojure in Dolphin, wait for the robot demo, print its events"
-   :task (print-game-run "jolt-balloons" (run-in-dolphin "jolt-balloons" 20))}
+   :task (print-game-run "jolt-balloons" (run-in-dolphin "jolt-balloons" (demo-secs "jolt-balloons")))}
 
   run:jolt-stress
   {:doc "Boot the Clojure drawing stress test in Dolphin and print its timing lines"
