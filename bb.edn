@@ -28,6 +28,7 @@
        ["hello"      "examples/build/hello/hello.dol"     false "stock raylib 6.0: bouncing ball, gamepad readout"]
        ["chez"       "chez-wii/build/chez.dol"            true  "Chez Scheme 10.4.1 (tpb32b) evaluating a test list"]
        ["jolt-hello" "jolt-hello/build/jolt-hello.dol"    true  "Clojure via jolt: fib, bignums, maps, sets, hashes"]
+       ["jolt-balloons" "jolt-balloons/build/jolt-balloons.dol" false "Balloon Pop in Clojure (jolt): same game, pure Clojure rules"]
        ["jolt-stress" "jolt-balloons/build/jolt-stress.dol" false "Clojure drawing cost: a busy Balloon Pop frame, timed"]
        ["jolt-ffi-bench" "jolt-balloons/build/jolt-ffi-bench.dol" false "Clojure FFI cost benchmark"]
        ["jolt-stress-stub" "jolt-balloons/build/jolt-stress-stub.dol" false "Split measurement: the stress frame with every C draw function stubbed out"]
@@ -79,7 +80,8 @@
     (def games
       [["balloons"    "pointer" "pop player=1 "    "point and press A" :c]
        ["starcatcher" "tilt"    "catch player=1 "  "tilt sideways (or arrow keys)" :c]
-       ["shakerace"   "shake"   "finish player=1 " "shake (space bar on the Mac)" :c]])
+       ["shakerace"   "shake"   "finish player=1 " "shake (space bar on the Mac)" :c]
+       ["jolt-balloons" "pointer" "pop player=1 " "point and press A" :clj]])
 
     (defn game-lines [nm r]
       (let [prefix (str nm ": ")]
@@ -153,7 +155,7 @@
     (defn play-game
       "Open a game in Dolphin for a person to play with the Mac."
       [nm]
-      (let [dol (str repo-root "/examples/build/" nm "/" nm ".dol")]
+      (let [dol (str repo-root "/" (second (app nm)))]
         (when-not (fs/exists? dol) (run (symbol (str "build:" nm))))
         (fs/create-dirs (str repo-root "/.work/sd-play/apps/" nm))
         (apply shell {:dir repo-root} "/Applications/Dolphin.app/Contents/MacOS/Dolphin"
@@ -217,6 +219,7 @@
      (row "build:jolt-gfx" "the C shim that lets a jolt program draw with raylib and read Wiimotes")
      (row "gfx-pack" "the graphics pack: the plain pack plus the shim, raylib and SDL")
      (row "build:jolt-hello" "cross-build jolt-hello with jolt build --target tpb32b")
+     (row "build:jolt-balloons" "cross-build Balloon Pop in Clojure")
      (row "build:jolt-stress" "cross-build the Clojure drawing stress test")
      (row "build:jolt-ffi-bench" "cross-build the Clojure FFI cost benchmark")
      (row "gfx-pack-stub" "the graphics pack with a shim whose draw functions return at once")
@@ -380,6 +383,14 @@
                 (str "JOLT_WII_CC=" repo-root "/scripts/wii-cc-sdl")
                 "scripts/jolt-wii-build" "jolt-balloons" "balloons.stress" "jolt-stress"))}
 
+  build:jolt-balloons
+  {:doc "Cross-build Balloon Pop in Clojure (balloons.main)"
+   :depends [gfx-pack]
+   :task (do
+           (sh! "env" (str "JOLT_WII_PACK=" repo-root "/.work/pack-tpb32b-gfx")
+                (str "JOLT_WII_CC=" repo-root "/scripts/wii-cc-sdl")
+                "scripts/jolt-wii-build" "jolt-balloons" "balloons.main" "jolt-balloons"))}
+
   build:jolt-ffi-bench
   {:doc "Cross-build the Clojure FFI cost benchmark"
    :depends [gfx-pack]
@@ -390,7 +401,7 @@
 
   build
   {:doc "Build every app"
-   :task (do (run 'build:hello) (run 'build:balloons) (run 'build:starcatcher) (run 'build:shakerace) (run 'build:chez) (run 'pack) (run 'build:jolt-hello))}
+   :task (do (run 'build:hello) (run 'build:balloons) (run 'build:starcatcher) (run 'build:shakerace) (run 'build:chez) (run 'pack) (run 'build:jolt-hello) (run 'build:jolt-balloons))}
 
   sd
   {:doc "Collect every built app into build/sd/apps/<name>/ (copy build/sd/apps to the SD card's root)"
@@ -427,6 +438,10 @@
   {:doc "A round of Balloon Pop with a scripted Wiimote: A to join, the pointer sweeps"
    :task (print-game-run "balloons" (run-scripted "balloons"))}
 
+  run:jolt-balloons-wiimote
+  {:doc "A round of Balloon Pop in Clojure with a scripted Wiimote: A to join, the pointer sweeps"
+   :task (print-game-run "jolt-balloons" (run-scripted "jolt-balloons"))}
+
   run:starcatcher-wiimote
   {:doc "A round of Star Catcher with a scripted Wiimote: A to join, tipped left and right"
    :task (print-game-run "starcatcher" (run-scripted "starcatcher"))}
@@ -443,6 +458,10 @@
   play:balloons
   {:doc "Play Balloon Pop in Dolphin: the mouse is the pointer, left click = A, Return = HOME"
    :task (play-game "balloons")}
+
+  play:jolt-balloons
+  {:doc "Play Balloon Pop in Clojure in Dolphin: the mouse is the pointer, left click = A, Return = HOME"
+   :task (play-game "jolt-balloons")}
 
   play:starcatcher
   {:doc "Play Star Catcher in Dolphin: left click or 2 joins, arrow keys steer, Return = HOME"
@@ -464,9 +483,13 @@
   {:doc "Boot jolt-hello in Dolphin and print its output"
    :task (let [r (run-in-dolphin "jolt-hello" 40)] (doseq [l (:lines r)] (println l)) (println (:shot r)))}
 
+  run:jolt-balloons
+  {:doc "Boot Balloon Pop in Clojure in Dolphin, wait for the robot demo, print its events"
+   :task (print-game-run "jolt-balloons" (run-in-dolphin "jolt-balloons" 20))}
+
   run:jolt-stress
   {:doc "Boot the Clojure drawing stress test in Dolphin and print its timing lines"
-   :task (let [r (run-in-dolphin "jolt-stress" 170)]
+   :task (let [r (run-in-dolphin "jolt-stress" 100)]
            (doseq [l (:lines r)] (when (str/starts-with? l "jolt-stress: ") (println l)))
            (println (:shot r))
            (when (:crashed? r) (println "CRASHED") (System/exit 1)))}
