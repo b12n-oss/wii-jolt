@@ -109,6 +109,35 @@ went from a draw median of 59404-60097 us to 55014-55310 us (work ~75 ms to
 ~70.6 ms); the game's draw code would see the same. The new jolt also makes
 the .dols a little smaller (jolt-balloons 14475232 to 14441440 bytes).
 
+## After the fixnum lane in jolt (branch feat/flonum-fixnum-lane, 2026-11-04)
+
+The remaining `exact`/`truncate` is gone for doubles inside the fixnum
+range: jolt's `jolt-flonum->integer` (branch `feat/flonum-fixnum-lane`,
+four commits on top of the cast fix, part of jolt-lang/jolt#1492) tests the
+double against the target's fixnum limits and converts with Chez's
+`flonum->fixnum`, one primitive that truncates toward zero. Same bench,
+same Dolphin settings, net nanoseconds per operation, second pass. The
+"edges" line the bench now prints first (the 2^29 bounds of a 30-bit
+fixnum, a negative fraction, 2^60) read
+`[536870912 536870911 -536870912 -536870912 536870911 -123 1152921504606846976]`,
+the JVM's answers.
+
+| cast | after the cast fix | after the lane |
+|---|---|---|
+| `(long 123.7)` | 27044 | 6343 |
+| `(long 123.7)` in a `^double`-hinted fn | 26279 | 6417 |
+| `(long 124.0)` | 26186 | 6344 |
+| `(int 123.7)` | 26231 | 5808 |
+| `(unchecked-long 123.7)` | 23018 | 3145 |
+| `(unchecked-int 123.7)` | 22969 | 3095 |
+| `(long 123)` (a fixnum) | 190 | 193 |
+| boxed double multiply, for scale | 2742 | 2742 |
+
+The checked cast is 4x cheaper again and the unchecked one 7x; what is left
+(6 us checked, 3 us unchecked) is the call and its dispatch, which only the
+compiler can remove. Built with the branch's jolt first on PATH; the target
+pack needs no rebuild for a runtime change.
+
 ## Where the draw time goes (split measurement)
 
 Three builds of the same 368-call busy frame, each run in Dolphin 2609a (idle

@@ -58,6 +58,7 @@
 (defn -main [& _]
   (gfx/init! 640 480)
   (println (str app ": start"))
+  (println (str app ": edges " [(long 536870912.0) (long 536870911.9) (long -536870912.0) (long -536870912.5) (unchecked-int 536870911.9) (long -123.7) (long 1.152921504606847E18)]))
   ;; two passes: the first warms the paths, the second is the one to read
   (dotimes [pass 2]
     (println (str app ": pass " (inc pass)))
