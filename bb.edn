@@ -28,7 +28,8 @@
        ["hello"      "examples/build/hello/hello.dol"     false "stock raylib 6.0: bouncing ball, gamepad readout"]
        ["chez"       "chez-wii/build/chez.dol"            true  "Chez Scheme 10.4.1 (tpb32b) evaluating a test list"]
        ["jolt-hello" "jolt-hello/build/jolt-hello.dol"    true  "Clojure via jolt: fib, bignums, maps, sets, hashes"]
-       ["jolt-stress" "jolt-balloons/build/jolt-stress.dol" false "Clojure drawing cost: a busy Balloon Pop frame, timed"]])
+       ["jolt-stress" "jolt-balloons/build/jolt-stress.dol" false "Clojure drawing cost: a busy Balloon Pop frame, timed"]
+       ["jolt-ffi-bench" "jolt-balloons/build/jolt-ffi-bench.dol" false "Clojure FFI cost benchmark"]])
 
     (defn app [nm] (first (filter (fn [a] (= nm (first a))) apps)))
 
@@ -214,6 +215,7 @@
      (row "gfx-pack" "the graphics pack: the plain pack plus the shim, raylib and SDL")
      (row "build:jolt-hello" "cross-build jolt-hello with jolt build --target tpb32b")
      (row "build:jolt-stress" "cross-build the Clojure drawing stress test")
+     (row "build:jolt-ffi-bench" "cross-build the Clojure FFI cost benchmark")
      (row "sd" "collect every built app into build/sd/apps for an SD card")
      (hdr "Run in Dolphin")
      (doseq [[nm _ _ what] apps] (row (str "run:" nm) what))
@@ -342,6 +344,14 @@
                 (str "JOLT_WII_CC=" repo-root "/scripts/wii-cc-sdl")
                 "scripts/jolt-wii-build" "jolt-balloons" "balloons.stress" "jolt-stress"))}
 
+  build:jolt-ffi-bench
+  {:doc "Cross-build the Clojure FFI cost benchmark"
+   :depends [gfx-pack]
+   :task (do
+           (sh! "env" (str "JOLT_WII_PACK=" repo-root "/.work/pack-tpb32b-gfx")
+                (str "JOLT_WII_CC=" repo-root "/scripts/wii-cc-sdl")
+                "scripts/jolt-wii-build" "jolt-balloons" "balloons.ffi-bench" "jolt-ffi-bench"))}
+
   build
   {:doc "Build every app"
    :task (do (run 'build:hello) (run 'build:balloons) (run 'build:starcatcher) (run 'build:shakerace) (run 'build:chez) (run 'pack) (run 'build:jolt-hello))}
@@ -422,6 +432,13 @@
   {:doc "Boot the Clojure drawing stress test in Dolphin and print its timing lines"
    :task (let [r (run-in-dolphin "jolt-stress" 45)]
            (doseq [l (:lines r)] (when (str/starts-with? l "jolt-stress: ") (println l)))
+           (println (:shot r))
+           (when (:crashed? r) (println "CRASHED") (System/exit 1)))}
+
+  run:jolt-ffi-bench
+  {:doc "Boot the Clojure FFI cost benchmark in Dolphin and print its lines"
+   :task (let [r (run-in-dolphin "jolt-ffi-bench" 40)]
+           (doseq [l (:lines r)] (when (str/starts-with? l "ffi-bench: ") (println l)))
            (println (:shot r))
            (when (:crashed? r) (println "CRASHED") (System/exit 1)))}
 

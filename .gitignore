@@ -8,3 +8,6 @@ build/
 # bb site:build output, local preview only -- never committed.
 _site/
 .dolphin-auto/
+
+# jolt build cache
+jolt-balloons/.jolt/
