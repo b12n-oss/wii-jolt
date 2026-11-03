@@ -76,3 +76,61 @@ The Review Focus circle (x = -10, y = 240, r = 20) shows as a white sliver at
 the left edge of the screenshot (`.work/shots/jolt-stress.png`, about y = 820 of
 the 1586-pixel-tall view). `top-up` now pins `:mode :play` and `:mode-time 0.0`,
 so a run no longer leaves the round after 60 s.
+
+## Profile of balloons.draw
+
+Program: `balloons.draw-profile`, built against the stub-draw pack
+(`bb build:jolt-draw-profile`, `bb run:jolt-draw-profile`), Dolphin 2609a, idle
+profile, MMU on. State: the stress start-up state (24 balloons, 100 particles, 4
+players aiming, mode `:play`) at t = 1.0. Each section is timed 120 times
+inside `begin!`/`end!` and the median taken; microseconds. The whole draw here
+(151 ms) is lower than the stress program's 240 ms because the profile does no
+update between frames, so the heap holds less garbage (less GC work per draw).
+Treat the sections as shares of a draw, not as an absolute frame.
+
+| section | median us | share of whole draw |
+|---|---|---|
+| whole-draw | 151182 | 100% |
+| sky (gradient, 4 clouds x 3 circles, ground) | 1112 | 1% |
+| balloons (24, 8 of them gold) | 115819 | 77% |
+| particles (100 circles) | 25208 | 17% |
+| popups-0 (the stress frame has none) | 13 | 0% |
+| popups-8 (eight popups, for scale) | 2780 | |
+| hud | 1491 | 1% |
+| cursors (4) | 7572 | 5% |
+
+Single operations, 5000 iterations each, the empty loop (530 ns per iteration)
+subtracted. `net-ns-per-op` is copied from the log:
+
+| operation | total us | net ns per op |
+|---|---|---|
+| keyword lookup on a balloon map | 14651 | 2400 |
+| `nth` on a 6-vector | 21627 | 3795 |
+| boxed double multiply (`mul-boxed`) | 16361 | 2742 |
+| same multiply in a `^double`-hinted fn | 15560 | 2582 |
+| `(long 123.7)` | 680078 | 135485 |
+| `(long x)` inside a `^double`-hinted fn | 680681 | 135606 |
+| `(unchecked-long 123.7)` | 134235 | 26317 |
+| `(long 124.0)` (integral double) | 360526 | 71575 |
+| `Math/floor` | 60333 | 11536 |
+| `Math/sin` | 60909 | 11651 |
+| `(str "P" i)` | 150424 | 29554 |
+| `ffi/string->ptr` + `ffi/free` | 719005 | 143271 |
+| `doseq` over a 100-vector, empty body (per element) | 17180 | 3430 |
+| `loop`/`nth` over the same vector (per element) | 45533 | 9101 |
+
+Reading:
+
+- `(long x)` on a double costs 135 us, 50 times a map lookup and 11 times
+  `Math/sin`. wii.gfx casts every coordinate argument of every call with
+  `long`, and a busy frame makes roughly a thousand such casts, which is
+  where the 150 ms goes. A `^double` hint changes nothing (135606 against
+  135485): the cast is the checked `jolt-long-cast`, which compares the double
+  with +-2^63, and on 32-bit Chez those bounds are bignums. `unchecked-long`
+  skips the compare and costs 26 us.
+- Hints on arithmetic buy little here: the hinted multiply is 160 ns faster
+  than the boxed one (6%), and whole-program inference probably unboxes both.
+- `doseq` over a vector is cheaper than `loop`/`nth` (3.4 us against 9.1 us per
+  element), so rewriting `doseq` as `loop`/`nth` would make things worse.
+- Text costs a `string->ptr` + `free` (143 us) per call; the stress frame has
+  at most 7 text calls, so under 1 ms.

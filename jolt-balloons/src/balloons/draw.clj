@@ -33,7 +33,7 @@
     (gfx/text! s (+ x 3) (+ y 3) size shadow)
     (gfx/text! s x y size c)))
 
-(defn- draw-sky [t]
+(defn draw-sky [t]
   (gfx/gradient-v! 0 0 screen-w screen-h sky-top sky-bottom)
   (doseq [i (range 4)]
     (let [x (- (mod (+ (* i 190.0) (* t (+ 8 (* i 3)))) (+ screen-w 200)) 100)
@@ -43,7 +43,7 @@
       (gfx/circle! (- x 26) (+ y 8) 18 cloud)))
   (gfx/rect! 0 (- screen-h 24) screen-w 24 ground))
 
-(defn- draw-balloon [b t]
+(defn draw-balloon [b t]
   (let [gold (:gold b)
         c (if gold golden (nth balloon-colors (:color b)))
         x (:x b) y (:y b)
@@ -64,7 +64,10 @@
         (gfx/poly! x y 5 (* ry 0.45) (* t 90)
                    (+ 0xFFFFFF00 (long (+ 120 (* pulse 120)))))))))
 
-(defn- draw-cursor [p pl]
+(defn draw-balloons [g t]
+  (doseq [b (:balloons g)] (draw-balloon b t)))
+
+(defn draw-cursor [p pl]
   (when (:aiming pl)
     (let [c (nth player-colors p)
           x (:x pl) y (:y pl)]
@@ -76,7 +79,7 @@
       (gfx/line-thick! x (+ y 8) x (+ y 24) 3 c)
       (gfx/text! (str "P" (inc p)) (+ x 16) (+ y 12) 20 c))))
 
-(defn- draw-hud [g]
+(defn draw-hud [g]
   (gfx/rect! 0 0 screen-w 36 hud-bar)
   (loop [p 0 x 12]
     (when (< p r/max-players)
@@ -90,16 +93,22 @@
     (gfx/text! tl (- screen-w 16 (gfx/text-width tl 28)) 5 28
                (if (<= secs 10) red white))))
 
-(defn- draw-effects [g]
+(defn draw-particles [g]
   (doseq [pt (:particles g)]
     (let [c (if (neg? (:color pt)) golden (nth balloon-colors (:color pt)))]
-      (gfx/circle! (:x pt) (:y pt) (+ 3 (* (:life pt) 3)) c)))
+      (gfx/circle! (:x pt) (:y pt) (+ 3 (* (:life pt) 3)) c))))
+
+(defn draw-popups [g]
   (doseq [pu (:popups g)]
     (let [pts (:points pu)]
       (gfx/text! (str "+" pts) (- (:x pu) 10) (- (:y pu) 10) (if (> pts 1) 32 24)
                  (nth player-colors (:player pu))))))
 
-(defn- draw-results [g]
+(defn draw-effects [g]
+  (draw-particles g)
+  (draw-popups g))
+
+(defn draw-results [g]
   (gfx/rect! 80 70 (- screen-w 160) (- screen-h 140) results-panel)
   (centered "Time's up!" 90 44 dark-blue)
   (when-let [w (r/winner g)]
@@ -118,6 +127,13 @@
              (even? (long (* (:mode-time g) 2))))
     (centered "Press A to play again" (- screen-h 110) 24 dark-gray)))
 
+(defn draw-cursors [g]
+  (doseq [p (range r/max-players)]
+    (let [pl (nth (:players g) p)]
+      ;; pointers show whenever a remote is aimed; in a round only for joined players
+      (when-not (and (= (:mode g) :play) (not (:joined pl)))
+        (draw-cursor p pl)))))
+
 (defn- blink? [t] (even? (long (* t 2))))
 
 (defn draw
@@ -125,7 +141,7 @@
    does begin! and end!."
   [g t]
   (draw-sky t)
-  (doseq [b (:balloons g)] (draw-balloon b t))
+  (draw-balloons g t)
   (draw-effects g)
   (case (:mode g)
     :title
@@ -148,8 +164,4 @@
     :results (do (draw-hud g) (draw-results g))
     :demo (do (draw-hud g)
               (when (blink? t) (centered "DEMO - press A to play!" (- screen-h 70) 28 dark-blue))))
-  (doseq [p (range r/max-players)]
-    (let [pl (nth (:players g) p)]
-      ;; pointers show whenever a remote is aimed; in a round only for joined players
-      (when-not (and (= (:mode g) :play) (not (:joined pl)))
-        (draw-cursor p pl)))))
+  (draw-cursors g))

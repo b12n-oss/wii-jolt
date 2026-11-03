@@ -14,23 +14,23 @@
 (def ^:private summary-every 120)
 (def ^:private aim-points [[160.0 160.0] [480.0 160.0] [160.0 320.0] [480.0 320.0]])
 
-(defn- fixed-balloon [i]
+(defn fixed-balloon [i]
   {:id i :x (double (+ 40 (mod (* i 53) 560))) :y (double (+ 60 (mod (* i 37) 380)))
    :r (double (+ 24 (mod i 12))) :vy -60.0 :wobble (* i 0.7)
    :color (mod i 6) :gold (zero? (mod i 8))})
 
-(defn- fixed-particle [i]
+(defn fixed-particle [i]
   {:x (double (mod (* i 97) 640)) :y (double (+ 40 (mod (* i 53) 400)))
    :vx 20.0 :vy -20.0 :life 0.5 :color (mod i 6)})
 
-(defn- aim [g]
+(defn aim [g]
   (assoc g :players
          (vec (map-indexed (fn [p pl]
                              (let [[x y] (nth aim-points p)]
                                (assoc pl :joined true :aiming true :x x :y y)))
                            (:players g)))))
 
-(defn- initial-state []
+(defn initial-state []
   (-> (r/init (gfx/seed))
       (assoc :mode :play
              :balloons (mapv fixed-balloon (range target-balloons))
