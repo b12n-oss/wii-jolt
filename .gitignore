@@ -4,3 +4,6 @@ build/
 *.elf
 *.map
 .DS_Store
+
+# bb site:build output, local preview only -- never committed.
+_site/

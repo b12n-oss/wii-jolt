@@ -1,0 +1,241 @@
+{:min-bb-version "1.3.0"
+
+ :tasks
+ {:requires ([babashka.fs :as fs]
+             [babashka.process :as p]
+             [babashka.process :refer [shell]]
+             [clojure.string :as str])
+
+  :init
+  (do
+    ;; bb sets babashka.version, jolt sets jolt.version.
+    (def runner (if (System/getProperty "babashka.version") "bb" "jolt"))
+    (def repo-root (str (fs/parent (fs/absolutize "bb.edn"))))
+    (def dolphin-log (str repo-root "/.dolphin-user/Logs/dolphin.log"))
+    (def shots-dir (str repo-root "/.work/shots"))
+
+    ;; One row per thing that runs on the Wii:
+    ;; [name dol-path console? what-it-shows]
+    ;; console? = the app draws with libogc's text console (CPU-written
+    ;; framebuffer), which Dolphin only shows with XFB-to-texture off.
+    (def apps
+      [["hello"      "examples/build/hello/hello.dol"     false "stock raylib 6.0: bouncing ball, gamepad readout"]
+       ["chez"       "chez-wii/build/chez.dol"            true  "Chez Scheme 10.4.1 (tpb32b) evaluating a test list"]
+       ["jolt-hello" "jolt-hello/build/jolt-hello.dol"    true  "Clojure via jolt: fib, bignums, maps, sets, hashes"]])
+
+    (defn app [nm] (first (filter (fn [a] (= nm (first a))) apps)))
+
+    (defn sh! [& args]
+      (let [r (apply shell {:dir repo-root :continue true} args)]
+        (when-not (zero? (:exit r))
+          (binding [*out* *err*] (println "failed:" (str/join " " args)))
+          (System/exit (:exit r)))))
+
+    (defn run-in-dolphin
+      "Boot an app in Dolphin (MMU emulation on), screenshot it, return the
+       OSREPORT lines (the program's stdout/stderr) from Dolphin's log."
+      [nm seconds]
+      (let [[_ dol console?] (app nm)
+            shot (str shots-dir "/" nm ".png")]
+        (fs/create-dirs shots-dir)
+        (when-not (fs/exists? (fs/file repo-root dol))
+          (binding [*out* *err*] (println (str "not built: " dol "   (try: " runner " build:" nm ")")))
+          (System/exit 1))
+        (shell {:dir repo-root :continue true
+                :extra-env (if console? {"DOLPHIN_EXTRA" "-C GFX.Hacks.XFBToTextureEnable=False"} {})}
+               "scripts/dolphin-shot" dol shot (str seconds))
+        (let [log (if (fs/exists? dolphin-log) (slurp dolphin-log) "")]
+          {:shot shot
+           :crashed? (boolean (re-find (re-pattern "Exception \\(DSI\\)|Invalid (read|write)") log))
+           :lines (->> (str/split-lines log)
+                       (filter (fn [l] (str/includes? l "N[OSREPORT]: ")))
+                       (map (fn [l] (str/replace (subs l (+ (str/index-of l "N[OSREPORT]: ") 13)) "\r" ""))))})))
+
+    (def docs-engine-repo "https://github.com/jlt-commons/docs-engine")
+
+    (defn docs-engine-dir
+      "Where the engine is checked out: $DOCS_ENGINE, else a sibling
+       directory, else the usual spot. nil when none of them exist."
+      []
+      (let [home (System/getProperty "user.home")]
+        (->> [(System/getenv "DOCS_ENGINE")
+              "../docs-engine"
+              (str home "/dev/jlt-commons/docs-engine")]
+             (remove nil?)
+             (filter (fn [d] (fs/exists? (fs/file d "bb.edn"))))
+             first)))
+
+    (defn site-task
+      "Runs one of the engine's tasks against this project. LOCAL PREVIEW
+       ONLY: builds into _site/ and serves on localhost. Nothing here
+       publishes anything or enables GitHub Pages."
+      [task & args]
+      (if-let [engine (docs-engine-dir)]
+        (let [argv (into ["bb" task repo-root] (remove nil? args))
+              res  (apply p/shell {:dir (str engine) :continue true} argv)]
+          (when-not (zero? (:exit res)) (System/exit (:exit res))))
+        (do
+          (println "The docs engine is not checked out anywhere I looked:")
+          (println "  $DOCS_ENGINE, ../docs-engine, ~/dev/jlt-commons/docs-engine")
+          (println)
+          (println "  git clone" docs-engine-repo "../docs-engine")
+          (System/exit 1)))))
+
+  info
+  {:doc "Grouped task cheat-sheet (start here; easier to scan than `tasks`)"
+   :task
+   (let [esc (str (char 27) "[")
+         col (fn [c s] (str esc c "m" s esc "0m"))
+         hdr (fn [s] (println (str "\n" (col "35" (str "-- " s " --")))))
+         row (fn [t d] (println (str "  " (col "36" (format "%-28s" (str runner " " t))) d)))]
+     (println (col "1;35" "\nwii-jolt: raylib, Chez Scheme and Clojure (jolt) on the Nintendo Wii"))
+     (println (col "2" (str "  runner: " runner "   ·   both `bb <task>` and `jolt <task>` work")))
+     (hdr "Verify")
+     (row "doctor" "check Docker, the devkitPPC image, Dolphin, jolt, Chez")
+     (row "verify" "build everything, boot each app in Dolphin (MMU on), check output")
+     (hdr "Build")
+     (row "build" "every app below")
+     (row "build:hello" "raylib for the Wii, then the raylib hello app")
+     (row "chez:setup" "one-time: Chez 10.4.1 + Wii patch, host compiler, tpb32b boots")
+     (row "build:chez" "the Chez kernel for the Wii and the chez test app")
+     (row "pack" "assemble the jolt target pack for tpb32b")
+     (row "build:jolt-hello" "cross-build jolt-hello with jolt build --target tpb32b")
+     (row "sd" "collect every built app into build/sd/apps for an SD card")
+     (hdr "Run in Dolphin")
+     (doseq [[nm _ _ what] apps] (row (str "run:" nm) what))
+     (hdr "Docs")
+     (row "site:build" "build the docs site into _site/ (local preview)")
+     (row "site:serve" "build and serve it on localhost (default port 3000)")
+     (row "site:clean" "delete _site/")
+     (println (str "\n" (col "2" (str "first run: " runner " doctor, then " runner " chez:setup, then " runner " verify")))))}
+
+  doctor
+  {:doc "Check every external dependency and say what each one blocks"
+   :task
+   (let [ok   (fn [s] (println (str "  ok    " s)))
+         bad  (fn [s fix] (println (str "  MISS  " s "\n        -> " fix)))
+         home (System/getProperty "user.home")
+         docker? (fs/which "docker")
+         daemon? (and docker? (zero? (:exit (p/shell {:out :string :err :string :continue true} "docker" "info"))))
+         image?  (and daemon? (zero? (:exit (p/shell {:out :string :err :string :continue true}
+                                                     "docker" "image" "inspect" "devkitpro/devkitppc:latest"))))
+         problems (atom 0)
+         check (fn [pass? s fix] (if pass? (ok s) (do (swap! problems inc) (bad s fix))))]
+     (println "toolchain (blocks every build):")
+     (check docker? "docker on PATH" "install Docker Desktop")
+     (check daemon? "docker daemon running" "start Docker Desktop")
+     (check image? "devkitpro/devkitppc:latest pulled" "docker pull devkitpro/devkitppc:latest")
+     (println "testing (blocks run:* and verify):")
+     (check (fs/exists? "/Applications/Dolphin.app") "Dolphin emulator" "brew install --cask dolphin")
+     (println "Chez Scheme (blocks build:chez, pack, build:jolt-hello):")
+     (check (fs/exists? (str home "/dev/ChezScheme/.git")) "~/dev/ChezScheme checkout (source for chez:setup)"
+            "clone cisco/ChezScheme with submodules, or set CHEZ_SRC for scripts/setup-chez")
+     (check (fs/exists? (str repo-root "/.work/ChezScheme/boot/tpb32b/petite.boot")) "tpb32b boot files built"
+            (str runner " chez:setup"))
+     (println "jolt (blocks pack users: build:jolt-hello):")
+     (check (fs/which "jolt") "jolt on PATH" "install jolt (https://github.com/jolt-lang/jolt)")
+     (check (fs/exists? (str repo-root "/.work/pack-tpb32b/xpatch")) "jolt target pack assembled"
+            (str runner " build:chez && " runner " pack"))
+     (println "docs (blocks site:*):")
+     (check (docs-engine-dir) "docs-engine checkout" (str "git clone " docs-engine-repo " ../docs-engine"))
+     (println)
+     (if (zero? (deref problems))
+       (println "all good")
+       (do (println (str (deref problems) " missing; fix the first one listed and re-run " runner " doctor"))
+           (System/exit 1))))}
+
+  build:raylib
+  {:doc "Build vendor/raylib as libraylib.a for the Wii (SDL2 + OpenGX)"
+   :task (sh! "scripts/dkp" "make" "-C" "raylib-wii")}
+
+  build:hello
+  {:doc "Build the raylib hello app (.dol + SD layout)"
+   :depends [build:raylib]
+   :task (sh! "scripts/dkp" "make" "-C" "examples" "APP=hello")}
+
+  chez:setup
+  {:doc "One-time: clone Chez v10.4.1 locally, apply the Wii patch, build host Chez + tpb32b boots"
+   :task (sh! "scripts/setup-chez")}
+
+  build:chez
+  {:doc "Build the Chez kernel for the Wii, the chez test app and the jolt runtime objects"
+   :task (sh! "scripts/dkp" "make" "-C" "chez-wii" "-j8")}
+
+  pack
+  {:doc "Assemble the jolt target pack for tpb32b in .work/pack-tpb32b"
+   :task (sh! "scripts/make-pack")}
+
+  build:jolt-hello
+  {:doc "Cross-build jolt-hello for the Wii with jolt build --target tpb32b"
+   :task (sh! "scripts/jolt-wii-build" "jolt-hello" "hello.core" "jolt-hello")}
+
+  build
+  {:doc "Build every app"
+   :task (do (run 'build:hello) (run 'build:chez) (run 'pack) (run 'build:jolt-hello))}
+
+  sd
+  {:doc "Collect every built app into build/sd/apps/<name>/ (copy build/sd/apps to the SD card's root)"
+   :task
+   (let [out (str repo-root "/build/sd/apps")]
+     (doseq [[nm dol] apps]
+       (let [src (fs/file repo-root dol)
+             dst (fs/file out nm)]
+         (if (fs/exists? src)
+           (do (fs/create-dirs dst)
+               (fs/copy src (fs/file dst "boot.dol") {:replace-existing true})
+               (doseq [m [(str (fs/parent dol) "/../../" nm "/meta.xml")
+                          (str nm "/meta.xml")
+                          (str (fs/parent (fs/parent dol)) "/meta.xml")]]
+                 (when (fs/exists? (fs/file repo-root m))
+                   (fs/copy (fs/file repo-root m) (fs/file dst "meta.xml") {:replace-existing true})))
+               (println "  apps/" nm "/boot.dol"))
+           (println "  skipped" nm "(not built)"))))
+     (println "copy" out "to the root of the SD card (or USB drive)"))}
+
+  run:hello
+  {:doc "Boot the raylib hello app in Dolphin and screenshot it"
+   :task (println (:shot (run-in-dolphin "hello" 12)))}
+
+  run:chez
+  {:doc "Boot the Chez Scheme test app in Dolphin and print its output"
+   :task (let [r (run-in-dolphin "chez" 25)] (doseq [l (:lines r)] (println l)) (println (:shot r)))}
+
+  run:jolt-hello
+  {:doc "Boot jolt-hello in Dolphin and print its output"
+   :task (let [r (run-in-dolphin "jolt-hello" 40)] (doseq [l (:lines r)] (println l)) (println (:shot r)))}
+
+  verify
+  {:doc "Build everything, boot each app in Dolphin with MMU on, check its output"
+   :depends [build]
+   :task
+   (let [fails (atom [])
+         expect (fn [nm pass? what]
+                  (println (str (if pass? "  PASS  " "  FAIL  ") nm ": " what))
+                  (when-not pass? (swap! fails conj nm)))
+         h (run-in-dolphin "hello" 12)
+         c (run-in-dolphin "chez" 25)
+         j (run-in-dolphin "jolt-hello" 40)
+         expected (str/split-lines (slurp (str repo-root "/jolt-hello/expected-output.txt")))
+         jl (vec (:lines j))
+         start (.indexOf jl (first expected))
+         got (if (neg? start) [] (subvec jl start (min (count jl) (+ start (count expected)))))]
+     (println "results:")
+     (expect "hello" (and (not (:crashed? h))
+                          (some (fn [l] (str/includes? l "PLATFORM: DESKTOP (SDL2): Initialized successfully")) (:lines h)))
+             "raylib initialised over SDL2/OpenGX, no crash")
+     (expect "chez" (and (not (:crashed? c))
+                         (some (fn [l] (= (str/trim l) "=> 144")) (:lines c))
+                         (some (fn [l] (= (str/trim l) "=> from-thread")) (:lines c)))
+             "every test evaluated, threads and runtime eval included, no crash")
+     (expect "jolt-hello" (and (not (:crashed? j)) (= got expected))
+             (str "output matches jolt-hello/expected-output.txt (" (count got) "/" (count expected) " lines)"))
+     (when (seq (deref fails)) (System/exit 1)))}
+
+  site:build {:doc  "Build the documentation site into _site/ (needs a docs-engine checkout)"
+              :task (site-task "build")}
+
+  site:serve {:doc  "Build the docs site and serve it locally (bb site:serve [port], default 3000)"
+              :task (site-task "serve" (first *command-line-args*))}
+
+  site:clean {:doc  "Delete the _site/ build output"
+              :task (site-task "clean")}}}
