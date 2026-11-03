@@ -26,5 +26,5 @@ cp "$B/wii_runtime.o" "$B/posix_stubs.o" "$B/ogc_tls.o" "$PACK/lib/"
 # lz4/zlib come from the devkitPPC image's portlibs (wii-cc adds that -L).
 printf '%s\n' "$PACK/lib/wii_runtime.o $PACK/lib/posix_stubs.o $PACK/lib/ogc_tls.o -llz4 -lz -lfat -lwiiuse -lbte -lpthread -logc -lm" > "$PACK/link-libs"
 echo "wrote target pack: $PACK"
-echo "build with JOLT_NARROW_HASH=1 (see docs/jolt-on-wii.md)"
+echo "build with JOLT_NARROW_HASH=1 (see docs/guide/jolt-on-the-wii.md)"
 ls -la "$PACK" "$PACK/lib"

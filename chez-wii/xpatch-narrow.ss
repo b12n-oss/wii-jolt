@@ -17,7 +17,7 @@
 ;; JOLT_NARROW_HASH=1, which jolt's define-width-op honours.
 ;;
 ;; Spike-grade. The real fix is upstream: consult the TARGET's fixnum width,
-;; and use generic ops on int-width values. See docs/jolt-on-wii.md.
+;; and use generic ops on int-width values. See docs/guide/jolt-on-the-wii.md.
 
 (load "@XPATCH_CHEZ@")
 

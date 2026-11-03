@@ -182,8 +182,6 @@ static void move_baskets(Game *g, const PlayerInput in[MAX_PLAYERS], float dt)
 {
     for (int p = 0; p < MAX_PLAYERS; p++) {
         Player *pl = &g->players[p];
-        if (pl->rumble > 0) pl->rumble -= dt;
-        if (pl->dizzy > 0) pl->dizzy -= dt;
         if (!active(g, p)) continue;
         float steer = g->mode == MODE_DEMO ? bot_steer(g, p, dt) : in[p].connected ? in[p].steer : 0;
         if (steer > 1) steer = 1;
@@ -266,9 +264,21 @@ static void join_presses(Game *g, const PlayerInput in[MAX_PLAYERS])
         if (in[p].connected && in[p].join) g->players[p].joined = true;
 }
 
+// Rumble and dizzy time run out in every mode. A catch on a round's last frame
+// would otherwise keep the remote rumbling through the results screen.
+static void tick_timers(Game *g, float dt)
+{
+    for (int p = 0; p < MAX_PLAYERS; p++) {
+        Player *pl = &g->players[p];
+        if (pl->rumble > 0) pl->rumble -= dt;
+        if (pl->dizzy > 0) pl->dizzy -= dt;
+    }
+}
+
 void game_update(Game *g, const PlayerInput in[MAX_PLAYERS], float dt)
 {
     g->mode_time += dt;
+    tick_timers(g, dt);
     switch (g->mode) {
     case MODE_TITLE:
         update_world(g, dt, true);   // stars fall behind the title too

@@ -1,7 +1,7 @@
 # Chez Scheme kernel (tpb32b: threaded portable bytecode, 32-bit big-endian)
 # cross-compiled for the Wii with devkitPPC, plus a tiny boot-and-eval main.
 # Inputs come from .work/ChezScheme after `make bootquick XM=tpb32b` there
-# and applying patches/chez-*.patch (see docs/chez-on-wii.md).
+# and applying patches/chez-*.patch (see docs/guide/chez-scheme-on-the-wii.md).
 # Usage: scripts/dkp make -C chez-wii
 
 include $(DEVKITPPC)/wii_rules

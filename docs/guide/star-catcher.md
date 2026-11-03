@@ -48,10 +48,10 @@ is HOME.
 ## How it's built
 
 The same split as Balloon Pop. `examples/starcatcher/game.c` holds the rules
-and builds on the Mac, where `bb test` runs 43 checks on it: joining,
+and builds on the Mac, where `bb test` runs 48 checks on it: joining,
 steering from tilt in both directions, steering speed and the walls, which
 items land in a basket, one basket per item, the storm cloud's slow-down, the
-round timer and the demo.
+round timer, rumble that stops when the round ends, and the demo.
 `examples/starcatcher/main.c` turns the Wiimote into a steering value and
 draws the night sky.
 

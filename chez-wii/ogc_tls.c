@@ -6,7 +6,7 @@
 // kernel aborts in Sscheme_init ("Function not implemented"). This supplies
 // the hooks: a fixed table of per-thread value rows keyed by LWP_GetSelf().
 //
-// Spike-grade limits, documented in docs/chez-on-wii.md:
+// Spike-grade limits, documented in docs/guide/chez-scheme-on-the-wii.md:
 // - at most TLS_THREADS live threads and TLS_KEYS keys;
 // - a row is never freed when its thread exits, and libogc reuses lwp_t
 //   handles, so a new thread can see stale values until it sets its own.

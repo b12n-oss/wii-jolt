@@ -167,6 +167,23 @@ static void test_round_and_results(void)
     CHECK(game_is_tie(&g), "equal scores are a tie");
 }
 
+// A catch on the round's last frame leaves rumble and dizzy time running. Both
+// have to run out on the results screen, or the remote rumbles until someone
+// presses A.
+static void test_rumble_stops_after_round(void)
+{
+    Game g = playing(1);
+    g.mode_time = ROUND_SECONDS - 0.5f / 60;
+    drop(&g, 0, ITEM_CLOUD, g.players[0].x, BASKET_Y - 16);
+    game_update(&g, none, 1.0f / 60);
+    CHECK(g.mode == MODE_RESULTS, "that frame ends the round");
+    CHECK(g.players[0].rumble > 0 && g.players[0].dizzy > 0, "the cloud on the last frame rumbles and dizzies");
+    step(&g, none, DIZZY_SECONDS + 0.5f);   // longer than either timer
+    CHECK(g.mode == MODE_RESULTS, "still on the results screen");
+    CHECK(g.players[0].rumble <= 0, "the rumble runs out on the results screen");
+    CHECK(g.players[0].dizzy <= 0, "so does the dizzy time");
+}
+
 static void test_spawning(void)
 {
     Game g = playing(1);
@@ -213,6 +230,7 @@ int main(void)
     test_cloud_makes_dizzy();
     test_missed_items_fall_away();
     test_round_and_results();
+    test_rumble_stops_after_round();
     test_spawning();
     test_demo();
     printf("starcatcher: %d checks, %d failed\n", checks, failures);
