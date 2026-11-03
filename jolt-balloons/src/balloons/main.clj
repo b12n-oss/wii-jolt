@@ -21,7 +21,7 @@
   (some (fn [h] (pos? (bit-and h gfx/button-home))) held))
 
 (defn- player-input
-  "One player's input map for rules/update. :fire is A or B newly pressed."
+  "One player's input map for rules/update. :fire is a new press of A or B (per-button edge)."
   [ch now before]
   (let [connected (gfx/connected? ch)
         aiming (boolean (and connected (gfx/ir-valid? ch)))]
@@ -29,8 +29,7 @@
      :aiming aiming
      :x (if aiming (double (gfx/ir-x ch)) 0.0)
      :y (if aiming (double (gfx/ir-y ch)) 0.0)
-     :fire (and (pos? (bit-and now fire-mask))
-                (zero? (bit-and before fire-mask)))}))
+     :fire (pos? (bit-and now (bit-not before) fire-mask))}))
 
 (defn- log-events
   "Print a mode line when the mode changed and a pop line for each score that

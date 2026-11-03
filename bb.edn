@@ -18,7 +18,8 @@
     (def shots-dir (str repo-root "/.work/shots"))
 
     ;; One row per thing that runs on the Wii:
-    ;; [name dol-path console? what-it-shows]
+    ;; [name dol-path console? what-it-shows & :measurement]
+    ;; :measurement = a benchmark, not an app: bb sd skips it, and its build leaves out meta.xml.
     ;; console? = the app draws with libogc's text console (CPU-written
     ;; framebuffer), which Dolphin only shows with XFB-to-texture off.
     (def apps
@@ -29,11 +30,11 @@
        ["chez"       "chez-wii/build/chez.dol"            true  "Chez Scheme 10.4.1 (tpb32b) evaluating a test list"]
        ["jolt-hello" "jolt-hello/build/jolt-hello.dol"    true  "Clojure via jolt: fib, bignums, maps, sets, hashes"]
        ["jolt-balloons" "jolt-balloons/build/jolt-balloons.dol" false "Balloon Pop in Clojure (jolt): same game, pure Clojure rules"]
-       ["jolt-stress" "jolt-balloons/build/jolt-stress.dol" false "Clojure drawing cost: a busy Balloon Pop frame, timed"]
-       ["jolt-ffi-bench" "jolt-balloons/build/jolt-ffi-bench.dol" false "Clojure FFI cost benchmark"]
-       ["jolt-stress-stub" "jolt-balloons/build/jolt-stress-stub.dol" false "Split measurement: the stress frame with every C draw function stubbed out"]
-       ["jolt-const-draw" "jolt-balloons/build/jolt-const-draw.dol" false "Split measurement: the stress frame's 368 calls with constant arguments"]
-       ["jolt-draw-profile" "jolt-balloons/build/jolt-draw-profile.dol" false "Profile of balloons.draw: time per section and per operation (stub-draw pack)"]])
+       ["jolt-stress" "jolt-balloons/build/jolt-stress.dol" false "Clojure drawing cost: a busy Balloon Pop frame, timed" :measurement]
+       ["jolt-ffi-bench" "jolt-balloons/build/jolt-ffi-bench.dol" false "Clojure FFI cost benchmark" :measurement]
+       ["jolt-stress-stub" "jolt-balloons/build/jolt-stress-stub.dol" false "Split measurement: the stress frame with every C draw function stubbed out" :measurement]
+       ["jolt-const-draw" "jolt-balloons/build/jolt-const-draw.dol" false "Split measurement: the stress frame's 368 calls with constant arguments" :measurement]
+       ["jolt-draw-profile" "jolt-balloons/build/jolt-draw-profile.dol" false "Profile of balloons.draw: time per section and per operation (stub-draw pack)" :measurement]])
 
     (defn app [nm] (first (filter (fn [a] (= nm (first a))) apps)))
 
@@ -78,10 +79,10 @@
     ;; Each has examples/<name>/game.c with host tests in test/test_game.c, and
     ;; prints "<name>: mode <m>" and one line per score to Dolphin's log.
     (def games
-      [["balloons"    "pointer" "pop player=1 "    "point and press A" :c]
-       ["starcatcher" "tilt"    "catch player=1 "  "tilt sideways (or arrow keys)" :c]
-       ["shakerace"   "shake"   "finish player=1 " "shake (space bar on the Mac)" :c]
-       ["jolt-balloons" "pointer" "pop player=1 " "point and press A" :clj]])
+      [["balloons"    "pointer" "pop player=1 "    "point and press A" :c 20]
+       ["starcatcher" "tilt"    "catch player=1 "  "tilt sideways (or arrow keys)" :c 20]
+       ["shakerace"   "shake"   "finish player=1 " "shake (space bar on the Mac)" :c 20]
+       ["jolt-balloons" "pointer" "pop player=1 " "point and press A" :clj 30]])
 
     (defn game-lines [nm r]
       (let [prefix (str nm ": ")]
@@ -386,7 +387,7 @@
   {:doc "Cross-build balloons.stress against the stub-draw pack (draw time = Clojure + crossing)"
    :depends [gfx-pack-stub]
    :task (do
-           (sh! "env" (str "JOLT_WII_PACK=" repo-root "/.work/pack-tpb32b-gfx-stub")
+           (sh! "env" "JOLT_WII_NO_META=1" (str "JOLT_WII_PACK=" repo-root "/.work/pack-tpb32b-gfx-stub")
                 (str "JOLT_WII_CC=" repo-root "/scripts/wii-cc-sdl")
                 "scripts/jolt-wii-build" "jolt-balloons" "balloons.stress" "jolt-stress-stub"))}
 
@@ -394,7 +395,7 @@
   {:doc "Cross-build balloons.draw-profile against the stub-draw pack (times sections and single operations)"
    :depends [gfx-pack-stub]
    :task (do
-           (sh! "env" (str "JOLT_WII_PACK=" repo-root "/.work/pack-tpb32b-gfx-stub")
+           (sh! "env" "JOLT_WII_NO_META=1" (str "JOLT_WII_PACK=" repo-root "/.work/pack-tpb32b-gfx-stub")
                 (str "JOLT_WII_CC=" repo-root "/scripts/wii-cc-sdl")
                 "scripts/jolt-wii-build" "jolt-balloons" "balloons.draw-profile" "jolt-draw-profile"))}
 
@@ -402,7 +403,7 @@
   {:doc "Cross-build the constant-arguments draw test (crossing + raylib, little Clojure math)"
    :depends [gfx-pack]
    :task (do
-           (sh! "env" (str "JOLT_WII_PACK=" repo-root "/.work/pack-tpb32b-gfx")
+           (sh! "env" "JOLT_WII_NO_META=1" (str "JOLT_WII_PACK=" repo-root "/.work/pack-tpb32b-gfx")
                 (str "JOLT_WII_CC=" repo-root "/scripts/wii-cc-sdl")
                 "scripts/jolt-wii-build" "jolt-balloons" "balloons.const-draw" "jolt-const-draw"))}
 
@@ -410,7 +411,7 @@
   {:doc "Cross-build the Clojure drawing stress test (busy Balloon Pop frame, timed)"
    :depends [gfx-pack]
    :task (do
-           (sh! "env" (str "JOLT_WII_PACK=" repo-root "/.work/pack-tpb32b-gfx")
+           (sh! "env" "JOLT_WII_NO_META=1" (str "JOLT_WII_PACK=" repo-root "/.work/pack-tpb32b-gfx")
                 (str "JOLT_WII_CC=" repo-root "/scripts/wii-cc-sdl")
                 "scripts/jolt-wii-build" "jolt-balloons" "balloons.stress" "jolt-stress"))}
 
@@ -426,7 +427,7 @@
   {:doc "Cross-build the Clojure FFI cost benchmark"
    :depends [gfx-pack]
    :task (do
-           (sh! "env" (str "JOLT_WII_PACK=" repo-root "/.work/pack-tpb32b-gfx")
+           (sh! "env" "JOLT_WII_NO_META=1" (str "JOLT_WII_PACK=" repo-root "/.work/pack-tpb32b-gfx")
                 (str "JOLT_WII_CC=" repo-root "/scripts/wii-cc-sdl")
                 "scripts/jolt-wii-build" "jolt-balloons" "balloons.ffi-bench" "jolt-ffi-bench"))}
 
@@ -438,7 +439,7 @@
   {:doc "Collect every built app into build/sd/apps/<name>/ (copy build/sd/apps to the SD card's root)"
    :task
    (let [out (str repo-root "/build/sd/apps")]
-     (doseq [[nm dol] apps]
+     (doseq [[nm dol _ _ kind] apps :when (not= kind :measurement)]
        (let [src (fs/file repo-root dol)
              dst (fs/file out nm)]
          (if (fs/exists? src)
@@ -475,7 +476,9 @@
          glue ["jolt-gfx/jolt_gfx.c" "jolt-gfx/jolt_gfx.h" "jolt-gfx/src/wii/gfx.clj" "jolt-gfx/src/wii/frame_stats.clj"]
          c-loc (count-lines ["examples/balloons/game.h" "examples/balloons/game.c" "examples/balloons/main.c"])
          clj-loc (count-lines ["jolt-balloons/src/balloons/rules.clj" "jolt-balloons/src/balloons/draw.clj" "jolt-balloons/src/balloons/main.clj"])
-         glue-loc (count-lines glue)
+         glue-c-loc (count-lines (filter (fn [f] (str/ends-with? f ".c")) glue))
+         glue-h-loc (count-lines (filter (fn [f] (str/ends-with? f ".h")) glue))
+         glue-clj-loc (count-lines (filter (fn [f] (str/ends-with? f ".clj")) glue))
          crashed (filter (fn [[nm r]] (:crashed? r)) (concat title demo round))
          empty-runs (filter (fn [[_ c]] (< (nth c 0) 1)) cols)
          played (into {} (map (fn [nm] [nm (boolean (scripted-pass? nm (round nm)))]) gs))
@@ -494,7 +497,8 @@
      (println "Lines of code (wc -l):")
      (println (str "  balloons:        " c-loc "   examples/balloons/{game.h,game.c,main.c}"))
      (println (str "  jolt-balloons:   " clj-loc "   jolt-balloons/src/balloons/{rules,draw,main}.clj"))
-     (println (str "  glue (Clojure side only):   " glue-loc "   jolt-gfx/jolt_gfx.c, jolt_gfx.h, src/wii/gfx.clj, src/wii/frame_stats.clj"))
+     (println (str "  glue the Clojure game needs, C:        " (+ glue-c-loc glue-h-loc) "   jolt-gfx/jolt_gfx.c, jolt_gfx.h"))
+     (println (str "  glue the Clojure game needs, Clojure:  " glue-clj-loc "   jolt-gfx/src/wii/gfx.clj, src/wii/frame_stats.clj"))
      (println)
      (println "Screenshots:")
      (doseq [nm gs]
@@ -617,7 +621,7 @@
                   (println (str (if pass? "  PASS  " "  FAIL  ") nm ": " what))
                   (when-not pass? (swap! fails conj nm)))
          _ (run 'test)
-         game-runs (vec (for [[nm] games] [nm (run-in-dolphin nm 20) (run-scripted nm)]))
+         game-runs (vec (for [[nm _ _ _ _ secs] games] [nm (run-in-dolphin nm secs) (run-scripted nm)]))
          couch-runs (vec (for [c couch-settings] [c (couch-check c)]))
          h (run-in-dolphin "hello" 12)
          c (run-in-dolphin "chez" 25)

@@ -38,11 +38,6 @@
 (def button-b 0x0004)
 (def button-home 0x0080)
 
-(defn color
-  "0xRRGGBBAA from four 0..255 values."
-  [r g b a]
-  (+ (* (long r) 16777216) (* (long g) 65536) (* (long b) 256) (long a)))
-
 ;; Window and frame.
 (defn init! [w h] (c-init (long w) (long h)) nil)
 (defn should-close? [] (not= 0 (c-should-close)))
