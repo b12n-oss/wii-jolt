@@ -159,10 +159,10 @@ for Clojure), drops each run's first summary line, and prints one table.
 
 Each summary line covers 120 frames, so the Clojure round dropped 2173 frames
 across 22 summaries. A frame counts as dropped when its interval passes 20000
-us. The Clojure game works through a frame in 23 to 25 ms where C needs 3 to 4
-ms. That is over the 16.7 ms budget on most frames, so the game visibly runs
-slower than 60 fps. The 14478048 bytes above come from the comparison run. The
-current build, `ls -l`, is 14475232.
+us. The Clojure game works through a frame in 23 to 24 ms (the two work medians
+are 24167 and 22711 us) where C needs 3 to 4 ms. That is over the 16.7 ms
+budget, and the dropped counts above are what was measured: the Clojure game
+drops most frames in both runs, and C drops none. The `.dol` is about 14.48 MB.
 
 Lines of code, from `wc -l`:
 
@@ -174,15 +174,16 @@ Lines of code, from `wc -l`:
 | Glue the Clojure game needs, Clojure (`gfx.clj`, `frame_stats.clj`) | 131 |
 
 The game itself is shorter in Clojure. The glue it needs is 393 lines on top
-of that, and it is reusable by the next game.
+of that, and a second Clojure game could use it unchanged.
 
 ### 6. The cost of pure rules
 
 The rules are pure on purpose: no mutable arrays, atoms or volatiles in
 `balloons.rules`, even to win frames. That was a decision, and its price is
 recorded here, not engineered away. One update of a real board takes about 6
-us in C and about 3 ms in Clojure. On the busy stress frame the update takes
-15.5 ms and the draw 60 ms after the cast fix, so both are over budget.
+us in C and about 4 ms in Clojure. On the busy stress frame the update takes
+15.5 ms, just under a 16.7 ms frame, and the draw 60 ms after the cast fix, so
+the draw, and the two together, are over budget.
 
 Levers that remain, all estimates in `MEASUREMENTS.md`: a cheaper
 double-to-fixnum truncation (a saving of 15 to 20 ms from a 48 ms draw), caching
@@ -196,9 +197,9 @@ ms). None is done.
   is known to be in range.
 - **`ffi/write` is expensive.** One `:int32` write costs 2.7 times a whole
   5-argument call, so batching through memory loses to calling directly.
-- **No libffi means 65 fixed call shapes.** Anything outside the table fails,
-  and `:string` is one of them. That is why every function is `uintptr_t` in,
-  `uintptr_t` out.
+- **No libffi means a fixed table of call shapes.** Anything outside the table
+  fails, and `:string` is one of them. That is why every shim function is
+  `uintptr_t` in and out, with at most 7 arguments (`jolt-gfx/jolt_gfx.h`).
 - **No `dlsym`, so registration is link-time.** The `-Wl,--wrap=Sbuild_heap`
   trick registers the shim's functions as the heap builds.
 - **SDL's `main` must run first.** `-Dmain=SDL_main` renames jolt's `main`, so
@@ -210,9 +211,11 @@ ms). None is done.
 - **Fixnums are 30 bits.** Anything above 2^29 is a bignum. Colours
   (`0xRRGGBBAA`) are bignums, which costs about 2 us per call, and the IR
   position is biased by 4096 so an off-screen pointer isn't negative.
-- **There is a size cliff.** A `.dol` of about 14.76 MB stops running (the
-  profile build sits right at it, and builds a few KB larger died with "out of
-  memory"). The game is at about 14.48 MB.
+- **There is a size cliff.** The profile program's docstring
+  (`jolt-balloons/src/balloons/draw_profile.clj`) records a memory cliff at a
+  `.dol` of about 14.76 MB, where builds a few KB larger died with "out of
+  memory" before printing. It is not in `MEASUREMENTS.md`. The game is at about
+  14.48 MB.
 
 ## What's next
 

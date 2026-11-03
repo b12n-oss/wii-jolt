@@ -48,7 +48,7 @@ through Dolphin's emulated SD card.
 Balloon Pop is also written in Clojure (`jolt-balloons/`) with pure rules, drawing
 through a C shim (`jolt-gfx/`) that registers raylib and the Wiimote functions
 with Chez at link time. It plays in Dolphin but misses the 60 fps budget on most
-frames: about 23 to 25 ms of work per frame against 3 to 4 ms in C, measured in
+frames: about 23 to 24 ms of work per frame against 3 to 4 ms in C, measured in
 Dolphin, not on a console. A checked `(long x)` on 32-bit Chez was the big cost
 (draw went from 252 ms to 60 ms once it became `unchecked-long`).
 [Balloon Pop in Clojure](docs/guide/balloon-pop-in-clojure.md) has the
