@@ -276,3 +276,17 @@ Lines of code (wc -l):
   glue the Clojure game needs, C:        262   jolt-gfx/jolt_gfx.c, jolt_gfx.h
   glue the Clojure game needs, Clojure:  131   jolt-gfx/src/wii/gfx.clj, src/wii/frame_stats.clj
 ```
+
+### Update and draw, per game, scripted round
+
+The compare table carries work only. The per-game split, one steady-state
+summary line from each game's scripted round in Dolphin (the C line from the
+run that added the summary line, the Clojure line from the last compare run):
+
+```
+balloons: frames n=120 update-median-us=6 draw-median-us=3301 work-median-us=3307 work-worst-us=3516 frame-worst-us=16667 dropped=0
+jolt-balloons: frames n=120 update-median-us=3903 draw-median-us=18416 work-median-us=22813 work-worst-us=35580 frame-worst-us=53010 dropped=120
+```
+
+The C update is a few microseconds; the Clojure update is a few milliseconds
+on a real board, the recorded cost of pure rules on interpreted bytecode.
