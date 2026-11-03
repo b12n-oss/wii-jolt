@@ -47,16 +47,20 @@
   (let [gold (:gold b)
         c (if gold golden (nth balloon-colors (:color b)))
         x (:x b) y (:y b)
-        rx (* (:r b) 0.85) ry (:r b)
-        wobble (:wobble b)]
+        ry (:r b)
+        rx (* ry 0.85)
+        wobble (:wobble b)
+        yr (+ y ry)
+        knot (+ yr 4)
+        t3 (* t 3)]
     ;; string: six wavy segments hanging from the knot
-    (loop [s 1 px x py (+ y ry 4)]
+    (loop [s 1 px x py knot]
       (when (<= s 6)
-        (let [nx (+ x (* (Math/sin (+ (* t 3) s wobble)) 3))
-              ny (+ y ry 4 (* s 7))]
+        (let [nx (+ x (* (Math/sin (+ t3 s wobble)) 3))
+              ny (+ knot (* s 7))]
           (gfx/line! px py nx ny string-grey)
           (recur (inc s) nx ny))))
-    (gfx/triangle! x (+ y ry -2) (- x 5) (+ y ry 5) (+ x 5) (+ y ry 5) c)
+    (gfx/triangle! x (+ yr -2) (- x 5) (+ yr 5) (+ x 5) (+ yr 5) c)
     (gfx/ellipse! x y rx ry c)
     (gfx/ellipse! (- x (* rx 0.35)) (- y (* ry 0.4)) (* rx 0.22) (* ry 0.3) shine)
     (when gold

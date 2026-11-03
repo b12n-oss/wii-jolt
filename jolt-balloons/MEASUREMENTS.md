@@ -123,8 +123,9 @@ Reading:
 
 - `(long x)` on a double costs 135 us, 50 times a map lookup and 11 times
   `Math/sin`. wii.gfx casts every coordinate argument of every call with
-  `long`, and a busy frame makes roughly a thousand such casts, which is
-  where the 150 ms goes. A `^double` hint changes nothing (135606 against
+  `long`, and a busy frame makes 1414 such casts, 1324 of them on doubles (counted on the
+  Mac with stubs over the golden test's busy state), which is where the 150 ms
+  goes (an integral double costs 72 us, a fractional one 135 us). A `^double` hint changes nothing (135606 against
   135485): the cast is the checked `jolt-long-cast`, which compares the double
   with +-2^63, and on 32-bit Chez those bounds are bignums. `unchecked-long`
   skips the compare and costs 26 us.
@@ -134,3 +135,63 @@ Reading:
   element), so rewriting `doseq` as `loop`/`nth` would make things worse.
 - Text costs a `string->ptr` + `free` (143 us) per call; the stress frame has
   at most 7 text calls, so under 1 ms.
+
+## After the draw optimisation (P2.T4)
+
+Same builds and settings as above (Dolphin 2609a, idle profile, MMU on). Steady
+state is every summary after the first. This pass ran longer than the earlier
+ones because 1800 frames now take less wall time, so there are 14 steady
+summaries instead of 4.
+
+| build | draw median before | draw median after | work median before | work median after |
+|---|---|---|---|---|
+| stress (real) | 251271 to 252930 us | 59404 to 60097 us | 266752 to 268575 us | 74887 to 75580 us |
+| stress-stub (Clojure + crossing) | 239068 to 240199 us | 46630 to 47275 us | 254695 to 255988 us | 62114 to 62769 us |
+
+Final summary lines, verbatim (last one of each run):
+
+```
+jolt-stress: frames n=120 update-median-us=15481 draw-median-us=59782 work-median-us=75290 work-worst-us=78052 frame-worst-us=107728 dropped=120
+jolt-stress: frames n=120 update-median-us=15482 draw-median-us=46993 work-median-us=62485 work-worst-us=64469 frame-worst-us=94653 dropped=120
+```
+
+The draw is 4.2 times faster (252 ms to 60 ms). The profile's whole-draw median
+went from 151182 to 47767 us.
+
+Levers (profile medians, microseconds; the golden test was green after each):
+
+| lever | before | after | verdict |
+|---|---|---|---|
+| 1. wii.gfx: `unchecked-long` instead of `long` for every coordinate argument of the drawing calls. `long` on a double is the checked cast, which compares with +-2^63 bignums on 32-bit (135 us); `unchecked-long` is 26 us. Same value for every in-range double; a checked cast would throw out of range, this one saturates. | whole-draw 151182 | 48384 | kept |
+| 2. `draw-balloon`: read `:r` once, hoist `y + r`, `y + r + 4` and `t * 3` out of the loop (same operation order, so the same doubles) | balloons 32045 | 31425 (whole 47767) | kept (small: 1.3%) |
+| `^double`/`^long` hints | | | not tried in draw: the profile shows a hinted multiply is 6% cheaper and a hinted `long` cast costs the same as an unhinted one |
+| `loop`/`nth` instead of `doseq` | | | not tried: `doseq` is 3.4 us per element, `loop`/`nth` 9.1 us |
+
+Levers left, each estimated from the profile (`estimate:` figures):
+
+- A cheaper double-to-fixnum truncation than `unchecked-long`. 1324 of the busy
+  frame's casts are on doubles at 26 us, about 34 ms of the 48 ms draw. The
+  remaining cost is Chez's `exact` of a truncated flonum. No built-in is
+  cheaper (`.longValue` 72 us, `Math/round` 73 us, `unchecked-int` 26 us, `int`
+  135 us; scratch run, not part of the committed profile). A hand-written
+  truncation from flonum comparisons might reach 10 to 15 us per cast, so
+  estimate: 15 to 20 ms. It is not one of the allowed levers (it is new code in
+  wii.gfx), so it is reported, not done.
+- Caching C strings for static text: at most 7 text calls in a busy frame at
+  143 us each, estimate: about 1 ms (2%), under the 5% bar.
+- Six `Math/sin` per balloon string (11.6 us each, 24 balloons, 147 calls, about 1.7 ms
+  including the 3 gold pulses); only a lookup table would remove it, which moves
+  arguments and is out of scope.
+- The crossing (368 calls, about 7 ms) and raylib (about 24 ms) are untouched.
+
+Frame budget: update (15.5 ms) plus draw (60 ms) is 75 ms of work against a
+16.7 ms frame at 60 fps, about 4.5 times too slow. Even with a free draw, the
+update alone is under budget only barely (15.5 of 16.7 ms).
+
+Screenshot check: the run tasks' screenshots did not capture the stress frame
+this time. The "before" shot (`.work/shots/jolt-stress-before.png`) shows the
+stress frame; the "after" run left `jolt-stress.png` unwritten after 21:42,
+and the file it holds is the C game's title screen, from another Dolphin
+window. The picture is guarded by the golden test instead (13 states, 1129
+recorded wii.gfx calls, all equal), plus a host check that `long` and
+`unchecked-long` agree on all 3108 double arguments in those states.

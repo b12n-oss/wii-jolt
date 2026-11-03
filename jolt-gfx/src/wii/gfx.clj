@@ -55,34 +55,34 @@
 
 ;; Drawing.
 (defn gradient-v! [x y w h top bottom]
-  (c-gradient-v (long x) (long y) (long w) (long h) top bottom) nil)
-(defn rect! [x y w h c] (c-rect (long x) (long y) (long w) (long h) c) nil)
+  (c-gradient-v (unchecked-long x) (unchecked-long y) (unchecked-long w) (unchecked-long h) top bottom) nil)
+(defn rect! [x y w h c] (c-rect (unchecked-long x) (unchecked-long y) (unchecked-long w) (unchecked-long h) c) nil)
 (defn rect-rounded! [x y w h roundness c]
-  (c-rect-rounded (long x) (long y) (long w) (long h) (long roundness) c) nil)
-(defn circle! [x y r c] (c-circle (long x) (long y) (long r) c) nil)
-(defn ellipse! [x y rx ry c] (c-ellipse (long x) (long y) (long rx) (long ry) c) nil)
+  (c-rect-rounded (unchecked-long x) (unchecked-long y) (unchecked-long w) (unchecked-long h) (unchecked-long roundness) c) nil)
+(defn circle! [x y r c] (c-circle (unchecked-long x) (unchecked-long y) (unchecked-long r) c) nil)
+(defn ellipse! [x y rx ry c] (c-ellipse (unchecked-long x) (unchecked-long y) (unchecked-long rx) (unchecked-long ry) c) nil)
 (defn triangle! [x1 y1 x2 y2 x3 y3 c]
-  (c-triangle (long x1) (long y1) (long x2) (long y2) (long x3) (long y3) c) nil)
-(defn line! [x1 y1 x2 y2 c] (c-line (long x1) (long y1) (long x2) (long y2) c) nil)
+  (c-triangle (unchecked-long x1) (unchecked-long y1) (unchecked-long x2) (unchecked-long y2) (unchecked-long x3) (unchecked-long y3) c) nil)
+(defn line! [x1 y1 x2 y2 c] (c-line (unchecked-long x1) (unchecked-long y1) (unchecked-long x2) (unchecked-long y2) c) nil)
 (defn line-thick! [x1 y1 x2 y2 thick c]
-  (c-line-thick (long x1) (long y1) (long x2) (long y2) (long thick) c) nil)
-(defn ring! [x y inner outer c] (c-ring (long x) (long y) (long inner) (long outer) c) nil)
+  (c-line-thick (unchecked-long x1) (unchecked-long y1) (unchecked-long x2) (unchecked-long y2) (unchecked-long thick) c) nil)
+(defn ring! [x y inner outer c] (c-ring (unchecked-long x) (unchecked-long y) (unchecked-long inner) (unchecked-long outer) c) nil)
 (defn poly! [x y sides radius rot c]
-  (c-poly (long x) (long y) (long sides) (long radius) (long rot) c) nil)
+  (c-poly (unchecked-long x) (unchecked-long y) (unchecked-long sides) (unchecked-long radius) (unchecked-long rot) c) nil)
 
 (defn text!
   "Draw s at (x, y). The string goes over as a C string's address, freed after."
   [s x y size c]
   (let [p (ffi/string->ptr s)]
     (try
-      (c-text p (long x) (long y) (long size) c)
+      (c-text p (unchecked-long x) (unchecked-long y) (unchecked-long size) c)
       (finally (ffi/free p))))
   nil)
 
 (defn text-width [s size]
   (let [p (ffi/string->ptr s)]
     (try
-      (c-text-width p (long size))
+      (c-text-width p (unchecked-long size))
       (finally (ffi/free p)))))
 
 ;; Wiimotes, by channel 0..3.
