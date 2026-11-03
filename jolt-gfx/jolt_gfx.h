@@ -10,6 +10,13 @@
 // Units: colours are 0xRRGGBBAA. Coordinates, sizes and radii are whole
 // pixels. Angles are whole degrees. Roundness is in hundredths (50 = 0.50).
 //
+// IR pointer: libogc reports it as floats that can drift a little below 0 or
+// past the screen edge while valid is set. A negative value cast to uintptr_t
+// would be a bignum on the Wii, so the IR getters return the position plus
+// JG_IR_BIAS, clamped to [0, 0x0FFFFFFF] after biasing, and 0 when the pointer
+// is not valid. Callers subtract JG_IR_BIAS (after checking the valid flag).
+#define JG_IR_BIAS 4096
+//
 // Masks: values returned to Clojure fit a 32-bit Chez fixnum (below 2^29).
 // Buttons are btns_h & 0xFFFF, times are masked with 0x0FFFFFFF.
 //
@@ -45,8 +52,8 @@ U jg_poly(U x, U y, U sides, U radius, U rot, U c);
 U jg_text(U s, U x, U y, U size, U c);
 U jg_text_width(U s, U size);
 
-// Wiimotes, by channel 0..3. The IR position is 0 when the pointer is not
-// valid, so check jg_ir_valid first.
+// Wiimotes, by channel 0..3. The IR position is biased (see JG_IR_BIAS) and 0
+// when the pointer is not valid, so check jg_ir_valid first.
 U jg_connected(U ch);
 U jg_held(U ch);
 U jg_ir_valid(U ch);

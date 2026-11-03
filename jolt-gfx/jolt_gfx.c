@@ -107,8 +107,17 @@ U jg_connected(U ch)
 }
 U jg_held(U ch) { return jg_connected(ch) ? (U)(WPAD_Data((int)ch)->btns_h & 0xFFFF) : 0; }
 U jg_ir_valid(U ch) { return jg_connected(ch) && WPAD_Data((int)ch)->ir.valid; }
-U jg_ir_x(U ch) { return jg_ir_valid(ch) ? (U)(int)WPAD_Data((int)ch)->ir.x : 0; }
-U jg_ir_y(U ch) { return jg_ir_valid(ch) ? (U)(int)WPAD_Data((int)ch)->ir.y : 0; }
+
+// An IR coordinate as the biased, fixnum-safe value Clojure gets (see JG_IR_BIAS).
+static U ir_biased(float v)
+{
+    long n = (long)(int)v + JG_IR_BIAS;
+    if (n < 0) n = 0;
+    if (n > 0x0FFFFFFF) n = 0x0FFFFFFF;
+    return (U)n;
+}
+U jg_ir_x(U ch) { return jg_ir_valid(ch) ? ir_biased(WPAD_Data((int)ch)->ir.x) : 0; }
+U jg_ir_y(U ch) { return jg_ir_valid(ch) ? ir_biased(WPAD_Data((int)ch)->ir.y) : 0; }
 
 // Like wiimote_rumble in examples/common: only talk to WPAD on a change.
 U jg_rumble(U ch, U on)
