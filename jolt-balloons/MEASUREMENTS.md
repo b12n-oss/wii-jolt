@@ -194,10 +194,13 @@ Frame budget: update (15.5 ms) plus draw (60 ms) is 75 ms of work against a
 16.7 ms frame at 60 fps, about 4.5 times too slow. Even with a free draw, the
 update alone is under budget only barely (15.5 of 16.7 ms).
 
-Screenshot check: the run tasks' screenshots did not capture the stress frame
-this time. The "before" shot (`.work/shots/jolt-stress-before.png`) shows the
-stress frame; the "after" run left `jolt-stress.png` unwritten after 21:42,
-and the file it holds is the C game's title screen, from another Dolphin
-window. The picture is guarded by the golden test instead (13 states, 1129
-recorded wii.gfx calls, all equal), plus a host check that `long` and
-`unchecked-long` agree on all 3108 double arguments in those states.
+Screenshot check: `bb run:jolt-stress` takes its shot after 170 s, which was
+mid-run before the optimisation (1800 frames at 267 ms is about 8 minutes) but
+is after the exit now (1800 frames at 75 ms is about 135 s), so the first after
+run found no Dolphin window. Retaken with `scripts/dolphin-shot
+jolt-balloons/build/jolt-stress.dol .work/shots/jolt-stress-after.png 60`:
+the same scene as `.work/shots/jolt-stress-before.png` (24 balloons, 100
+particles, 4 cursors, HUD, the edge-circle sliver at the left), balloons at
+other positions since the frame differs. Exact equality is the golden test's
+job (13 states, 1129 recorded wii.gfx calls), plus
+`casts-agree-on-every-recorded-argument` on all 3108 double arguments.
