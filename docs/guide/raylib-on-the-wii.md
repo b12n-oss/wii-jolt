@@ -83,6 +83,27 @@ line, so an archive member would never get pulled in.
 Whether `KEYBOARD_Init` also fails on a real Wii with no USB keyboard attached
 is one of the things to check on hardware. The shim is harmless either way.
 
+## SDL's main wrapper (needed for Wiimotes)
+
+devkitPro's SDL for the Wii brings its own `main` (`src/main/wii/SDL_wii_main.c`
+in their SDL fork). It reloads the preferred IOS, calls `WPAD_Init()`, hooks the
+power and reset buttons, starts the USB mouse and mounts the SD card, then calls
+the application as `SDL_main`. SDL's joystick code relies on that: it says
+"We don't call WPAD_Init() here, since it's already been called by SDL_main".
+
+A raylib app defines its own `main`, so it has to opt in with SDL's standard
+include, or the Wiimotes never initialise:
+
+```c
+#include "raylib.h"
+#include <SDL2/SDL_main.h>    // renames main to SDL_main
+
+int main(int argc, char *argv[])
+```
+
+`examples/hello` and `examples/balloons` both do this. We found it through
+Balloon Pop, see [Balloon Pop](balloon-pop.md).
+
 ## Writing your own raylib app
 
 Make a directory next to `hello`, put a `main.c` (and optionally a `meta.xml`)
@@ -95,8 +116,11 @@ scripts/dkp make -C examples APP=myapp
 A few Wii-specific notes:
 
 - The screen is 640x480. `InitWindow(640, 480, ...)` matches it.
-- Input comes through raylib's gamepad API. Dolphin shows its emulated
-  GameCube pad as gamepad 0; the Wiimote is untested.
+- Include `<SDL2/SDL_main.h>` and use `int main(int argc, char *argv[])`
+  (see above), or no Wiimote will ever connect.
+- For the Wiimote pointer, read the remotes with libogc's WPAD the way
+  `examples/balloons/main.c` does. SDL merges every remote's pointer into one
+  mouse.
 - Call `SYS_STDIO_Report(true)` at the start of `main` if you want `printf` and
   raylib's log in Dolphin's log. raylib apps draw with the GPU, so this doesn't
   interfere with the screen. The text-console apps need the tee described in

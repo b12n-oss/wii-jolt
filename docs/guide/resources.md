@@ -51,6 +51,14 @@ Two toolchain facts that each cost a probe:
   how `scripts/dolphin-shot` turns on MMU emulation and logging without
   touching ini files.
 
+## Scripting Dolphin's emulated Wiimote
+
+- [Dolphin `FunctionExpression.cpp`](https://github.com/dolphin-emu/dolphin/blob/master/Source/Core/InputCommon/ControlReference/FunctionExpression.cpp):
+  the functions a controller mapping can use (`timer`, `sin`, `toggle`,
+  `pulse`, ...). `timer(s)` is a 0-to-1 sawtooth every `s` seconds.
+- [Dolphin `WiimoteSettings.cpp`](https://github.com/dolphin-emu/dolphin/blob/master/Source/Core/Core/Config/WiimoteSettings.cpp):
+  Wiimote 1 defaults to the emulated source.
+
 ## raylib
 
 - [raylib](https://github.com/raysan5/raylib): we vendor the 6.0 release source
@@ -69,6 +77,11 @@ The keyboard crash, source by source:
   init fails, and `KEYBOARD_GetEvent` doesn't check.
 - [SDL `SDL_ogcvideo.c`](https://github.com/devkitPro/SDL/blob/ogc-sdl-2.28/src/video/ogc/SDL_ogcvideo.c):
   calls `KEYBOARD_Init(NULL)` and ignores the result.
+- [SDL `SDL_wii_main.c`](https://github.com/devkitPro/SDL/blob/ogc-sdl-2.28/src/main/wii/SDL_wii_main.c):
+  SDL's own `main` for the Wii, which calls `WPAD_Init()`. A raylib app has to
+  include `SDL_main.h` to get it.
+- [SDL `SDL_ogcevents.c`](https://github.com/devkitPro/SDL/blob/ogc-sdl-2.28/src/video/ogc/SDL_ogcevents.c):
+  every remote's IR pointer is sent as the same SDL mouse.
 - [SDL `SDL_ogckeyboard.c`](https://github.com/devkitPro/SDL/blob/ogc-sdl-2.28/src/video/ogc/SDL_ogckeyboard.c):
   calls `KEYBOARD_GetEvent` every frame.
 - The only open libogc issue mentioning keyboards, #256, is about something

@@ -4,6 +4,8 @@ wii-jolt puts three things on a Nintendo Wii: raylib, Chez Scheme, and Clojure
 compiled by jolt. Each one builds on the one before it, so the pages read best
 in order, but each also stands on its own if you only care about one layer.
 
+- [Balloon Pop](balloon-pop.md): the first game, a Wiimote pointer game for up
+  to four players. How to play, and how it's built.
 - [Getting started](getting-started.md): install the toolchain, build
   everything, and test it in the Dolphin emulator.
 - [Running on your Wii](running-on-your-wii.md): getting a build onto the

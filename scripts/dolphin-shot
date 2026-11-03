@@ -5,7 +5,7 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DOL="$1"; OUT="$2"; WAIT="${3:-10}"
 DOLPHIN=/Applications/Dolphin.app/Contents/MacOS/Dolphin
-USERDIR="$ROOT/.dolphin-user"
+USERDIR="${DOLPHIN_USER:-$ROOT/.dolphin-user}"
 # MMU emulation is ON by default: without it Dolphin ignores invalid reads
 # that crash a real Wii. DOLPHIN_MMU=0 turns it off.
 MMU=True; [ "${DOLPHIN_MMU:-1}" = "0" ] && MMU=False
@@ -17,7 +17,7 @@ mkdir -p "$USERDIR"; rm -f "$USERDIR/Logs/dolphin.log"
   -C Dolphin.Interface.UsePanicHandlers=False -C Dolphin.Core.MMU=$MMU ${DOLPHIN_EXTRA:-} \
   -C Logger.Options.WriteToFile=True -C Logger.Options.Verbosity=4 \
   -C Logger.Logs.OSREPORT=True -C Logger.Logs.OSREPORT_HLE=True \
-  -C Logger.Logs.MI=True -C Logger.Logs.Core=True >"$ROOT/.dolphin-user/last-run.log" 2>&1 &
+  -C Logger.Logs.MI=True -C Logger.Logs.Core=True >"$USERDIR/last-run.log" 2>&1 &
 PID=$!
 sleep "$WAIT"
 

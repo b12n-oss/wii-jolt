@@ -2,11 +2,17 @@
 // A ball bounces around, and the screen reports what raylib sees of the
 // Wiimote so we can tell whether input reaches raylib's gamepad API.
 #include "raylib.h"
+// SDL's Wii port runs its own main() first (SDL_wii_main.c): it calls
+// WPAD_Init, hooks the power/reset buttons and mounts the SD card, then calls
+// ours as SDL_main. Including SDL_main.h does that renaming. Without it the
+// Wiimotes are never initialised (WPAD_Probe answers WPAD_ERR_NO_CONTROLLER).
+#include <SDL2/SDL_main.h>
 #include <stdio.h>
 #include <ogc/system.h>
 
-int main(void)
+int main(int argc, char *argv[])
 {
+    (void)argc; (void)argv;
     SYS_STDIO_Report(true);   // stdout/stderr -> Dolphin log / USB Gecko
     printf("hello: start\n");
     InitWindow(640, 480, "hello wii");

@@ -1,0 +1,28 @@
+#!/usr/bin/env bash
+# Prepare .dolphin-auto: a Dolphin user dir whose emulated Wiimote 1 plays by
+# itself, so a pointer game can be tested end to end with nobody holding a
+# remote and without touching the Mac's real mouse.
+#
+#   A        = timer(0.25)          pressed for the 2nd half of every 0.25 s
+#   IR       = sin of a timer       the pointer sweeps left and right across
+#                                   the middle of the screen every 5 s, where
+#                                   every rising balloon has to pass. (A
+#                                   two-axis sweep spent much of its time off
+#                                   screen and popped nothing in some runs.)
+#
+# Dolphin's input expressions (timer, sin, ...) are documented in its source,
+# Source/Core/InputCommon/ControlReference/FunctionExpression.cpp.
+# Usage: DOLPHIN_USER=$(scripts/dolphin-auto-wiimote) scripts/dolphin-shot app.dol out.png 75
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+DIR="$ROOT/.dolphin-auto"
+mkdir -p "$DIR/Config"
+cat > "$DIR/Config/WiimoteNew.ini" <<'EOF'
+[Wiimote1]
+Device = Quartz/0/Keyboard & Mouse
+Buttons/A = timer(0.25)
+IR/Right = sin(timer(5) * 6.2832) * 0.6
+IR/Left = 0 - sin(timer(5) * 6.2832) * 0.6
+Extension = None
+EOF
+echo "$DIR"

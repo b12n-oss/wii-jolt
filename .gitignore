@@ -7,3 +7,4 @@ build/
 
 # bb site:build output, local preview only -- never committed.
 _site/
+.dolphin-auto/

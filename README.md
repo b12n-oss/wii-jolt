@@ -18,10 +18,24 @@ jolt whose output matches the Mac build line for line. All three are Dolphin
 screenshots. None of this has run on the physical console yet, and that's the
 next step.*
 
+## Balloon Pop
+
+<p>
+  <img src="docs/images/balloons-title.png" width="390" alt="Balloon Pop title screen">
+  <img src="docs/images/balloons-demo.png" width="390" alt="Balloon Pop robot demo">
+</p>
+
+Our first game for the kids. Point a Wiimote at the TV and press A to pop
+balloons, with up to four players, 60-second rounds, gold balloons worth 5, and
+a rumble on every pop. `bb play:balloons` opens it in Dolphin so you can try
+it on the Mac with the mouse, and [Balloon Pop](docs/guide/balloon-pop.md) has
+the rules and how it's built.
+
 ## What's here
 
 | App | Size | What it shows |
 |---|---|---|
+| `examples/balloons` | 1.1 MB | Balloon Pop, a Wiimote pointer game (raylib + libogc's WPAD) |
 | `examples/hello` | 1.1 MB | raylib 6.0, unmodified, at 60 fps over SDL2 and OpenGX |
 | `chez-wii` | 4.5 MB | Chez Scheme booting from boot files baked into the program, with bignums, threads, runtime `eval` and a full collect |
 | `jolt-hello` | 10.9 MB | Clojure: maps, sets, lazy seqs, atoms, bignums and Java-compatible hashes |
@@ -38,7 +52,8 @@ and a fix to how `jolt build` cross-compiles for 32-bit targets. The
 ```sh
 bb doctor        # Docker, the devkitPPC image, Dolphin, jolt, Chez: what's missing
 bb chez:setup    # one time: Chez 10.4.1 + the Wii patch, about 5 minutes
-bb verify        # build all three, boot each in Dolphin, check the output
+bb test          # Balloon Pop's rules, compiled and tested on the Mac
+bb verify        # build everything, boot each app in Dolphin, check the output
 bb sd            # gather everything into build/sd/apps for an SD card
 ```
 
@@ -52,6 +67,8 @@ Wii.
 
 ## Documentation
 
+- [Balloon Pop](docs/guide/balloon-pop.md): how to play, and how the game
+  reads the Wiimotes
 - [Getting started](docs/guide/getting-started.md): the toolchain, the build,
   and testing in Dolphin
 - [Running on your Wii](docs/guide/running-on-your-wii.md): the Homebrew
@@ -74,7 +91,7 @@ localhost.
 
 ```
 raylib-wii/     builds vendor/raylib as libraylib.a for the Wii, plus wii_shim.c
-examples/       raylib apps (hello)
+examples/       raylib apps: balloons (the game, with host tests), hello
 chez-wii/       Chez kernel build, the chez test app, and the runtime objects
                 that jolt-built programs link (console, TLS hooks, POSIX stubs)
 jolt-hello/     a Clojure program, with its expected output
