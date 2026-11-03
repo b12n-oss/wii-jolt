@@ -11,6 +11,8 @@ a different way:
 - [Star Catcher](star-catcher.md): hold the remote sideways and tip it to
   catch falling stars.
 - [Shake Race](shake-race.md): shake the remote to make your runner go.
+- [Balloon Pop in Clojure](balloon-pop-in-clojure.md): the same game written
+  in Clojure on jolt, and measured against the C version.
 - [Wiimote input](wiimote-input.md): the input module the games share, what
   Dolphin reports for tilt and shake, and how `bb verify` plays each game with
   a scripted remote.

@@ -43,6 +43,17 @@ from the remote and are saved to `settings.txt` beside each game's `boot.dol`
 (`examples/common/settings.c`). `bb verify` checks the save and reload
 through Dolphin's emulated SD card.
 
+## Done: Balloon Pop in Clojure (2026-11-03)
+
+Balloon Pop is also written in Clojure (`jolt-balloons/`) with pure rules, drawing
+through a C shim (`jolt-gfx/`) that registers raylib and the Wiimote functions
+with Chez at link time. It plays in Dolphin but misses the 60 fps budget on most
+frames: about 23 to 25 ms of work per frame against 3 to 4 ms in C, measured in
+Dolphin, not on a console. A checked `(long x)` on 32-bit Chez was the big cost
+(draw went from 252 ms to 60 ms once it became `unchecked-long`).
+[Balloon Pop in Clojure](docs/guide/balloon-pop-in-clojure.md) has the
+comparison and what it taught us about jolt.
+
 ## Next: the real console
 
 1. Copy `bb sd`'s output to an SD card and run every app on the family Wii.
@@ -70,11 +81,13 @@ through Dolphin's emulated SD card.
 - **More Wiimote.** The shared module has buttons, IR, the accelerometer and
   rumble. The Nunchuk is next: two-handed games, and a stick for the kids who
   find tilting hard.
-- **raylib from Clojure.** Bind raylib to jolt on the Wii the way raylib-ios
-  does on iOS, so a game can be written in Clojure. That needs
-  `:jolt/native` static archives in cross builds (not supported by
-  `jolt build --target` yet), or registering the raylib entry points with Chez
-  by hand from the C side.
+- **raylib from Clojure.** Done for Balloon Pop, through link-time
+  registration of the shim's functions (see
+  [Balloon Pop in Clojure](docs/guide/balloon-pop-in-clojure.md)). What
+  remains is a decision: keep that glue, or teach `jolt build --target` about
+  `:jolt/native` static archives so no hand registration is needed. Then, if
+  the Clojure game should hold 60 fps, a faster double-to-fixnum cast and
+  cheaper rules.
 - **The next game** built with the kids: their ideas, their drawings.
 - **Sound.** raylib's `raudio` is left out today. Try miniaudio against libogc,
   or use libogc's own ASND/AESND.

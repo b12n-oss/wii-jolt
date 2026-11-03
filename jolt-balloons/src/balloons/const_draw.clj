@@ -1,5 +1,5 @@
 (ns balloons.const-draw
-  "Split measurement (P2.T3): the same 368 wii.gfx calls as one busy Balloon
+  "Split measurement: the same 368 wii.gfx calls as one busy Balloon
    Pop frame, but every argument is computed once at start-up and each frame
    only loops over the vector calling wii.gfx. Frame time is then the FFI
    crossing plus raylib, with almost no Clojure math. Update time is 0 (there

@@ -6,7 +6,7 @@
    (bb build:jolt-draw-profile). Prints 'draw-profile: ...' lines.
 
    WARNING: the .dol sits at a memory cliff of about 14.76 MB. Builds a few KB
-   larger died with 'out of memory' before printing anything (P2.T4), so adding
+   larger died with 'out of memory' before printing anything (found while optimising the draw), so adding
    micro-ops can make it unrunnable. Check that a run prints 'draw-profile:
    done' after every edit; trim cases or time them in a throwaway copy."
   (:require [jolt.ffi :as ffi]

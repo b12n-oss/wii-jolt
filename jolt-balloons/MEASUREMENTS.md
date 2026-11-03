@@ -1,4 +1,4 @@
-# Clojure drawing on the Wii: first measurement (P2.T2)
+# Clojure drawing on the Wii: first measurement
 
 Program: `balloons.stress` (4 players aiming, 24 balloons, 100 particles, mode
 `:play`), built with `bb build:jolt-stress`, run in Dolphin 2609a (idle profile,
@@ -21,8 +21,8 @@ Steady state: work median about 269000 us (about 16 frames of budget), draw abou
 253000 us, so about 0.69 ms per wii.gfx call.
 
 Decision rule: per-shape stays only if work-median <= 12000 and work-worst <=
-16700. Neither holds. Draw is 94% of work (>= half), so **P2.T3 (the command
-buffer) looked needed next, but the FFI bench below superseded that.** Update (15.5 ms) is also over a 16.7 ms frame once
+16700. Neither holds. Draw is 94% of work (>= half), so **a command buffer
+looked needed next, but the FFI bench below superseded that.** Update (15.5 ms) is also over a 16.7 ms frame once
 draw is fixed, so the rules need a look afterwards.
 
 Memory finding: jolt sizes its allocation window at 16 MB, more than the malloc
@@ -102,7 +102,7 @@ the start-up frames). All numbers are microseconds, medians of 120 frames.
 | Clojure compute, stub draw minus crossing | | 232400 | | |
 | raylib, const-draw minus crossing | | 24300 | | |
 
-The crossing figure uses the P2.T3 bench's 19.9 us for a 5-argument call for
+The crossing figure uses the FFI bench's 19.9 us for a 5-argument call for
 all 368 calls. Calls take 1 to 7 arguments, and text calls also allocate and
 free a C string, so it is an estimate to within a few ms.
 
@@ -185,7 +185,7 @@ Reading:
 - Text costs a `string->ptr` + `free` (143 us) per call; the stress frame has
   at most 7 text calls, so under 1 ms.
 
-## After the draw optimisation (P2.T4)
+## After the draw optimisation
 
 Same builds and settings as above (Dolphin 2609a, idle profile, MMU on). Steady
 state is every summary after the first. This pass ran longer than the earlier

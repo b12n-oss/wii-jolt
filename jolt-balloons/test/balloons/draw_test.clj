@@ -1,7 +1,7 @@
 (ns balloons.draw-test
   "Golden test for balloons.draw: the full list of wii.gfx calls (name and
    arguments) that draw makes for a set of states must equal the list recorded
-   in draw_golden.edn, which was generated from the code before the P2.T4
+   in draw_golden.edn, which was generated from the code before the draw
    optimisation pass. Host only (jolt -A:test); it never touches the FFI.
    Run: cd jolt-balloons && jolt -A:test -m balloons.draw-test
    Regenerate (only for a deliberate picture change):

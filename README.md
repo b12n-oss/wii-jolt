@@ -53,6 +53,7 @@ keyboard, and `bb verify` plays each one with a scripted remote.
 | `examples/shakerace` | 1.3 MB | Shake Race: shake to run |
 | `examples/hello` | 1.3 MB | raylib 6.0, unmodified, at 60 fps over SDL2 and OpenGX |
 | `chez-wii` | 4.5 MB | Chez Scheme booting from boot files baked into the program, with bignums, threads, runtime `eval` and a full collect |
+| `jolt-balloons` | 14.5 MB | Balloon Pop in Clojure on jolt: plays, but misses 60 fps (see the comparison page) |
 | `jolt-hello` | 10.9 MB | Clojure: maps, sets, lazy seqs, atoms, bignums and Java-compatible hashes |
 
 The interesting part is the bottom row. Chez has a big-endian 32-bit
@@ -109,6 +110,8 @@ Wii.
 
 ## Documentation
 
+- [Balloon Pop in Clojure](docs/guide/balloon-pop-in-clojure.md): the same
+  game on jolt, measured against the C version
 - [Balloon Pop](docs/guide/balloon-pop.md), [Star Catcher](docs/guide/star-catcher.md)
   and [Shake Race](docs/guide/shake-race.md): how to play, and how each is built
 - [Wiimote input](docs/guide/wiimote-input.md): the shared input module, tilt
@@ -140,6 +143,8 @@ examples/       raylib apps: the games (balloons, starcatcher, shakerace, each
 chez-wii/       Chez kernel build, the chez test app, and the runtime objects
                 that jolt-built programs link (console, TLS hooks, POSIX stubs)
 jolt-hello/     a Clojure program, with its expected output
+jolt-balloons/  Balloon Pop in Clojure, its tests and MEASUREMENTS.md
+jolt-gfx/       the C shim and Clojure wrappers that give jolt raylib and Wiimotes
 patches/        chez-wii.patch, applied to Chez v10.4.1 by scripts/setup-chez
 scripts/        dkp (run in the devkitPPC image), wii-cc, dolphin-shot,
                 dolphin-auto-wiimote, setup-chez, make-pack, jolt-wii-build
