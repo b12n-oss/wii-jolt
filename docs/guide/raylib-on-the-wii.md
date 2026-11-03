@@ -118,9 +118,9 @@ A few Wii-specific notes:
 - The screen is 640x480. `InitWindow(640, 480, ...)` matches it.
 - Include `<SDL2/SDL_main.h>` and use `int main(int argc, char *argv[])`
   (see above), or no Wiimote will ever connect.
-- For the Wiimote pointer, read the remotes with libogc's WPAD the way
-  `examples/balloons/main.c` does. SDL merges every remote's pointer into one
-  mouse.
+- For the Wiimote pointer, tilt or shake, read the remotes with libogc's WPAD
+  through `examples/common/wiimote.c`, the way the games do. SDL merges every
+  remote's pointer into one mouse. See [Wiimote input](wiimote-input.md).
 - Call `SYS_STDIO_Report(true)` at the start of `main` if you want `printf` and
   raylib's log in Dolphin's log. raylib apps draw with the GPU, so this doesn't
   interfere with the screen. The text-console apps need the tee described in

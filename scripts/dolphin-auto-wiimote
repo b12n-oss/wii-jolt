@@ -1,28 +1,67 @@
 #!/usr/bin/env bash
-# Prepare .dolphin-auto: a Dolphin user dir whose emulated Wiimote 1 plays by
-# itself, so a pointer game can be tested end to end with nobody holding a
-# remote and without touching the Mac's real mouse.
+# Prepare a Dolphin user dir whose emulated Wiimote 1 plays by itself, so a
+# game can be tested end to end with nobody holding a remote and without
+# touching the Mac's real mouse. Prints the dir, for DOLPHIN_USER.
 #
-#   A        = timer(0.25)          pressed for the 2nd half of every 0.25 s
-#   IR       = sin of a timer       the pointer sweeps left and right across
-#                                   the middle of the screen every 5 s, where
-#                                   every rising balloon has to pass. (A
-#                                   two-axis sweep spent much of its time off
-#                                   screen and popped nothing in some runs.)
+#   scripts/dolphin-auto-wiimote [pointer|tilt|shake|play]   (default: pointer)
+#
+# Every scripted profile presses A for the 2nd half of every 0.25 s
+# (timer(0.25)), which joins the game. Then:
+#
+#   pointer  the IR pointer sweeps left and right across the middle of the
+#            screen every 5 s, where every rising balloon has to pass. (A
+#            two-axis sweep spent much of its time off screen and popped
+#            nothing in some runs.)
+#   tilt     held sideways, tipped right then left every 4 s, about 70
+#            degrees each way, so a tilt-steered basket sweeps the floor.
+#   shake    shaken on all three axes for 1 s out of every 2 s.
+#   play     not scripted: you play with the Mac. Dolphin's own defaults (the
+#            mouse is the pointer, left click = A, right click = B, the arrow
+#            keys are the D-pad, the 1 and 2 keys are 1 and 2, Return = HOME),
+#            plus the space bar (or middle click) to shake.
 #
 # Dolphin's input expressions (timer, sin, ...) are documented in its source,
-# Source/Core/InputCommon/ControlReference/FunctionExpression.cpp.
-# Usage: DOLPHIN_USER=$(scripts/dolphin-auto-wiimote) scripts/dolphin-shot app.dol out.png 75
+# Source/Core/InputCommon/ControlReference/FunctionExpression.cpp. A bare
+# number is read as a key name, so a constant 1 is written sin(1.5708).
+# Usage: DOLPHIN_USER=$(scripts/dolphin-auto-wiimote tilt) scripts/dolphin-shot app.dol out.png 40
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-DIR="$ROOT/.dolphin-auto"
+PROFILE="${1:-pointer}"
+DIR="$ROOT/.dolphin-auto/$PROFILE"
 mkdir -p "$DIR/Config"
-cat > "$DIR/Config/WiimoteNew.ini" <<'EOF'
-[Wiimote1]
-Device = Quartz/0/Keyboard & Mouse
-Buttons/A = timer(0.25)
-IR/Right = sin(timer(5) * 6.2832) * 0.6
-IR/Left = 0 - sin(timer(5) * 6.2832) * 0.6
-Extension = None
-EOF
+{
+  echo "[Wiimote1]"
+  echo "Device = Quartz/0/Keyboard & Mouse"
+  [ "$PROFILE" = play ] || echo "Buttons/A = timer(0.25)"
+  case "$PROFILE" in
+    pointer)
+      echo "IR/Right = sin(timer(5) * 6.2832) * 0.6"
+      echo "IR/Left = 0 - sin(timer(5) * 6.2832) * 0.6" ;;
+    tilt)
+      echo "Options/Sideways Wiimote = True"
+      echo "Tilt/Right = sin(timer(4) * 6.2832) * 0.8"
+      echo "Tilt/Left = 0 - sin(timer(4) * 6.2832) * 0.8" ;;
+    shake)
+      echo "Shake/X = timer(2) > 0.5"
+      echo "Shake/Y = timer(2) > 0.5"
+      echo "Shake/Z = timer(2) > 0.5" ;;
+    play)
+      echo "Buttons/A = \`Left Click\`"
+      echo "Buttons/B = \`Right Click\`"
+      echo "Buttons/1 = \`1\`"
+      echo "Buttons/2 = \`2\`"
+      echo "Buttons/Home = Return"
+      echo "D-Pad/Up = \`Up Arrow\`"
+      echo "D-Pad/Down = \`Down Arrow\`"
+      echo "D-Pad/Left = \`Left Arrow\`"
+      echo "D-Pad/Right = \`Right Arrow\`"
+      echo "IR/Up = \`Cursor Y-\`"
+      echo "IR/Down = \`Cursor Y+\`"
+      echo "IR/Left = \`Cursor X-\`"
+      echo "IR/Right = \`Cursor X+\`"
+      for a in X Y Z; do echo "Shake/$a = Space | \`Middle Click\`"; done ;;
+    *) echo "unknown profile: $PROFILE (pointer, tilt, shake or play)" >&2; exit 1 ;;
+  esac
+  echo "Extension = None"
+} > "$DIR/Config/WiimoteNew.ini"
 echo "$DIR"

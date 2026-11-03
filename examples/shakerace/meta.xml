@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<app version="1">
+  <name>Shake Race</name>
+  <coder>b12n</coder>
+  <version>0.1</version>
+  <short_description>Shake your Wiimote to run! Up to 4 players.</short_description>
+  <long_description>Everyone gets a lane. Press A to join, then shake your Wiimote as hard as you can to make your runner go. Stop shaking and you slow down. First to the finish line wins. Up to four players. Press HOME to quit.</long_description>
+</app>

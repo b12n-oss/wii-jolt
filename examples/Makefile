@@ -9,7 +9,7 @@ PORTS   := $(DEVKITPRO)/portlibs
 RAYLIB  := ../vendor/raylib
 RLWII   := ../raylib-wii/build
 
-CFLAGS  := -O2 -Wall $(MACHDEP) -I$(RAYLIB) \
+CFLAGS  := -O2 -Wall $(MACHDEP) -I$(RAYLIB) -Icommon \
            -I$(PORTS)/wii/include -I$(PORTS)/ppc/include -I$(LIBOGC_INC)
 LDFLAGS := $(MACHDEP) -Wl,-Map,$(OUT)/$(APP).map \
            -Wl,--wrap=KEYBOARD_Init -Wl,--wrap=KEYBOARD_GetEvent
@@ -18,14 +18,15 @@ LIBS    := $(RLWII)/wii_shim.o -L$(RLWII) -lraylib \
            -lSDL2main -lSDL2 -lpthread -laesnd -lopengx -lfat -lwiiuse -lbte \
            -lwiikeyboard -logc -lstdc++ -lm
 
-SRCS    := $(wildcard $(APP)/*.c)
+# every app also gets examples/common (shared Wiimote input)
+SRCS    := $(wildcard $(APP)/*.c) $(wildcard common/*.c)
 
 all: $(OUT)/$(APP).dol
 
 $(OUT):
 	mkdir -p $(OUT)
 
-$(OUT)/$(APP).elf: $(SRCS) $(RLWII)/libraylib.a | $(OUT)
+$(OUT)/$(APP).elf: $(SRCS) $(wildcard common/*.h) $(wildcard $(APP)/*.h) $(RLWII)/libraylib.a | $(OUT)
 	$(CC) $(CFLAGS) $(SRCS) $(LDFLAGS) $(LIBS) -o $@
 
 $(OUT)/$(APP).dol: $(OUT)/$(APP).elf

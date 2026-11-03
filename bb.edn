@@ -12,7 +12,10 @@
     (def runner (if (System/getProperty "babashka.version") "bb" "jolt"))
     (def repo-root (str (fs/parent (fs/absolutize "bb.edn"))))
     (def dolphin-log (str repo-root "/.dolphin-user/Logs/dolphin.log"))
-    (def auto-user (str repo-root "/.dolphin-auto"))
+    (defn auto-user
+      "Write a scripted (or play) Wiimote profile and return its Dolphin user dir."
+      [profile]
+      (str/trim (:out (shell {:dir repo-root :out :string} "scripts/dolphin-auto-wiimote" profile))))
     (def shots-dir (str repo-root "/.work/shots"))
 
     ;; One row per thing that runs on the Wii:
@@ -20,7 +23,9 @@
     ;; console? = the app draws with libogc's text console (CPU-written
     ;; framebuffer), which Dolphin only shows with XFB-to-texture off.
     (def apps
-      [["balloons"   "examples/build/balloons/balloons.dol" false "Balloon Pop: point a Wiimote, press A, up to 4 players"]
+      [["balloons"    "examples/build/balloons/balloons.dol"       false "Balloon Pop: point a Wiimote, press A, up to 4 players"]
+       ["starcatcher" "examples/build/starcatcher/starcatcher.dol" false "Star Catcher: tilt the Wiimote to catch stars"]
+       ["shakerace"   "examples/build/shakerace/shakerace.dol"     false "Shake Race: shake the Wiimote to run"]
        ["hello"      "examples/build/hello/hello.dol"     false "stock raylib 6.0: bouncing ball, gamepad readout"]
        ["chez"       "chez-wii/build/chez.dol"            true  "Chez Scheme 10.4.1 (tpb32b) evaluating a test list"]
        ["jolt-hello" "jolt-hello/build/jolt-hello.dol"    true  "Clojure via jolt: fib, bignums, maps, sets, hashes"]])
@@ -54,6 +59,57 @@
            :lines (->> (str/split-lines log)
                        (filter (fn [l] (str/includes? l "N[OSREPORT]: ")))
                        (map (fn [l] (str/replace (subs l (+ (str/index-of l "N[OSREPORT]: ") 13)) "\r" ""))))})))
+    ;; The games: [name scripted-wiimote-profile log-line-for-a-score how-it's-played].
+    ;; Each has examples/<name>/game.c with host tests in test/test_game.c, and
+    ;; prints "<name>: mode <m>" and one line per score to Dolphin's log.
+    (def games
+      [["balloons"    "pointer" "pop player=1 "    "point and press A"]
+       ["starcatcher" "tilt"    "catch player=1 "  "tilt sideways (or arrow keys)"]
+       ["shakerace"   "shake"   "finish player=1 " "shake (space bar on the Mac)"]])
+
+    (defn game-lines [nm r]
+      (let [prefix (str nm ": ")]
+        (->> (:lines r) (filter (fn [l] (str/starts-with? l prefix))) (map (fn [l] (subs l (count prefix)))) vec)))
+
+    (defn run-scripted
+      "Boot a game with its scripted Wiimote profile; returns run-in-dolphin's map."
+      [nm]
+      (let [[_ profile] (first (filter (fn [gm] (= nm (first gm))) games))]
+        (run-in-dolphin nm 40 :user (auto-user profile) :shot-name (str nm "-wiimote"))))
+
+    (defn scripted-pass?
+      "The scripted remote joined (countdown), the round started, and player 1
+       scored during it."
+      [nm r]
+      (let [[_ _ score-line] (first (filter (fn [gm] (= nm (first gm))) games))
+            ls (game-lines nm r)
+            play-mode (if (= nm "shakerace") "race" "play")]
+        (and (not (:crashed? r))
+             (some (fn [l] (= l "mode countdown")) ls)
+             (some (fn [l] (= l (str "mode " play-mode))) ls)
+             (some (fn [l] (and (str/starts-with? l score-line) (str/ends-with? l (str "mode=" play-mode)))) ls))))
+
+    (defn demo-pass?
+      "Title, then the robot demo scores at least three times."
+      [nm r]
+      (let [ls (game-lines nm r)]
+        (and (not (:crashed? r))
+             (some (fn [l] (= l "mode demo")) ls)
+             (>= (count (filter (fn [l] (str/ends-with? l "mode=demo")) ls)) 3))))
+
+    (defn print-game-run [nm r]
+      (doseq [l (game-lines nm r)] (println (str nm ": " l)))
+      (println (:shot r)))
+
+    (defn play-game
+      "Open a game in Dolphin for a person to play with the Mac."
+      [nm]
+      (let [dol (str repo-root "/examples/build/" nm "/" nm ".dol")]
+        (when-not (fs/exists? dol) (run (symbol (str "build:" nm))))
+        (shell {:dir repo-root} "/Applications/Dolphin.app/Contents/MacOS/Dolphin"
+               "-u" (auto-user "play") "-e" dol
+               "-C" "Dolphin.Core.MMU=True" "-C" "Dolphin.Analytics.PermissionAsked=True")))
+
 
     (def docs-engine-repo "https://github.com/jlt-commons/docs-engine")
 
@@ -96,12 +152,14 @@
      (println (col "2" (str "  runner: " runner "   ·   both `bb <task>` and `jolt <task>` work")))
      (hdr "Verify")
      (row "doctor" "check Docker, the devkitPPC image, Dolphin, jolt, Chez")
-     (row "test" "host-side unit tests (Balloon Pop's rules, on the Mac)")
+     (row "test" "host-side unit tests: every game's rules, on the Mac")
      (row "verify" "build everything, boot each app in Dolphin (MMU on), check output")
      (hdr "Build")
      (row "build" "every app below")
      (row "build:hello" "raylib for the Wii, then the raylib hello app")
-     (row "build:balloons" "the Balloon Pop game")
+     (row "build:balloons" "Balloon Pop")
+     (row "build:starcatcher" "Star Catcher")
+     (row "build:shakerace" "Shake Race")
      (row "chez:setup" "one-time: Chez 10.4.1 + Wii patch, host compiler, tpb32b boots")
      (row "build:chez" "the Chez kernel for the Wii and the chez test app")
      (row "pack" "assemble the jolt target pack for tpb32b")
@@ -109,8 +167,9 @@
      (row "sd" "collect every built app into build/sd/apps for an SD card")
      (hdr "Run in Dolphin")
      (doseq [[nm _ _ what] apps] (row (str "run:" nm) what))
-     (row "run:balloons-wiimote" "a real round with a scripted Wiimote: A to join, pointer pops")
-     (row "play:balloons" "open Balloon Pop in Dolphin to play: mouse aims, left click = A")
+     (doseq [[nm profile] games] (row (str "run:" nm "-wiimote") (str "a round with a scripted Wiimote (" profile ")")))
+     (hdr "Play on the Mac (Dolphin; Return = HOME)")
+     (doseq [[nm _ _ how] games] (row (str "play:" nm) how))
      (hdr "Docs")
      (row "site:build" "build the docs site into _site/ (local preview)")
      (row "site:serve" "build and serve it on localhost (default port 3000)")
@@ -157,17 +216,28 @@
    :task (sh! "scripts/dkp" "make" "-C" "raylib-wii")}
 
   test
-  {:doc "Host-side unit tests: Balloon Pop's game rules compiled and run on the Mac"
-   :task (let [bin (str repo-root "/.work/test_game")]
-           (fs/create-dirs (str repo-root "/.work"))
-           (sh! "cc" "-std=c99" "-Wall" "-Wextra" "-Werror" "-Iexamples/balloons"
-                "examples/balloons/game.c" "examples/balloons/test/test_game.c" "-lm" "-o" bin)
-           (sh! bin))}
+  {:doc "Host-side unit tests: every game's rules compiled and run on the Mac"
+   :task (doseq [[nm] games]
+           (let [bin (str repo-root "/.work/test_" nm)]
+             (fs/create-dirs (str repo-root "/.work"))
+             (sh! "cc" "-std=c99" "-Wall" "-Wextra" "-Werror" (str "-Iexamples/" nm)
+                  (str "examples/" nm "/game.c") (str "examples/" nm "/test/test_game.c") "-lm" "-o" bin)
+             (sh! bin)))}
 
   build:balloons
   {:doc "Build Balloon Pop (.dol + SD layout)"
    :depends [build:raylib]
    :task (sh! "scripts/dkp" "make" "-C" "examples" "APP=balloons")}
+
+  build:starcatcher
+  {:doc "Build Star Catcher (.dol + SD layout)"
+   :depends [build:raylib]
+   :task (sh! "scripts/dkp" "make" "-C" "examples" "APP=starcatcher")}
+
+  build:shakerace
+  {:doc "Build Shake Race (.dol + SD layout)"
+   :depends [build:raylib]
+   :task (sh! "scripts/dkp" "make" "-C" "examples" "APP=shakerace")}
 
   build:hello
   {:doc "Build the raylib hello app (.dol + SD layout)"
@@ -192,7 +262,7 @@
 
   build
   {:doc "Build every app"
-   :task (do (run 'build:hello) (run 'build:balloons) (run 'build:chez) (run 'pack) (run 'build:jolt-hello))}
+   :task (do (run 'build:hello) (run 'build:balloons) (run 'build:starcatcher) (run 'build:shakerace) (run 'build:chez) (run 'pack) (run 'build:jolt-hello))}
 
   sd
   {:doc "Collect every built app into build/sd/apps/<name>/ (copy build/sd/apps to the SD card's root)"
@@ -215,22 +285,39 @@
 
   run:balloons
   {:doc "Boot Balloon Pop in Dolphin, wait for the robot demo, print its events"
-   :task (let [r (run-in-dolphin "balloons" 20)] (doseq [l (:lines r)] (when (str/starts-with? l "balloons:") (println l))) (println (:shot r)))}
+   :task (print-game-run "balloons" (run-in-dolphin "balloons" 20))}
+
+  run:starcatcher
+  {:doc "Boot Star Catcher in Dolphin, wait for the robot demo, print its events"
+   :task (print-game-run "starcatcher" (run-in-dolphin "starcatcher" 20))}
+
+  run:shakerace
+  {:doc "Boot Shake Race in Dolphin, wait for the robot demo, print its events"
+   :task (print-game-run "shakerace" (run-in-dolphin "shakerace" 20))}
 
   run:balloons-wiimote
-  {:doc "Play a real round of Balloon Pop in Dolphin with a scripted Wiimote (A every 0.4 s, sweeping pointer)"
-   :task (do (sh! "scripts/dolphin-auto-wiimote")
-             (let [r (run-in-dolphin "balloons" 40 :user auto-user :shot-name "balloons-wiimote")]
-               (doseq [l (:lines r)] (when (str/starts-with? l "balloons:") (println l)))
-               (println (:shot r))))}
+  {:doc "A round of Balloon Pop with a scripted Wiimote: A to join, the pointer sweeps"
+   :task (print-game-run "balloons" (run-scripted "balloons"))}
+
+  run:starcatcher-wiimote
+  {:doc "A round of Star Catcher with a scripted Wiimote: A to join, tipped left and right"
+   :task (print-game-run "starcatcher" (run-scripted "starcatcher"))}
+
+  run:shakerace-wiimote
+  {:doc "A race in Shake Race with a scripted Wiimote: A to join, shaken 1 s in every 2"
+   :task (print-game-run "shakerace" (run-scripted "shakerace"))}
 
   play:balloons
-  {:doc "Open Balloon Pop in Dolphin to play it yourself: the mouse is the Wiimote pointer, left click = A, Return = HOME"
-   :task (let [dol (str repo-root "/examples/build/balloons/balloons.dol")]
-           (when-not (fs/exists? dol) (run 'build:balloons))
-           (shell {:dir repo-root} "/Applications/Dolphin.app/Contents/MacOS/Dolphin"
-                  "-u" (str repo-root "/.dolphin-user") "-e" dol
-                  "-C" "Dolphin.Core.MMU=True" "-C" "Dolphin.Analytics.PermissionAsked=True"))}
+  {:doc "Play Balloon Pop in Dolphin: the mouse is the pointer, left click = A, Return = HOME"
+   :task (play-game "balloons")}
+
+  play:starcatcher
+  {:doc "Play Star Catcher in Dolphin: left click or 2 joins, arrow keys steer, Return = HOME"
+   :task (play-game "starcatcher")}
+
+  play:shakerace
+  {:doc "Play Shake Race in Dolphin: left click joins, hold the space bar to shake, Return = HOME"
+   :task (play-game "shakerace")}
 
   run:hello
   {:doc "Boot the raylib hello app in Dolphin and screenshot it"
@@ -253,9 +340,7 @@
                   (println (str (if pass? "  PASS  " "  FAIL  ") nm ": " what))
                   (when-not pass? (swap! fails conj nm)))
          _ (run 'test)
-         b (run-in-dolphin "balloons" 20)
-         _ (sh! "scripts/dolphin-auto-wiimote")
-         w (run-in-dolphin "balloons" 40 :user auto-user :shot-name "balloons-wiimote")
+         game-runs (vec (for [[nm] games] [nm (run-in-dolphin nm 20) (run-scripted nm)]))
          h (run-in-dolphin "hello" 12)
          c (run-in-dolphin "chez" 25)
          j (run-in-dolphin "jolt-hello" 40)
@@ -264,16 +349,10 @@
          start (.indexOf jl (first expected))
          got (if (neg? start) [] (subvec jl start (min (count jl) (+ start (count expected)))))]
      (println "results:")
-     (expect "balloons" (and (not (:crashed? b))
-                             (some (fn [l] (= l "balloons: mode demo")) (:lines b))
-                             (>= (count (filter (fn [l] (str/starts-with? l "balloons: pop ")) (:lines b))) 3))
-             "title, then the robot demo pops at least 3 balloons, no crash")
-     (expect "balloons-wiimote" (and (not (:crashed? w))
-                                     (some (fn [l] (= l "balloons: mode countdown")) (:lines w))
-                                     (some (fn [l] (= l "balloons: mode play")) (:lines w))
-                                     (some (fn [l] (and (str/starts-with? l "balloons: pop player=1 ")
-                                                        (str/ends-with? l "mode=play"))) (:lines w)))
-             "a scripted Wiimote presses A to join, the round starts, and player 1 pops in play")
+     (doseq [[nm demo scripted] game-runs]
+       (expect nm (demo-pass? nm demo) "title, then the robot demo scores at least 3 times, no crash")
+       (expect (str nm "-wiimote") (scripted-pass? nm scripted)
+               "a scripted Wiimote presses A to join, the round starts, and player 1 scores in it"))
      (expect "hello" (and (not (:crashed? h))
                           (some (fn [l] (str/includes? l "PLATFORM: DESKTOP (SDL2): Initialized successfully")) (:lines h)))
              "raylib initialised over SDL2/OpenGX, no crash")

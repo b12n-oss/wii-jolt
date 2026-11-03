@@ -31,8 +31,8 @@ bb play:balloons
 
 This opens the game in Dolphin. Dolphin's emulated Wiimote follows the Mac's
 mouse: the pointer goes where the mouse is, **left click is A**, right click is
-B, and **Return is HOME**. That's the mapping in Dolphin's default
-`WiimoteNew.ini`, which `play:balloons` uses. A person hasn't played a round
+B, and **Return is HOME**. Those are Dolphin's own defaults, written out by
+the `play` profile in `scripts/dolphin-auto-wiimote`. A person hasn't played a round
 this way yet (the scripted test below has), so if the pointer doesn't show up,
 Dolphin's controller settings are the first place to look.
 
@@ -62,23 +62,12 @@ The game is two halves, so the rules can be tested on the Mac.
 
 ### Wiimote input
 
-SDL turns the Wiimote's IR pointer into a single mouse, which merges everyone
-into one cursor. So the game reads the remotes directly through libogc's WPAD
-instead:
-
-```c
-WPAD_SetDataFormat(WPAD_CHAN_ALL, WPAD_FMT_BTNS_ACC_IR);   // turn on IR
-WPAD_SetVRes(WPAD_CHAN_ALL, 640, 480);                     // IR in screen pixels
-...
-WPADData *d = WPAD_Data(p);       // per remote: d->ir.valid, d->ir.x, d->ir.y
-u32 down = d->btns_h & ~prev_held[p];   // a press is "held now, not last frame"
-```
-
-SDL still does the actual reading (`WPAD_ReadPending`) while raylib polls
-events inside `EndDrawing`, so the game only looks at the result. It finds
-presses from held buttons rather than from `btns_d`, which can't miss a press
-that falls between two reads. Rumble is `WPAD_Rumble(p, on)`, switched on for
-an eighth of a second per pop (a quarter for gold).
+The game reads the remotes through `examples/common/wiimote.c`, shared with
+the other games, rather than through SDL, which merges every remote's pointer
+into one mouse. [Wiimote input](wiimote-input.md) covers the module. Balloon
+Pop uses three things from it: `ir_valid`, `ir_x`, `ir_y` for the pointer,
+A or B in `pressed` to pop, and `wiimote_rumble` for an eighth of a second per
+pop (a quarter for gold).
 
 ### The bug the first test missed: SDL's own `main`
 
@@ -110,9 +99,9 @@ on.
 followed by at least three pops. That covers drawing, the game loop and the
 rules.
 
-**A scripted Wiimote** (`bb run:balloons-wiimote`). `scripts/dolphin-auto-wiimote`
-writes a separate Dolphin profile (`.dolphin-auto/`) whose emulated Wiimote 1
-plays by itself, using Dolphin's input expressions:
+**A scripted Wiimote** (`bb run:balloons-wiimote`). The `pointer` profile of
+`scripts/dolphin-auto-wiimote` makes Dolphin's emulated Wiimote 1 play by
+itself:
 
 ```ini
 Buttons/A = timer(0.25)                         ; press A four times a second
@@ -125,9 +114,11 @@ The check requires the remote to join (`mode countdown`), the round to start
 the WPAD path end to end: SDL's `WPAD_Init`, the IR pointer, A-press detection
 and scoring. It doesn't touch the Mac's real mouse.
 
-The pointer stays at mid-height because every balloon has to rise through it.
-A first version that also swept up and down spent a lot of its time off
-screen, and one 37-second run popped nothing.
+One early run popped nothing at all. We blamed the pointer sweep at the time,
+which also went up and down then, and kept it at mid-height after that. The
+real cause was more likely the one Shake Race found later: Dolphin ignores
+input while its window isn't focused, which `dolphin-shot` now turns off. See
+[Wiimote input](wiimote-input.md).
 
 What only the console can tell us: whether the real sensor bar and remotes
 behave like Dolphin's, whether the rumble feels right, and whether four remotes

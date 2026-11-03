@@ -18,25 +18,37 @@ jolt whose output matches the Mac build line for line. All three are Dolphin
 screenshots. None of this has run on the physical console yet, and that's the
 next step.*
 
-## Balloon Pop
+## Games
 
 <p>
-  <img src="docs/images/balloons-title.png" width="390" alt="Balloon Pop title screen">
-  <img src="docs/images/balloons-demo.png" width="390" alt="Balloon Pop robot demo">
+  <img src="docs/images/balloons-demo.png" width="260" alt="Balloon Pop robot demo">
+  <img src="docs/images/starcatcher-wiimote.png" width="260" alt="Star Catcher, a basket steered by tilting">
+  <img src="docs/images/shakerace-demo.png" width="260" alt="Shake Race robot demo">
 </p>
 
-Our first game for the kids. Point a Wiimote at the TV and press A to pop
-balloons, with up to four players, 60-second rounds, gold balloons worth 5, and
-a rumble on every pop. `bb play:balloons` opens it in Dolphin so you can try
-it on the Mac with the mouse, and [Balloon Pop](docs/guide/balloon-pop.md) has
-the rules and how it's built.
+Three games for the kids, each for up to four players and each using the
+Wiimote a different way:
+
+- **[Balloon Pop](docs/guide/balloon-pop.md)**: point at the TV and press A to
+  pop balloons. Gold ones are worth 5.
+- **[Star Catcher](docs/guide/star-catcher.md)**: hold the remote sideways and
+  tip it like a steering wheel to catch falling stars, and steer clear of the
+  storm clouds.
+- **[Shake Race](docs/guide/shake-race.md)**: shake the remote as hard as you
+  can to make your runner go. Wrist straps on.
+
+Each one has a robot demo, rumble, and rules that are tested on the Mac.
+`bb play:<game>` opens any of them in Dolphin to try with the mouse and
+keyboard, and `bb verify` plays each one with a scripted remote.
 
 ## What's here
 
 | App | Size | What it shows |
 |---|---|---|
-| `examples/balloons` | 1.1 MB | Balloon Pop, a Wiimote pointer game (raylib + libogc's WPAD) |
-| `examples/hello` | 1.1 MB | raylib 6.0, unmodified, at 60 fps over SDL2 and OpenGX |
+| `examples/balloons` | 1.3 MB | Balloon Pop: point and press A |
+| `examples/starcatcher` | 1.3 MB | Star Catcher: tilt to steer |
+| `examples/shakerace` | 1.3 MB | Shake Race: shake to run |
+| `examples/hello` | 1.3 MB | raylib 6.0, unmodified, at 60 fps over SDL2 and OpenGX |
 | `chez-wii` | 4.5 MB | Chez Scheme booting from boot files baked into the program, with bignums, threads, runtime `eval` and a full collect |
 | `jolt-hello` | 10.9 MB | Clojure: maps, sets, lazy seqs, atoms, bignums and Java-compatible hashes |
 
@@ -52,7 +64,7 @@ and a fix to how `jolt build` cross-compiles for 32-bit targets. The
 ```sh
 bb doctor        # Docker, the devkitPPC image, Dolphin, jolt, Chez: what's missing
 bb chez:setup    # one time: Chez 10.4.1 + the Wii patch, about 5 minutes
-bb test          # Balloon Pop's rules, compiled and tested on the Mac
+bb test          # every game's rules, compiled and tested on the Mac
 bb verify        # build everything, boot each app in Dolphin, check the output
 bb sd            # gather everything into build/sd/apps for an SD card
 ```
@@ -67,8 +79,10 @@ Wii.
 
 ## Documentation
 
-- [Balloon Pop](docs/guide/balloon-pop.md): how to play, and how the game
-  reads the Wiimotes
+- [Balloon Pop](docs/guide/balloon-pop.md), [Star Catcher](docs/guide/star-catcher.md)
+  and [Shake Race](docs/guide/shake-race.md): how to play, and how each is built
+- [Wiimote input](docs/guide/wiimote-input.md): the shared input module, tilt
+  and shake measurements, and testing with a scripted remote
 - [Getting started](docs/guide/getting-started.md): the toolchain, the build,
   and testing in Dolphin
 - [Running on your Wii](docs/guide/running-on-your-wii.md): the Homebrew
@@ -91,13 +105,14 @@ localhost.
 
 ```
 raylib-wii/     builds vendor/raylib as libraylib.a for the Wii, plus wii_shim.c
-examples/       raylib apps: balloons (the game, with host tests), hello
+examples/       raylib apps: the games (balloons, starcatcher, shakerace, each
+                with host tests), hello, and common/ (Wiimote input, UI bits)
 chez-wii/       Chez kernel build, the chez test app, and the runtime objects
                 that jolt-built programs link (console, TLS hooks, POSIX stubs)
 jolt-hello/     a Clojure program, with its expected output
 patches/        chez-wii.patch, applied to Chez v10.4.1 by scripts/setup-chez
 scripts/        dkp (run in the devkitPPC image), wii-cc, dolphin-shot,
-                setup-chez, make-pack, jolt-wii-build
+                dolphin-auto-wiimote, setup-chez, make-pack, jolt-wii-build
 vendor/raylib/  raylib 6.0 source, unmodified
 ```
 

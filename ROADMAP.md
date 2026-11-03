@@ -24,24 +24,42 @@ untested until the console.
 Open: one boot hang in about ten runs right after the SDL `main` change, not
 reproduced since. See [Balloon Pop](docs/guide/balloon-pop.md).
 
+## Done: Star Catcher and Shake Race (2026-11-03)
+
+Two more games, each using the Wiimote a new way: Star Catcher steers by
+tilting a sideways remote, and Shake Race runs on shaking. 38 and 35
+host-side checks. The Wiimote code moved into `examples/common/wiimote.c`,
+which all three games now share. `bb verify` plays every game twice, with
+the robot demo and with a scripted remote (pointer, tilt or shake).
+
+While testing these, we found that Dolphin ignores controller input whenever
+its window isn't focused, which made scripted runs flaky. `dolphin-shot` now
+turns on background input. See [Wiimote input](docs/guide/wiimote-input.md).
+
 ## Next: the real console
 
-1. Copy `bb sd`'s output to an SD card and run all three apps on the family Wii.
+1. Copy `bb sd`'s output to an SD card and run every app on the family Wii.
 2. Play a round of Balloon Pop with real Wiimotes: does every remote get its own
    pointer, do A and B pop, does the rumble fire, and is aiming comfortable from
    the couch?
-3. Answer the questions Dolphin can't (listed in
+3. Star Catcher: does tipping right move the basket right? The sign came from
+   Dolphin (`TILT_SIGN` in `examples/starcatcher/main.c`). Is 30 degrees of tip
+   for full speed comfortable?
+4. Shake Race: what does a real remote read when held still, and how hard do
+   the kids shake? Tune the dead zone, gain and friction in
+   `examples/shakerace/game.h` from that.
+5. Answer the questions Dolphin can't (listed in
    [Running on your Wii](docs/guide/running-on-your-wii.md)): `KEYBOARD_Init`
    without a keyboard, the Wiimote through SDL, real Chez speed, and whether the
    10.9 MB jolt `.dol` loads.
-4. Get `wiiload` working from the Docker image, so a build goes to the console
+6. Get `wiiload` working from the Docker image, so a build goes to the console
    without swapping SD cards.
 
-## Then: something the kids can play
+## Then: more for the kids
 
-- **Wiimote input in raylib apps.** Balloon Pop reads WPAD directly. Pull
-  that into a small reusable header once a second game needs it, and add the
-  accelerometer (shake, tilt).
+- **More Wiimote.** The shared module has buttons, IR, the accelerometer and
+  rumble. The Nunchuk is next: two-handed games, and a stick for the kids who
+  find tilting hard.
 - **raylib from Clojure.** Bind raylib to jolt on the Wii the way raylib-ios
   does on iOS, so a game can be written in Clojure. That needs
   `:jolt/native` static archives in cross builds (not supported by

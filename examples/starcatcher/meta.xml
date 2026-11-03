@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<app version="1">
+  <name>Star Catcher</name>
+  <coder>b12n</coder>
+  <version>0.1</version>
+  <short_description>Tilt to catch falling stars! Up to 4 players.</short_description>
+  <long_description>Hold your Wiimote sideways and tip it like a steering wheel to slide your basket. Catch falling stars; rainbow stars are worth 5. Storm clouds make your basket slow and wobbly for a moment. The D-pad steers too. Rounds last 60 seconds. Up to four players. Press HOME to quit.</long_description>
+</app>

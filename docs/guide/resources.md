@@ -53,6 +53,19 @@ Two toolchain facts that each cost a probe:
 
 ## Scripting Dolphin's emulated Wiimote
 
+- [Dolphin `Core.cpp`](https://github.com/dolphin-emu/dolphin/blob/master/Source/Core/Core/Core.cpp),
+  `UpdateInputGate`: every controller expression reads 0 while the game window
+  isn't focused, unless background input is on.
+- [Dolphin `MainSettings.cpp`](https://github.com/dolphin-emu/dolphin/blob/master/Source/Core/Core/Config/MainSettings.cpp):
+  `MAIN_INPUT_BACKGROUND_INPUT`, `Input.BackgroundInput`, default false. We
+  set it with `-C Dolphin.Input.BackgroundInput=True`.
+- [Dolphin `WiimoteEmu.cpp`](https://github.com/dolphin-emu/dolphin/blob/master/Source/Core/Core/HW/WiimoteEmu/WiimoteEmu.cpp),
+  `Wiimote::LoadDefaults`: the Mac's default mapping (left click A, right
+  click B, arrows for the D-pad, Return for HOME, middle click to shake, no
+  tilt keys).
+- [Dolphin `QuartzKeyboardAndMouse.mm`](https://github.com/dolphin-emu/dolphin/blob/master/Source/Core/InputCommon/ControllerInterface/Quartz/QuartzKeyboardAndMouse.mm):
+  the Mac key names an expression can use, such as `Space` and `Return`.
+
 - [Dolphin `FunctionExpression.cpp`](https://github.com/dolphin-emu/dolphin/blob/master/Source/Core/InputCommon/ControlReference/FunctionExpression.cpp):
   the functions a controller mapping can use (`timer`, `sin`, `toggle`,
   `pulse`, ...). `timer(s)` is a 0-to-1 sawtooth every `s` seconds.

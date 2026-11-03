@@ -3,6 +3,7 @@
 // The rules live in game.c; this file is input, drawing and rumble.
 #include "raylib.h"
 #include "game.h"
+#include "wiimote.h"
 // SDL's Wii port runs its own main() first (SDL_wii_main.c): it calls
 // WPAD_Init, hooks the power/reset buttons and mounts the SD card, then calls
 // ours as SDL_main. Including SDL_main.h does that renaming. Without it the
@@ -27,49 +28,16 @@ static const Color BALLOON_COLORS[6] = {
 static const Color GOLDEN = { 255, 203, 0, 255 };
 
 // ---------------------------------------------------------------- input
+// examples/common/wiimote.c reads the remotes (WPAD) and handles rumble.
 
-static u32 prev_held[MAX_PLAYERS];
-static bool rumbling[MAX_PLAYERS];
-
-static void input_init(void)
-{
-    // SDL's main has already called WPAD_Init (see the SDL_main.h note at the
-    // top). Ask every remote for buttons, accelerometer and IR, with IR in
-    // screen pixels. SDL's main sets the same; repeating it keeps this file
-    // correct on its own.
-    WPAD_SetDataFormat(WPAD_CHAN_ALL, WPAD_FMT_BTNS_ACC_IR);
-    WPAD_SetVRes(WPAD_CHAN_ALL, SCREEN_W, SCREEN_H);
-}
-
-// SDL reads the remotes (WPAD_ReadPending) while raylib polls events inside
-// EndDrawing, so by the next frame WPAD_Data holds fresh state. We detect
-// presses ourselves from btns_h, which can't miss a press between reads.
-static bool read_inputs(PlayerInput in[MAX_PLAYERS])
-{
-    bool home = false;
-    for (int p = 0; p < MAX_PLAYERS; p++) {
-        u32 type;
-        PlayerInput *pi = &in[p];
-        pi->connected = WPAD_Probe(p, &type) == WPAD_ERR_NONE;
-        if (!pi->connected) { pi->aiming = pi->fire = false; prev_held[p] = 0; continue; }
-        WPADData *d = WPAD_Data(p);
-        u32 held = d->btns_h;
-        u32 down = held & ~prev_held[p];
-        prev_held[p] = held;
-        pi->fire = (down & (WPAD_BUTTON_A | WPAD_BUTTON_B)) != 0;
-        pi->aiming = d->ir.valid;
-        pi->x = d->ir.x;
-        pi->y = d->ir.y;
-        if (down & WPAD_BUTTON_HOME) home = true;
-    }
-    return home;
-}
-
-static void update_rumble(const Game *g)
+static void to_player_inputs(const Remote r[WIIMOTE_MAX], PlayerInput in[MAX_PLAYERS])
 {
     for (int p = 0; p < MAX_PLAYERS; p++) {
-        bool want = g->players[p].rumble > 0 && g->mode != MODE_DEMO;
-        if (want != rumbling[p]) { WPAD_Rumble(p, want); rumbling[p] = want; }
+        in[p].connected = r[p].connected;
+        in[p].fire = (r[p].pressed & (WPAD_BUTTON_A | WPAD_BUTTON_B)) != 0;
+        in[p].aiming = r[p].ir_valid;
+        in[p].x = r[p].ir_x;
+        in[p].y = r[p].ir_y;
     }
 }
 
@@ -261,12 +229,13 @@ int main(int argc, char *argv[])
     SYS_STDIO_Report(true);   // stdout -> Dolphin log / USB Gecko; raylib draws with the GPU
     InitWindow(SCREEN_W, SCREEN_H, "Balloon Pop");
     SetTargetFPS(60);
-    input_init();
+    wiimote_init(SCREEN_W, SCREEN_H);
 
     Game g;
     game_init(&g, (uint32_t)gettime());
     printf("balloons: start\n");
 
+    Remote remotes[WIIMOTE_MAX] = { 0 };
     PlayerInput in[MAX_PLAYERS] = { 0 };
     Mode last_mode = g.mode;
     int last_score[MAX_PLAYERS] = { 0 };
@@ -277,9 +246,11 @@ int main(int argc, char *argv[])
         if (dt > 0.05f) dt = 0.05f;   // a long frame shouldn't teleport balloons
         t += dt;
 
-        if (read_inputs(in)) break;    // HOME: back to the Homebrew Channel
+        if (wiimote_read(remotes)) break;   // HOME: back to the Homebrew Channel
+        to_player_inputs(remotes, in);
         game_update(&g, in, dt);
-        update_rumble(&g);
+        for (int p = 0; p < MAX_PLAYERS; p++)
+            wiimote_rumble(p, g.players[p].rumble > 0 && g.mode != MODE_DEMO);
         log_events(&g, &last_mode, last_score);
 
         BeginDrawing();
@@ -287,7 +258,7 @@ int main(int argc, char *argv[])
         EndDrawing();
     }
 
-    for (int p = 0; p < MAX_PLAYERS; p++) WPAD_Rumble(p, 0);
+    wiimote_rumble_all_off();
     printf("balloons: exit\n");
     CloseWindow();
     return 0;
