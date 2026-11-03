@@ -60,6 +60,23 @@ The game is two halves, so the rules can be tested on the Mac.
 - **`examples/balloons/main.c`** is the Wii half: reading the Wiimotes,
   drawing with raylib, rumble, and a one-line event log.
 
+### The screens
+
+Balloon Pop and Star Catcher share this flow. `game_update` moves between
+the modes, and `main.c` logs each change as `mode <name>`, which is what
+`bb verify` reads.
+
+```mermaid
+stateDiagram-v2
+  [*] --> Title
+  Title --> Countdown: someone presses A
+  Title --> Demo: 8 s with no press
+  Demo --> Title: any press, or after 20 s
+  Countdown --> Play: after 3 s (others can still join)
+  Play --> Results: after 60 s
+  Results --> Title: A, once the 2 s lock is over
+```
+
 ### Wiimote input
 
 The game reads the remotes through `examples/common/wiimote.c`, shared with

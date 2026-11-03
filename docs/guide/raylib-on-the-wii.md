@@ -15,6 +15,16 @@ wii-opengx 0.17.0              OpenGL 1.x implemented over the Wii's GX GPU
 libogc 3.2.1                   the Wii's system library
 ```
 
+```mermaid
+flowchart TD
+  app["Your app: ordinary raylib code"] --> rl["raylib 6.0<br/>PLATFORM_DESKTOP_SDL + GRAPHICS_API_OPENGL_11"]
+  rl -->|"window, events, timing"| sdl["wii-sdl2 2.28.5"]
+  rl -->|"fixed-function GL"| gx["wii-opengx 0.17.0"]
+  sdl --> ogc["libogc 3.2.1"]
+  gx --> ogc
+  ogc --> hw["Wii: GX GPU, Wiimotes, SD card"]
+```
+
 raylib picks its platform and its renderer at compile time. Its SDL platform
 (`rcore_desktop_sdl.c`) asks SDL for a window and a GL context, and its OpenGL
 1.1 renderer only uses fixed-function GL, which is what OpenGX implements. At
@@ -90,6 +100,19 @@ in their SDL fork). It reloads the preferred IOS, calls `WPAD_Init()`, hooks the
 power and reset buttons, starts the USB mouse and mounts the SD card, then calls
 the application as `SDL_main`. SDL's joystick code relies on that: it says
 "We don't call WPAD_Init() here, since it's already been called by SDL_main".
+
+```mermaid
+sequenceDiagram
+  participant HBC as Homebrew Channel
+  participant SM as SDL's main (SDL_wii_main.c)
+  participant App as Your main, renamed SDL_main
+  participant RL as raylib
+  HBC->>SM: launch boot.dol, argv[0] = its path
+  SM->>SM: WPAD_Init, power and reset hooks
+  SM->>SM: fatInitDefault (mounts sd: and usb:)
+  SM->>App: SDL_main(argc, argv)
+  App->>RL: InitWindow, then the game loop
+```
 
 A raylib app defines its own `main`, so it has to opt in with SDL's standard
 include, or the Wiimotes never initialise:

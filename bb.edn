@@ -11,7 +11,6 @@
     ;; bb sets babashka.version, jolt sets jolt.version.
     (def runner (if (System/getProperty "babashka.version") "bb" "jolt"))
     (def repo-root (str (fs/parent (fs/absolutize "bb.edn"))))
-    (def dolphin-log (str repo-root "/.dolphin-user/Logs/dolphin.log"))
     (defn auto-user
       "Write a scripted (or play) Wiimote profile and return its Dolphin user dir."
       [profile]
@@ -38,27 +37,37 @@
           (binding [*out* *err*] (println "failed:" (str/join " " args)))
           (System/exit (:exit r)))))
 
+    (defn osreport-lines
+      "The program's stdout/stderr lines (OSREPORT) from a Dolphin log file."
+      [log-file]
+      (->> (str/split-lines (if (fs/exists? log-file) (slurp log-file) ""))
+           (filter (fn [l] (str/includes? l "N[OSREPORT]: ")))
+           (map (fn [l] (str/replace (subs l (+ (str/index-of l "N[OSREPORT]: ") 13)) "\r" "")))))
+
     (defn run-in-dolphin
       "Boot an app in Dolphin (MMU emulation on), screenshot it, return the
-       OSREPORT lines (the program's stdout/stderr) from Dolphin's log."
+       OSREPORT lines (the program's stdout/stderr) from Dolphin's log.
+       Without :user it uses the `idle` profile: a Wiimote with nothing bound.
+       Never Dolphin's default profile, which maps the Mac's own mouse and
+       keyboard, and dolphin-shot turns on background input, so whatever the
+       person at the Mac is doing would reach the game."
       [nm seconds & {:keys [user shot-name]}]
       (let [[_ dol console?] (app nm)
+            user (or user (auto-user "idle"))
             shot (str shots-dir "/" (or shot-name nm) ".png")
-            log-file (if user (str user "/Logs/dolphin.log") dolphin-log)]
+            log-file (str user "/Logs/dolphin.log")]
         (fs/create-dirs shots-dir)
         (when-not (fs/exists? (fs/file repo-root dol))
           (binding [*out* *err*] (println (str "not built: " dol "   (try: " runner " build:" nm ")")))
           (System/exit 1))
         (shell {:dir repo-root :continue true
                 :extra-env (merge (if console? {"DOLPHIN_EXTRA" "-C GFX.Hacks.XFBToTextureEnable=False"} {})
-                                  (if user {"DOLPHIN_USER" user} {}))}
+                                  {"DOLPHIN_USER" user})}
                "scripts/dolphin-shot" dol shot (str seconds))
         (let [log (if (fs/exists? log-file) (slurp log-file) "")]
           {:shot shot
            :crashed? (boolean (re-find (re-pattern "Exception \\(DSI\\)|Invalid (read|write)") log))
-           :lines (->> (str/split-lines log)
-                       (filter (fn [l] (str/includes? l "N[OSREPORT]: ")))
-                       (map (fn [l] (str/replace (subs l (+ (str/index-of l "N[OSREPORT]: ") 13)) "\r" ""))))})))
+           :lines (osreport-lines log-file)})))
     ;; The games: [name scripted-wiimote-profile log-line-for-a-score how-it's-played].
     ;; Each has examples/<name>/game.c with host tests in test/test_game.c, and
     ;; prints "<name>: mode <m>" and one line per score to Dolphin's log.
@@ -101,14 +110,51 @@
       (doseq [l (game-lines nm r)] (println (str nm ": " l)))
       (println (:shot r)))
 
+    (defn sd-sync-opts
+      "Dolphin flags for an emulated SD card built from folder `dir` (copied
+       back to the Mac when Dolphin shuts down), so settings.txt saves work."
+      [dir]
+      (fs/create-dirs dir)
+      ["-C" "Dolphin.Core.WiiSDCard=True" "-C" "Dolphin.Core.WiiSDCardEnableFolderSync=True"
+       "-C" (str "Dolphin.General.WiiSDCardSyncFolder=" dir) "-C" "Dolphin.Core.WiiSDCardAllowWrites=True"])
+
+    ;; The couch settings: [game remote-button-profile settings-key value-after-one-press]
+    (def couch-settings
+      [["starcatcher" "minus" "tilt_sign" "1"]
+       ["shakerace"   "plus"  "shake_level" "4"]])
+
+    (defn couch-check
+      "Press the setting's button once on the title screen with an emulated SD
+       card, then relaunch with no presses. Passes if the first run saved and
+       the second started with the new value."
+      [[nm profile k v]]
+      (let [sd (str repo-root "/.work/sd-couch")
+            extra (str/join " " (sd-sync-opts sd))
+            boot (fn [prof shot]
+                   (let [user (auto-user prof)]
+                     (shell {:dir repo-root :continue true :out :string
+                             :extra-env {"DOLPHIN_USER" user "DOLPHIN_EXTRA" extra}}
+                            "scripts/dolphin-shot" (str "examples/build/" nm "/" nm ".dol")
+                            (str shots-dir "/" shot ".png") "5.5")
+                     (game-lines nm {:lines (osreport-lines (str user "/Logs/dolphin.log"))})))]
+        (fs/delete-tree sd)
+        (fs/create-dirs (str sd "/apps/" nm))
+        (let [first-run (boot profile (str nm "-couch"))
+              second-run (boot "idle" (str nm "-couch-reload"))]
+          {:saved? (boolean (some (fn [l] (= l (str "setting " k "=" v " saved=1"))) first-run))
+           :loaded? (boolean (some (fn [l] (and (str/starts-with? l "start ") (str/includes? l (str k "=" v " ")))) second-run))
+           :file (let [f (str sd "/apps/" nm "/settings.txt")] (when (fs/exists? f) (str/trim (slurp f))))})))
+
     (defn play-game
       "Open a game in Dolphin for a person to play with the Mac."
       [nm]
       (let [dol (str repo-root "/examples/build/" nm "/" nm ".dol")]
         (when-not (fs/exists? dol) (run (symbol (str "build:" nm))))
-        (shell {:dir repo-root} "/Applications/Dolphin.app/Contents/MacOS/Dolphin"
+        (fs/create-dirs (str repo-root "/.work/sd-play/apps/" nm))
+        (apply shell {:dir repo-root} "/Applications/Dolphin.app/Contents/MacOS/Dolphin"
                "-u" (auto-user "play") "-e" dol
-               "-C" "Dolphin.Core.MMU=True" "-C" "Dolphin.Analytics.PermissionAsked=True")))
+               "-C" "Dolphin.Core.MMU=True" "-C" "Dolphin.Analytics.PermissionAsked=True"
+               (sd-sync-opts (str repo-root "/.work/sd-play")))))
 
 
     (def docs-engine-repo "https://github.com/jlt-commons/docs-engine")
@@ -168,6 +214,7 @@
      (hdr "Run in Dolphin")
      (doseq [[nm _ _ what] apps] (row (str "run:" nm) what))
      (doseq [[nm profile] games] (row (str "run:" nm "-wiimote") (str "a round with a scripted Wiimote (" profile ")")))
+     (row "run:couch" "press each game's couch setting, check it saves and reloads")
      (hdr "Play on the Mac (Dolphin; Return = HOME)")
      (doseq [[nm _ _ how] games] (row (str "play:" nm) how))
      (hdr "Docs")
@@ -217,12 +264,17 @@
 
   test
   {:doc "Host-side unit tests: every game's rules compiled and run on the Mac"
-   :task (doseq [[nm] games]
+   :task (do
+          (fs/create-dirs (str repo-root "/.work"))
+          (sh! "cc" "-std=c99" "-Wall" "-Wextra" "-Werror" "-Iexamples/common" "examples/common/settings.c"
+               "examples/common/test/test_settings.c" "-lm" "-o" (str repo-root "/.work/test_settings"))
+          (sh! (str repo-root "/.work/test_settings") (str repo-root "/.work/test_settings.tmp"))
+          (doseq [[nm] games]
            (let [bin (str repo-root "/.work/test_" nm)]
              (fs/create-dirs (str repo-root "/.work"))
              (sh! "cc" "-std=c99" "-Wall" "-Wextra" "-Werror" (str "-Iexamples/" nm)
                   (str "examples/" nm "/game.c") (str "examples/" nm "/test/test_game.c") "-lm" "-o" bin)
-             (sh! bin)))}
+             (sh! bin))))}
 
   build:balloons
   {:doc "Build Balloon Pop (.dol + SD layout)"
@@ -307,6 +359,11 @@
   {:doc "A race in Shake Race with a scripted Wiimote: A to join, shaken 1 s in every 2"
    :task (print-game-run "shakerace" (run-scripted "shakerace"))}
 
+  run:couch
+  {:doc "Press each game's couch-setting button in Dolphin, check it saves to an emulated SD card and reloads"
+   :task (doseq [c couch-settings]
+           (let [r (couch-check c)] (println (first c) r)))}
+
   play:balloons
   {:doc "Play Balloon Pop in Dolphin: the mouse is the pointer, left click = A, Return = HOME"
    :task (play-game "balloons")}
@@ -341,6 +398,7 @@
                   (when-not pass? (swap! fails conj nm)))
          _ (run 'test)
          game-runs (vec (for [[nm] games] [nm (run-in-dolphin nm 20) (run-scripted nm)]))
+         couch-runs (vec (for [c couch-settings] [c (couch-check c)]))
          h (run-in-dolphin "hello" 12)
          c (run-in-dolphin "chez" 25)
          j (run-in-dolphin "jolt-hello" 40)
@@ -353,6 +411,9 @@
        (expect nm (demo-pass? nm demo) "title, then the robot demo scores at least 3 times, no crash")
        (expect (str nm "-wiimote") (scripted-pass? nm scripted)
                "a scripted Wiimote presses A to join, the round starts, and player 1 scores in it"))
+     (doseq [[[nm _ k v] r] couch-runs]
+       (expect (str nm "-couch") (and (:saved? r) (:loaded? r) (= (:file r) (str k "=" v)))
+               (str "one button press sets " k "=" v ", it's saved to the SD card, and the next launch loads it")))
      (expect "hello" (and (not (:crashed? h))
                           (some (fn [l] (str/includes? l "PLATFORM: DESKTOP (SDL2): Initialized successfully")) (:lines h)))
              "raylib initialised over SDL2/OpenGX, no crash")

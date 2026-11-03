@@ -77,6 +77,34 @@ static void test_shake_speed(void)
     CHECK(g.players[2].dist == 0, "a remote that didn't join doesn't run");
 }
 
+static void test_shake_power(void)
+{
+    CHECK(game_shake_scale(SHAKE_LEVEL_DEFAULT) == 1, "the default level is the Dolphin tuning");
+    CHECK(fabsf(game_shake_scale(5) - 2) < 1e-5f && fabsf(game_shake_scale(9) - 8) < 1e-5f,
+          "every two levels doubles it");
+    CHECK(fabsf(game_shake_scale(1) - 0.5f) < 1e-5f, "level 1 halves it");
+    CHECK(game_shake_scale(0) == game_shake_scale(1) && game_shake_scale(42) == game_shake_scale(9),
+          "levels outside 1..9 are clamped");
+    Game a = racing(1), b = racing(1);
+    b.shake_scale = game_shake_scale(5);
+    PlayerInput in[MAX_PLAYERS] = { 0 };
+    shaking(in, 0.4f, 0, 0, 0);
+    step(&a, in, 4);
+    step(&b, in, 4);
+    CHECK(fabsf(b.players[0].speed - 2 * a.players[0].speed) < 0.3f, "double the power, double the steady speed");
+    shaking(in, 0.2f, 0, 0, 0);
+    Game c = racing(1);
+    c.shake_scale = game_shake_scale(9);
+    step(&c, in, 2);
+    CHECK(c.players[0].dist == 0, "even at full power, a still remote doesn't run");
+    PlayerInput j[MAX_PLAYERS];
+    b.mode = MODE_RESULTS; b.mode_time = 0;
+    step(&b, none, RESULTS_LOCK_SECONDS);
+    join(j, 0);
+    game_update(&b, j, 1.0f / 60);
+    CHECK(b.mode == MODE_COUNTDOWN && b.shake_scale == game_shake_scale(5), "a rematch keeps the shake power");
+}
+
 static void test_finish_order(void)
 {
     Game g = racing(3);
@@ -168,6 +196,7 @@ int main(void)
 {
     test_join_and_countdown();
     test_shake_speed();
+    test_shake_power();
     test_finish_order();
     test_everyone_finishes_ends_race();
     test_time_limit();

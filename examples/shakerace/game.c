@@ -1,5 +1,6 @@
 // Shake Race rules. See game.h.
 #include "game.h"
+#include <math.h>
 #include <string.h>
 
 uint32_t game_rand(Game *g)
@@ -36,8 +37,16 @@ void game_init(Game *g, uint32_t seed)
 {
     memset(g, 0, sizeof *g);
     g->rng = seed ? seed : 0x9E3779B9u;
+    g->shake_scale = 1;
     reset_runners(g, false);
     set_mode(g, MODE_TITLE);
+}
+
+float game_shake_scale(int level)
+{
+    if (level < SHAKE_LEVEL_MIN) level = SHAKE_LEVEL_MIN;
+    if (level > SHAKE_LEVEL_MAX) level = SHAKE_LEVEL_MAX;
+    return powf(2.0f, (level - SHAKE_LEVEL_DEFAULT) / 2.0f);
 }
 
 int game_joined_count(const Game *g)
@@ -101,7 +110,9 @@ static void run(Game *g, const PlayerInput in[MAX_PLAYERS], float dt, bool live)
         if (!racing(g, p) || (!live && !pl->finished)) continue;
         float s = g->mode == MODE_DEMO ? bot_shake(g, pl, dt) : in[p].connected ? in[p].shake : 0;
         if (pl->finished || !live) s = 0;   // coast to a stop past the line
-        if (s > SHAKE_DEADZONE) pl->speed += SHAKE_GAIN * (s - SHAKE_DEADZONE);
+        // the demo bots ignore shake power, so the demo looks the same at any level
+        float gain = SHAKE_GAIN * (g->mode == MODE_DEMO ? 1.0f : g->shake_scale);
+        if (s > SHAKE_DEADZONE) pl->speed += gain * (s - SHAKE_DEADZONE);
         pl->speed -= pl->speed * FRICTION * dt;
         if (pl->speed > MAX_SPEED) pl->speed = MAX_SPEED;
         if (pl->speed < 0.01f) pl->speed = 0;

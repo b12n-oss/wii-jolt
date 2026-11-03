@@ -36,18 +36,28 @@ While testing these, we found that Dolphin ignores controller input whenever
 its window isn't focused, which made scripted runs flaky. `dolphin-shot` now
 turns on background input. See [Wiimote input](docs/guide/wiimote-input.md).
 
+## Done: couch settings (2026-11-03)
+
+Star Catcher's steering direction and Shake Race's shake power can be changed
+from the remote and are saved to `settings.txt` beside each game's `boot.dol`
+(`examples/common/settings.c`). `bb verify` checks the save and reload
+through Dolphin's emulated SD card.
+
 ## Next: the real console
 
 1. Copy `bb sd`'s output to an SD card and run every app on the family Wii.
 2. Play a round of Balloon Pop with real Wiimotes: does every remote get its own
    pointer, do A and B pop, does the rumble fire, and is aiming comfortable from
    the couch?
-3. Star Catcher: does tipping right move the basket right? The sign came from
-   Dolphin (`TILT_SIGN` in `examples/starcatcher/main.c`). Is 30 degrees of tip
-   for full speed comfortable?
-4. Shake Race: what does a real remote read when held still, and how hard do
-   the kids shake? Tune the dead zone, gain and friction in
-   `examples/shakerace/game.h` from that.
+3. Star Catcher: does tipping right move the basket right? The default came
+   from Dolphin. If it's backwards, press − on the title screen (saved to the
+   SD card), then make the right direction the default
+   (`TILT_SIGN_DEFAULT` in `examples/starcatcher/game.h`). Is 30 degrees of
+   tip for full speed comfortable?
+4. Shake Race: which shake power suits the kids? Set it with + and − and note
+   the level, then make it the default (`SHAKE_LEVEL_DEFAULT`). Also check
+   that a remote held still doesn't creep forward (the dead zone, in
+   `examples/shakerace/game.h`).
 5. Answer the questions Dolphin can't (listed in
    [Running on your Wii](docs/guide/running-on-your-wii.md)): `KEYBOARD_Init`
    without a keyboard, the Wiimote through SDL, real Chez speed, and whether the

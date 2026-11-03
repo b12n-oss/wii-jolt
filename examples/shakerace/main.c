@@ -5,6 +5,7 @@
 #include "game.h"
 #include "wiimote.h"
 #include "ui.h"
+#include "settings.h"
 #include <SDL2/SDL_main.h>     // SDL's main runs first and calls WPAD_Init (see wiimote.h)
 #include <gccore.h>
 #include <wiiuse/wpad.h>
@@ -24,6 +25,52 @@ static void to_player_inputs(const Remote r[WIIMOTE_MAX], PlayerInput in[MAX_PLA
         in[p].shake = r[p].shake;
         in[p].join = (r[p].pressed & (WPAD_BUTTON_A | WPAD_BUTTON_B)) != 0;
     }
+}
+
+// ---------------------------------------------------------------- shake power
+// The couch setting. How hard a real child shakes is unknown (the tuning came
+// from Dolphin), so + and - on the title, countdown or results screen change
+// the shake power, 1 to 9, and it's saved in settings.txt next to boot.dol.
+// Not during a race, so nobody changes it mid-race.
+
+static int shake_level = SHAKE_LEVEL_DEFAULT;
+static char settings_file[256];
+static float banner_time;
+static bool banner_saved;
+
+static void couch_controls(const Remote r[WIIMOTE_MAX], Game *g)
+{
+    if (g->mode == MODE_RACE || g->mode == MODE_DEMO) return;
+    for (int p = 0; p < MAX_PLAYERS; p++) {
+        if (!r[p].connected) continue;
+        int d = (r[p].pressed & WPAD_BUTTON_PLUS) ? 1 : (r[p].pressed & WPAD_BUTTON_MINUS) ? -1 : 0;
+        if (!d) continue;
+        int next = shake_level + d;
+        if (next < SHAKE_LEVEL_MIN || next > SHAKE_LEVEL_MAX) next = shake_level;   // already at the end
+        shake_level = next;
+        g->shake_scale = game_shake_scale(shake_level);
+        banner_saved = settings_save(settings_file, "shake_level", (float)shake_level);
+        banner_time = 2.5f;
+        printf("shakerace: setting shake_level=%d saved=%d\n", shake_level, banner_saved);
+        return;
+    }
+}
+
+// The level as nine rising bars, x being their left edge.
+static void draw_power_bars(int x, int y)
+{
+    for (int i = SHAKE_LEVEL_MIN; i <= SHAKE_LEVEL_MAX; i++)
+        DrawRectangle(x + (i - 1) * 16, y + 16 - i * 2, 12, i * 2 + 4,
+                      i <= shake_level ? (Color){ 230, 90, 20, 255 } : (Color){ 0, 0, 0, 40 });
+}
+
+static void draw_banner(void)
+{
+    if (banner_time <= 0) return;
+    DrawRectangleRounded((Rectangle){ 110, 352, SCREEN_W - 220, 96 }, 0.3f, 8, (Color){ 255, 255, 255, 235 });
+    ui_centered(TextFormat("Shake power %d of %d", shake_level, SHAKE_LEVEL_MAX), SCREEN_W, 360, 26, (Color){ 230, 90, 20, 255 });
+    draw_power_bars(SCREEN_W / 2 - 70, 392);
+    ui_centered(banner_saved ? "Saved for next time." : "(Couldn't save it to the SD card.)", SCREEN_W, 420, 18, DARKGRAY);
 }
 
 // ---------------------------------------------------------------- drawing
@@ -128,12 +175,15 @@ static void draw(const Game *g, float t)
         ui_centered("Shake your Wiimote to make your runner go!", SCREEN_W, 140, 22, DARKBLUE);
         ui_centered("Stop shaking and you slow down.", SCREEN_W, 170, 22, DARKBLUE);
         ui_centered("Hold on tight and wear the wrist strap!", SCREEN_W, 210, 20, MAROON);
-        if ((int)(t * 2) % 2 == 0) ui_centered("Press A to join", SCREEN_W, 260, 32, DARKBLUE);
+        if ((int)(t * 2) % 2 == 0) ui_centered("Press A to join", SCREEN_W, 245, 32, DARKBLUE);
+        DrawText("Shake power", SCREEN_W / 2 - 145, 290, 20, DARKGRAY);
+        draw_power_bars(SCREEN_W / 2 - 5, 290);
+        ui_centered("Too hard or too easy? + and - change it", SCREEN_W, 314, 18, GRAY);
         break;
     case MODE_COUNTDOWN: {
         int n = (int)ceilf(COUNTDOWN_SECONDS - g->mode_time);
         ui_centered(n > 0 ? TextFormat("%d", n) : "GO!", SCREEN_W, 10, 110, WHITE);
-        ui_centered("Others: press A to join", SCREEN_W, 120, 20, DARKBLUE);
+        ui_centered("Others: press A to join.  + and - change shake power", SCREEN_W, 120, 20, DARKBLUE);
         break;
     }
     case MODE_RACE:
@@ -150,6 +200,7 @@ static void draw(const Game *g, float t)
         if ((int)(t * 2) % 2 == 0) ui_centered("DEMO - press A to play!", SCREEN_W, 50, 32, WHITE);
         break;
     }
+    draw_banner();
 }
 
 // ---------------------------------------------------------------- log
@@ -187,15 +238,19 @@ static void log_events(const Game *g, Mode *last_mode, bool last_finished[MAX_PL
 
 int main(int argc, char *argv[])
 {
-    (void)argc; (void)argv;
+    (void)argc;
     SYS_STDIO_Report(true);
     InitWindow(SCREEN_W, SCREEN_H, "Shake Race");
     SetTargetFPS(60);
     wiimote_init(SCREEN_W, SCREEN_H);
+    settings_path(settings_file, sizeof settings_file, argv[0], "shakerace");
+    shake_level = (int)settings_load(settings_file, "shake_level", SHAKE_LEVEL_DEFAULT);
+    if (shake_level < SHAKE_LEVEL_MIN || shake_level > SHAKE_LEVEL_MAX) shake_level = SHAKE_LEVEL_DEFAULT;
 
     Game g;
     game_init(&g, (uint32_t)gettime());
-    printf("shakerace: start\n");
+    g.shake_scale = game_shake_scale(shake_level);
+    printf("shakerace: start shake_level=%d settings=%s\n", shake_level, settings_file);
 
     Remote remotes[WIIMOTE_MAX] = { 0 };
     PlayerInput in[MAX_PLAYERS] = { 0 };
@@ -209,6 +264,8 @@ int main(int argc, char *argv[])
         t += dt;
 
         if (wiimote_read(remotes)) break;   // HOME: back to the Homebrew Channel
+        couch_controls(remotes, &g);
+        if (banner_time > 0) banner_time -= dt;
         to_player_inputs(remotes, in);
         game_update(&g, in, dt);
         for (int p = 0; p < MAX_PLAYERS; p++)

@@ -5,6 +5,7 @@
 #include "game.h"
 #include "wiimote.h"
 #include "ui.h"
+#include "settings.h"
 #include <SDL2/SDL_main.h>     // SDL's main runs first and calls WPAD_Init (see wiimote.h)
 #include <gccore.h>
 #include <wiiuse/wpad.h>
@@ -15,24 +16,14 @@
 // ---------------------------------------------------------------- input
 //
 // Held sideways (D-pad on the left), tipping the remote like a steering wheel
-// moves gravity along its long axis, the accelerometer's y. The sign comes
-// from Dolphin: with "Sideways Wiimote" on, its "tilt right" reads gy = -1.
-// Dolphin's emulation is what Wii games are tested against, but this hasn't
-// been checked with a real remote yet. If the basket goes the wrong way on the
-// console, flip TILT_SIGN.
-#define TILT_SIGN (-1.0f)
-#define TILT_FULL 0.5f        // gy at full steer: about 30 degrees of tip
-#define TILT_DEADZONE 0.1f    // ignore small wobbles from holding it still
+// moves gravity along its long axis, the accelerometer's y. game_tilt_steer
+// turns that into steering. Which way is "right" came from Dolphin and hasn't
+// been checked with a real remote, so it's a couch setting: press - on the
+// title or countdown screen to flip it, and it's saved in settings.txt next to
+// boot.dol.
 
-static float tilt_steer(float gy)
-{
-    float s = TILT_SIGN * gy;
-    float m = fabsf(s);
-    if (m < TILT_DEADZONE) return 0;
-    float v = (m - TILT_DEADZONE) / (TILT_FULL - TILT_DEADZONE);
-    if (v > 1) v = 1;
-    return s < 0 ? -v : v;
-}
+static float tilt_sign = TILT_SIGN_DEFAULT;
+static char settings_file[256];
 
 static void to_player_inputs(const Remote r[WIIMOTE_MAX], PlayerInput in[MAX_PLAYERS])
 {
@@ -44,8 +35,34 @@ static void to_player_inputs(const Remote r[WIIMOTE_MAX], PlayerInput in[MAX_PLA
         float pad = 0;
         if (r[p].held & (WPAD_BUTTON_UP | WPAD_BUTTON_LEFT)) pad -= 1;
         if (r[p].held & (WPAD_BUTTON_DOWN | WPAD_BUTTON_RIGHT)) pad += 1;
-        in[p].steer = pad != 0 ? pad : tilt_steer(r[p].gy);
+        in[p].steer = pad != 0 ? pad : game_tilt_steer(r[p].gy, tilt_sign);
     }
+}
+
+// The couch setting: - on the title, countdown or results screen flips the
+// steering. Not during a round, so nobody flips it by accident mid-game.
+static float banner_time;       // seconds left to show the banner
+static bool banner_saved;
+
+static void couch_controls(const Remote r[WIIMOTE_MAX], const Game *g)
+{
+    if (g->mode == MODE_PLAY || g->mode == MODE_DEMO) return;
+    for (int p = 0; p < MAX_PLAYERS; p++) {
+        if (!(r[p].connected && (r[p].pressed & WPAD_BUTTON_MINUS))) continue;
+        tilt_sign = -tilt_sign;
+        banner_saved = settings_save(settings_file, "tilt_sign", tilt_sign);
+        banner_time = 2.5f;
+        printf("starcatcher: setting tilt_sign=%d saved=%d\n", (int)tilt_sign, banner_saved);
+        return;
+    }
+}
+
+static void draw_banner(void)
+{
+    if (banner_time <= 0) return;
+    DrawRectangleRounded((Rectangle){ 90, 380, SCREEN_W - 180, 70 }, 0.3f, 8, (Color){ 255, 255, 255, 235 });
+    ui_centered("Steering flipped!", SCREEN_W, 388, 26, (Color){ 120, 60, 200, 255 });
+    ui_centered(banner_saved ? "Saved for next time." : "(Couldn't save it to the SD card.)", SCREEN_W, 420, 18, DARKGRAY);
 }
 
 // ---------------------------------------------------------------- drawing
@@ -201,7 +218,8 @@ static void draw(const Game *g, float t)
         ui_centered("Hold your Wiimote sideways and tip it", SCREEN_W, 195, 22, DARKBLUE);
         ui_centered("like a steering wheel to slide your basket.", SCREEN_W, 222, 22, DARKBLUE);
         ui_centered("Rainbow stars are worth 5. Dodge the storm clouds!", SCREEN_W, 260, 18, DARKGRAY);
-        if ((int)(t * 2) % 2 == 0) ui_centered("Press 2 (or A) to join", SCREEN_W, 310, 30, DARKBLUE);
+        if ((int)(t * 2) % 2 == 0) ui_centered("Press 2 (or A) to join", SCREEN_W, 300, 30, DARKBLUE);
+        ui_centered("Basket going the wrong way? Press -", SCREEN_W, 340, 18, GRAY);
         break;
     case MODE_COUNTDOWN: {
         int n = (int)ceilf(COUNTDOWN_SECONDS - g->mode_time);
@@ -211,7 +229,8 @@ static void draw(const Game *g, float t)
             ui_centered(TextFormat("Player %d is in! Try tipping.", p + 1), SCREEN_W, y, 22, UI_PLAYER_COLORS[p]);
             y += 28;
         }
-        ui_centered("Others: press 2 to join", SCREEN_W, 380, 20, LIGHTGRAY);
+        ui_centered("Others: press 2 to join", SCREEN_W, 330, 20, LIGHTGRAY);
+        ui_centered("Basket going the wrong way? Press -", SCREEN_W, 356, 18, LIGHTGRAY);
         break;
     }
     case MODE_PLAY:
@@ -226,6 +245,7 @@ static void draw(const Game *g, float t)
         if ((int)(t * 2) % 2 == 0) ui_centered("DEMO - press 2 to play!", SCREEN_W, 200, 28, WHITE);
         break;
     }
+    draw_banner();
 }
 
 // ---------------------------------------------------------------- log
@@ -259,15 +279,18 @@ static void log_events(const Game *g, Mode *last_mode, int last_score[MAX_PLAYER
 
 int main(int argc, char *argv[])
 {
-    (void)argc; (void)argv;
+    (void)argc;
     SYS_STDIO_Report(true);
     InitWindow(SCREEN_W, SCREEN_H, "Star Catcher");
     SetTargetFPS(60);
     wiimote_init(SCREEN_W, SCREEN_H);
+    settings_path(settings_file, sizeof settings_file, argv[0], "starcatcher");
+    float saved = settings_load(settings_file, "tilt_sign", TILT_SIGN_DEFAULT);
+    tilt_sign = saved > 0 ? 1.0f : -1.0f;
 
     Game g;
     game_init(&g, (uint32_t)gettime());
-    printf("starcatcher: start\n");
+    printf("starcatcher: start tilt_sign=%d settings=%s\n", (int)tilt_sign, settings_file);
 
     Remote remotes[WIIMOTE_MAX] = { 0 };
     PlayerInput in[MAX_PLAYERS] = { 0 };
@@ -281,6 +304,8 @@ int main(int argc, char *argv[])
         t += dt;
 
         if (wiimote_read(remotes)) break;   // HOME: back to the Homebrew Channel
+        couch_controls(remotes, &g);
+        if (banner_time > 0) banner_time -= dt;
         to_player_inputs(remotes, in);
         game_update(&g, in, dt);
         for (int p = 0; p < MAX_PLAYERS; p++)

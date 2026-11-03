@@ -32,6 +32,14 @@
 #define FRICTION 1.6f
 #define MAX_SPEED 15.0f
 
+// Shake power, the couch setting: + and - on the remote pick a level from 1
+// to 9, and SHAKE_GAIN is multiplied by game_shake_scale(level). Level 3 is
+// the Dolphin tuning (x1); each two levels up doubles it, so level 9 is x8 for
+// gentle shakers and level 1 is x0.5.
+#define SHAKE_LEVEL_MIN 1
+#define SHAKE_LEVEL_MAX 9
+#define SHAKE_LEVEL_DEFAULT 3
+
 typedef enum { MODE_TITLE, MODE_COUNTDOWN, MODE_RACE, MODE_RESULTS, MODE_DEMO } Mode;
 
 // What one Wiimote did this frame. `shake` is how much its acceleration
@@ -62,11 +70,15 @@ typedef struct {
     float first_finish_time;   // < 0 until someone crosses
     int finishers;
     uint32_t rng;
+    float shake_scale;         // from the shake power level; 1 after game_init
     Player players[MAX_PLAYERS];
 } Game;
 
 void game_init(Game *g, uint32_t seed);
 void game_update(Game *g, const PlayerInput in[MAX_PLAYERS], float dt);
+
+// The SHAKE_GAIN multiplier for a shake power level (clamped to 1..9).
+float game_shake_scale(int level);
 
 // Places for everyone who raced: finishers by time, then the rest by distance.
 // Fills order[] with player indexes, best first; returns how many.

@@ -30,6 +30,13 @@
 #define DIZZY_SECONDS 1.5f
 #define DIZZY_SPEED_SCALE 0.35f
 
+// Steering from tilt: a sideways remote's accelerometer y, times the
+// steering direction (+1 or -1, the couch setting), with a dead zone and full
+// speed at TILT_FULL g (about 30 degrees of tip).
+#define TILT_FULL 0.5f
+#define TILT_DEADZONE 0.1f
+#define TILT_SIGN_DEFAULT (-1.0f)   // from Dolphin: "tilt right" reads gy = -1
+
 #define POINTS_STAR 1
 #define POINTS_RAINBOW 5
 
@@ -94,6 +101,9 @@ void game_init(Game *g, uint32_t seed);
 // Advance by dt seconds. In MODE_DEMO bots steer and any `join` returns to the
 // title.
 void game_update(Game *g, const PlayerInput in[MAX_PLAYERS], float dt);
+
+// Steering (-1..1) for accelerometer reading gy and direction sign (+1/-1).
+float game_tilt_steer(float gy, float sign);
 
 // Where each basket starts: spread evenly across the screen.
 float game_start_x(int player);

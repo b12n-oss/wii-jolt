@@ -39,6 +39,17 @@ all good
 
 ## Building
 
+```mermaid
+flowchart LR
+  src["Source on the Mac"] --> bb["bb build:NAME"]
+  bb --> dkp["scripts/dkp<br/>devkitPPC in Docker"]
+  dkp --> dol[".dol + sd/apps/NAME/"]
+  dol --> dolphin["Dolphin, MMU on<br/>(bb run:*, bb verify)"]
+  dol --> sd["bb sd: build/sd/apps"]
+  sd --> card["SD card or USB drive"]
+  card --> hbc["Homebrew Channel"] --> tv["The family Wii"]
+```
+
 The raylib app needs nothing beyond Docker:
 
 ```sh
@@ -83,11 +94,11 @@ bb verify           # builds everything, runs all three, checks the output
 ```
 
 These go through `scripts/dolphin-shot`, which boots a `.dol` with a separate
-Dolphin user directory (`.dolphin-user/`, so your own Dolphin settings stay
-untouched), takes a screenshot, and pulls the program's output out of Dolphin's
-log.
+Dolphin user directory (one per Wiimote profile under `.dolphin-auto/`, so
+your own Dolphin settings stay untouched), takes a screenshot, and pulls the
+program's output out of Dolphin's log.
 
-Three Dolphin settings matter, and the script sets all of them:
+Four Dolphin settings matter, and the script sets all of them:
 
 - **MMU emulation is on.** By default Dolphin notices a bad memory read, shows a
   "would have crashed on real hardware" dialog, and carries on. With MMU
@@ -102,6 +113,11 @@ Three Dolphin settings matter, and the script sets all of them:
   framebuffer from the CPU. Dolphin only shows those writes with
   `GFX.Hacks.XFBToTextureEnable=False`. Without it the screen stays black even
   though the program is fine.
+- **Background input is on**, so a scripted Wiimote keeps working when the
+  Dolphin window isn't focused. The catch is that a remote bound to the Mac's
+  mouse or keyboard would then hear whatever you're doing at the Mac, so test
+  runs never use one. A run with no scripted remote gets the `idle` profile, a
+  remote with nothing bound. [Wiimote input](wiimote-input.md) has the story.
 
 ### When something crashes
 

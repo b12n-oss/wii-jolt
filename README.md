@@ -37,7 +37,10 @@ Wiimote a different way:
 - **[Shake Race](docs/guide/shake-race.md)**: shake the remote as hard as you
   can to make your runner go. Wrist straps on.
 
-Each one has a robot demo, rumble, and rules that are tested on the Mac.
+Each one has a robot demo, rumble, and rules that are tested on the Mac. The
+two numbers we could only guess at in the emulator can be fixed from the
+couch: **−** flips Star Catcher's steering, and **+**/**−** set Shake Race's
+shake power. Both are saved on the SD card.
 `bb play:<game>` opens any of them in Dolphin to try with the mouse and
 keyboard, and `bb verify` plays each one with a scripted remote.
 
@@ -58,6 +61,33 @@ machine, and jolt had never produced code for a 32-bit or big-endian one. Gettin
 there took a short patch to the Chez kernel, two small shims for gaps in libogc,
 and a fix to how `jolt build` cross-compiles for 32-bit targets. The
 [Jolt on the Wii](docs/guide/jolt-on-the-wii.md) page walks through each one.
+
+## How it fits together
+
+```mermaid
+flowchart LR
+  subgraph mac["On the Mac"]
+    games["Games and hello<br/>(C + raylib 6.0)"]
+    clj["Clojure program"]
+    jolt["jolt build<br/>--target tpb32b"]
+    clj --> jolt
+  end
+  subgraph wii["On the Wii (PowerPC 750CL, big-endian, 32-bit)"]
+    raylib["raylib"] --> sdl["SDL2 (wii-sdl2)"] --> gx["OpenGX: GL 1.x on the GX GPU"]
+    chez["Chez Scheme kernel<br/>running tpb32b bytecode"]
+    libogc["libogc: video, Wiimotes (WPAD), SD/USB, threads"]
+    sdl --> libogc
+    gx --> libogc
+    chez --> libogc
+  end
+  games --> raylib
+  jolt --> chez
+```
+
+The games are plain C on raylib. Clojure takes the other road: jolt compiles
+it to Chez Scheme's portable bytecode, and a small Chez kernel runs that
+bytecode on the Wii. Everything bottoms out in libogc, devkitPro's library
+that stands in for an operating system.
 
 ## Quick start
 

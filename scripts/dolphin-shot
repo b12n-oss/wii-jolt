@@ -5,11 +5,14 @@ set -uo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DOL="$1"; OUT="$2"; WAIT="${3:-10}"
 DOLPHIN=/Applications/Dolphin.app/Contents/MacOS/Dolphin
-USERDIR="${DOLPHIN_USER:-$ROOT/.dolphin-user}"
+USERDIR="${DOLPHIN_USER:-$("$ROOT/scripts/dolphin-auto-wiimote" idle)}"
 # MMU emulation is ON by default: without it Dolphin ignores invalid reads
 # that crash a real Wii. DOLPHIN_MMU=0 turns it off.
 # Background input is ON: Dolphin otherwise drops controller input whenever its
-# window isn't the focused one, and a scripted Wiimote then does nothing.
+# window isn't the focused one, and a scripted Wiimote then does nothing. The
+# flip side: a profile bound to the Mac's mouse or keyboard (Dolphin's default)
+# now hears whatever the person at the Mac does, so tests must pass a scripted
+# or `idle` profile from scripts/dolphin-auto-wiimote as DOLPHIN_USER.
 MMU=True; [ "${DOLPHIN_MMU:-1}" = "0" ] && MMU=False
 mkdir -p "$USERDIR"; rm -f "$USERDIR/Logs/dolphin.log"
 

@@ -37,6 +37,16 @@ checks out `v10.4.1` (the Chez that jolt is built on), applies
 `petite.boot` (2.1 MB) and `scheme.boot` (1.0 MB), plus the `scheme.h` and
 `equates.h` the kernel compiles against.
 
+```mermaid
+flowchart LR
+  chez["~/dev/ChezScheme"] -->|"scripts/setup-chez:<br/>v10.4.1 + chez-wii.patch"| host["Mac Chez"]
+  host -->|"make bootquick XM=tpb32b"| boots["petite.boot, scheme.boot<br/>scheme.h, equates.h"]
+  csrc["Chez kernel C source"] -->|"devkitPPC"| kernel["libkernel.a"]
+  boots -->|".incbin in boot_data.S"| dol["chez.dol"]
+  kernel --> dol
+  dol -->|"Sregister_boot_file_bytes<br/>at start-up"| run["Chez running on the Wii"]
+```
+
 `chez-wii/Makefile` then compiles the kernel's C files with devkitPPC into
 `libkernel.a` and links the test app. The boot files go into the `.dol` itself
 through `.incbin` in `boot_data.S`, and `main.c` hands them to Chez with

@@ -24,6 +24,17 @@ so it's worth steering round them.
 **HOME** quits. If nobody presses anything on the title for 8 seconds, two
 robot baskets play a 20-second demo.
 
+## Basket going the wrong way?
+
+Press **−** on the title screen, during the countdown, or on the results
+screen. That flips the steering, and a banner says so. The game saves the
+choice in `settings.txt` next to its `boot.dol` on the SD card or USB drive,
+so it stays flipped next time. Press − again to flip it back. It doesn't work
+during a round, so nobody flips it by accident mid-game.
+
+This is there because the steering direction came from Dolphin, and nobody
+has tried it with a real remote yet.
+
 ## Playing it on the Mac
 
 ```sh
@@ -31,21 +42,25 @@ bb play:starcatcher
 ```
 
 Dolphin's keyboard has no tilt, so on the Mac the arrow keys steer (they're
-the Wiimote's D-pad). Left click or the `2` key joins, and Return is HOME.
+the Wiimote's D-pad). Left click or the `2` key joins, **Q** is − (flip the steering), and Return
+is HOME.
 
 ## How it's built
 
 The same split as Balloon Pop. `examples/starcatcher/game.c` holds the rules
-and builds on the Mac, where `bb test` runs 38 checks on it: joining,
-steering speed and the walls, which items land in a basket, one basket per
-item, the storm cloud's slow-down, the round timer and the demo.
+and builds on the Mac, where `bb test` runs 43 checks on it: joining,
+steering from tilt in both directions, steering speed and the walls, which
+items land in a basket, one basket per item, the storm cloud's slow-down, the
+round timer and the demo.
 `examples/starcatcher/main.c` turns the Wiimote into a steering value and
 draws the night sky.
 
 Steering reads the accelerometer's y axis, the remote's long axis, which is
-the one gravity moves along when you tip a sideways remote. The direction
-came from Dolphin, and [Wiimote input](wiimote-input.md) explains why that
-needs checking on a real remote.
+the one gravity moves along when you tip a sideways remote
+(`game_tilt_steer`). The default direction came from Dolphin, and
+[Wiimote input](wiimote-input.md) explains why that needs checking on a real
+remote. The − button and the saved setting are in `main.c`, using
+`examples/common/settings.c`.
 
 ## Ideas for next time
 

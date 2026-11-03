@@ -19,6 +19,16 @@ float game_randf(Game *g, float lo, float hi)
     return lo + (hi - lo) * ((game_rand(g) >> 8) / 16777216.0f);
 }
 
+float game_tilt_steer(float gy, float sign)
+{
+    float s = (sign < 0 ? -1.0f : 1.0f) * gy;
+    float m = fabsf(s);
+    if (m < TILT_DEADZONE) return 0;
+    float v = (m - TILT_DEADZONE) / (TILT_FULL - TILT_DEADZONE);
+    if (v > 1) v = 1;
+    return s < 0 ? -v : v;
+}
+
 float game_start_x(int player)
 {
     return SCREEN_W * (player + 1) / (float)(MAX_PLAYERS + 1);

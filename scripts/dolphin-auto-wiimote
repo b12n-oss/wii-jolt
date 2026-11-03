@@ -3,7 +3,7 @@
 # game can be tested end to end with nobody holding a remote and without
 # touching the Mac's real mouse. Prints the dir, for DOLPHIN_USER.
 #
-#   scripts/dolphin-auto-wiimote [pointer|tilt|shake|play]   (default: pointer)
+#   scripts/dolphin-auto-wiimote [pointer|tilt|shake|minus|plus|idle|play]   (default: pointer)
 #
 # Every scripted profile presses A for the 2nd half of every 0.25 s
 # (timer(0.25)), which joins the game. Then:
@@ -15,9 +15,14 @@
 #   tilt     held sideways, tipped right then left every 4 s, about 70
 #            degrees each way, so a tilt-steered basket sweeps the floor.
 #   shake    shaken on all three axes for 1 s out of every 2 s.
+#   minus    nothing but one press of - (and plus: one press of +), between
+#   plus     3.4 s and 4 s after Dolphin starts, for testing the couch
+#            settings. Run for about 5.5 s so it lands once, on the title.
+#   idle     connected, presses nothing.
 #   play     not scripted: you play with the Mac. Dolphin's own defaults (the
 #            mouse is the pointer, left click = A, right click = B, the arrow
-#            keys are the D-pad, the 1 and 2 keys are 1 and 2, Return = HOME),
+#            keys are the D-pad, the 1 and 2 keys are 1 and 2, Q = -, E = +,
+#            Return = HOME),
 #            plus the space bar (or middle click) to shake.
 #
 # Dolphin's input expressions (timer, sin, ...) are documented in its source,
@@ -32,7 +37,7 @@ mkdir -p "$DIR/Config"
 {
   echo "[Wiimote1]"
   echo "Device = Quartz/0/Keyboard & Mouse"
-  [ "$PROFILE" = play ] || echo "Buttons/A = timer(0.25)"
+  case "$PROFILE" in play|minus|plus|idle) ;; *) echo "Buttons/A = timer(0.25)" ;; esac
   case "$PROFILE" in
     pointer)
       echo "IR/Right = sin(timer(5) * 6.2832) * 0.6"
@@ -45,9 +50,14 @@ mkdir -p "$DIR/Config"
       echo "Shake/X = timer(2) > 0.5"
       echo "Shake/Y = timer(2) > 0.5"
       echo "Shake/Z = timer(2) > 0.5" ;;
+    idle) ;;
+    minus) echo "Buttons/- = timer(4) > 0.85" ;;
+    plus)  echo "Buttons/+ = timer(4) > 0.85" ;;
     play)
       echo "Buttons/A = \`Left Click\`"
       echo "Buttons/B = \`Right Click\`"
+      echo "Buttons/- = Q"
+      echo "Buttons/+ = E"
       echo "Buttons/1 = \`1\`"
       echo "Buttons/2 = \`2\`"
       echo "Buttons/Home = Return"
@@ -60,7 +70,7 @@ mkdir -p "$DIR/Config"
       echo "IR/Left = \`Cursor X-\`"
       echo "IR/Right = \`Cursor X+\`"
       for a in X Y Z; do echo "Shake/$a = Space | \`Middle Click\`"; done ;;
-    *) echo "unknown profile: $PROFILE (pointer, tilt, shake or play)" >&2; exit 1 ;;
+    *) echo "unknown profile: $PROFILE (pointer, tilt, shake, minus, plus, idle or play)" >&2; exit 1 ;;
   esac
   echo "Extension = None"
 } > "$DIR/Config/WiimoteNew.ini"

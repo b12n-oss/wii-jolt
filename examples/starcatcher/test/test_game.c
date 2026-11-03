@@ -82,6 +82,16 @@ static void test_steering(void)
     CHECK(g.players[0].x == before, "a disconnected remote doesn't move its basket");
 }
 
+static void test_tilt_steer(void)
+{
+    CHECK(game_tilt_steer(0.05f, -1) == 0, "small wobbles are ignored");
+    CHECK(game_tilt_steer(-TILT_FULL, -1) == 1, "with the default sign, gy = -0.5 is full right");
+    CHECK(game_tilt_steer(-1.0f, -1) == 1, "steering is capped at 1");
+    CHECK(game_tilt_steer(-TILT_FULL, 1) == -1, "flipping the sign reverses the steering");
+    float half = game_tilt_steer(-(TILT_DEADZONE + TILT_FULL) / 2, -1);
+    CHECK(half > 0.45f && half < 0.55f, "halfway between the dead zone and full tip is half speed");
+}
+
 static void test_basket_geometry(void)
 {
     CHECK(game_in_basket(300, 300, BASKET_Y, 16), "an item at the rim, centred, is caught");
@@ -196,6 +206,7 @@ int main(void)
 {
     test_join_and_start();
     test_steering();
+    test_tilt_steer();
     test_basket_geometry();
     test_catch_scores();
     test_one_basket_per_item();

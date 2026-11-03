@@ -23,6 +23,17 @@ the JVM's. Its output in Dolphin matches the Mac build byte for byte, and
 
 ## How the build works
 
+```mermaid
+flowchart TD
+  clj["src/*.clj"] --> emit["jolt: runtime.ss + app-*.ss"]
+  emit --> xc["Mac Chez + the pack's xpatch<br/>compile to tpb32b bytecode"]
+  xc --> boot["jolt.boot (petite.boot + app)<br/>as vfasl, written out as a C array"]
+  boot --> link["scripts/wii-cc: main.c + libkernel.a<br/>+ wii_runtime.o, ogc_tls.o, posix_stubs.o + libogc"]
+  link --> elf["jolt-hello.elf"] -->|"elf2dol"| dol["jolt-hello.dol"]
+  pack[".work/pack-tpb32b<br/>(scripts/make-pack)"] -.-> xc
+  pack -.-> link
+```
+
 `jolt build --target tpb32b --target-pack <pack>`:
 
 1. Emits the jolt runtime and the app as Chez source (`runtime.ss`,

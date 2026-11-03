@@ -20,6 +20,26 @@ if (wiimote_read(r)) break;         // once a frame; true when anyone pressed HO
 wiimote_rumble(p, on);              // only talks to the remote when it changes
 ```
 
+One frame, from the remote to the screen:
+
+```mermaid
+sequenceDiagram
+  participant WM as Wiimotes
+  participant SDL as SDL (inside raylib's EndDrawing)
+  participant W as wiimote_read
+  participant M as main.c
+  participant G as game_update
+  WM->>SDL: Bluetooth reports
+  SDL->>SDL: WPAD_ReadPending
+  M->>W: once per frame
+  W-->>M: Remote[4]: buttons, pressed, IR, g, shake
+  M->>M: Remote to PlayerInput (each game's own)
+  M->>G: PlayerInput[4], dt
+  G-->>M: new state
+  M->>WM: wiimote_rumble, only on a change
+  M->>M: log events, draw, EndDrawing
+```
+
 `pressed` is "held now, not held last frame", worked out from `btns_h`, so a
 press that lands between two reads isn't lost. `shake` is how far the
 acceleration moved since the last frame, `|g_now - g_before|` in g, and it's
@@ -46,13 +66,14 @@ scripted pose:
 | sideways, "tilt right" | 0.00 | -1.00 | 0.08 |
 
 So for a sideways remote, steering lives on `gy`, and in Dolphin tipping
-right makes it negative. Star Catcher steers with `-gy` (`TILT_SIGN` in its
-`main.c`), full speed at 0.5 g (about 30 degrees), with a 0.1 g dead zone.
+right makes it negative. Star Catcher steers with `-gy` by default
+(`TILT_SIGN_DEFAULT` and `game_tilt_steer` in its `game.h`/`game.c`), full
+speed at 0.5 g (about 30 degrees), with a 0.1 g dead zone.
 
 Our own reasoning about the accelerometer's axes said the opposite sign.
 Dolphin wins for now, because Wii games are tested against it. But this is
-the first thing to try on the console: if the basket goes the wrong way, flip
-`TILT_SIGN`.
+the first thing to try on the console. If the basket goes the wrong way,
+press − on the title screen to flip it (see Couch settings below).
 
 ## Shake: what Dolphin reports
 
@@ -80,11 +101,66 @@ input expressions:
 | `pointer` | Balloon Pop | A four times a second; IR sweeps left and right every 5 s |
 | `tilt` | Star Catcher | A four times a second; held sideways, tipped about 70 degrees each way every 4 s |
 | `shake` | Shake Race | A four times a second; shaken 1 s in every 2 |
-| `play` | `bb play:*` | nothing scripted: Dolphin's mouse and keyboard defaults, plus Space to shake |
+| `minus`, `plus` | the couch check | one press of − or +, 3.4 to 4 s after start |
+| `idle` | the couch check | connected, presses nothing |
+| `play` | `bb play:*` | nothing scripted: Dolphin's mouse and keyboard defaults (Q is −, E is +), plus Space to shake |
 
 `bb verify` boots each game twice, once to watch the robot demo and once with
 its scripted remote, and requires the remote to join, the round to start, and
 player 1 to score during it.
+
+```mermaid
+flowchart LR
+  t["bb test<br/>rules and settings, on the Mac"] --> d
+  subgraph each["For each game, in Dolphin with MMU on"]
+    d["Robot demo<br/>3+ scores, no crash"] --> s["Scripted remote<br/>joins, plays, scores"]
+  end
+  s --> c["Couch settings<br/>save, relaunch, reload"]
+  c --> o["hello, chez, jolt-hello"]
+```
+
+## Couch settings
+
+Two numbers in these games came from Dolphin, not from real remotes: Star
+Catcher's steering direction and Shake Race's shake strength. So both can be
+changed from the remote, without a rebuild. In Star Catcher, − flips the
+steering. In Shake Race, + and − set the shake power. Neither works during a
+round.
+
+`examples/common/settings.c` keeps the choice in `settings.txt` beside the
+game's `boot.dol`. The Homebrew Channel launches a game with `argv[0]` set to
+its path (`usb:/apps/starcatcher/boot.dol`), and SDL's `main` passes it
+through and mounts the SD card and USB drive (`fatInitDefault`). Without a
+path (Dolphin passes `"app"`) it falls back to `sd:/apps/<game>/`. If the file
+can't be written, the banner says so instead of claiming it saved.
+
+`bb verify` checks each setting end to end (`bb run:couch` runs just that).
+Dolphin builds an emulated SD card from a folder on the Mac, `.work/sd-couch`,
+and copies it back on shutdown:
+
+```sh
+-C Dolphin.Core.WiiSDCard=True -C Dolphin.Core.WiiSDCardEnableFolderSync=True
+-C Dolphin.General.WiiSDCardSyncFolder=<folder> -C Dolphin.Core.WiiSDCardAllowWrites=True
+```
+
+```mermaid
+sequenceDiagram
+  participant Kid as Remote
+  participant Game as The game
+  participant SD as settings.txt beside boot.dol
+  Note over Game: launch: path from argv[0]
+  Game->>SD: settings_load
+  SD-->>Game: tilt_sign or shake_level (or the default)
+  Kid->>Game: − or + on the title screen
+  Game->>SD: settings_save
+  Game-->>Kid: banner: saved, or couldn't save
+  Note over Game,SD: next launch starts with the new value
+```
+
+The check presses the button once, requires `saved=1` in the log and the
+right line in the folder's `settings.txt`, then boots again with no presses
+and requires the game to start with the new value. `bb play:*` uses the same
+trick with `.work/sd-play`, so settings stick between sessions on the Mac.
 
 Two traps from writing these:
 
@@ -98,3 +174,9 @@ Two traps from writing these:
   sometimes never join, or join and then stop. `scripts/dolphin-shot` now
   passes `-C Dolphin.Input.BackgroundInput=True`. Shake Race failed 2 of its
   first 4 scripted runs before that and passed 3 of 3 after.
+- **Background input also hears the Mac.** Once it was on, the robot-demo
+  runs, which still used Dolphin's default profile (mouse and keyboard),
+  started picking up clicks and key presses from whoever was using the Mac.
+  Any press ends a demo, so all three demo checks failed in one `bb verify`.
+  Every unscripted run now uses the `idle` profile, a remote with nothing
+  bound, and only `bb play:*` binds the Mac's mouse and keyboard.
