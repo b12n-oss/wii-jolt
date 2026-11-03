@@ -1,0 +1,12 @@
+wii-jolt
+Copyright (c) 2026 Burin Choomnuan. Licensed under EPL-2.0 (see LICENSE).
+
+Third-party code:
+
+- vendor/raylib: raylib 6.0 by Ramon Santamaria (@raysan5) and contributors,
+  zlib/libpng license, see vendor/raylib/LICENSE. Copied unmodified from the
+  raylib 6.0 release source tree.
+
+Linked at build time (not vendored), from the devkitPro devkitppc image:
+libogc, wii-sdl2 2.28.5, wii-opengx 0.17.0. Their licenses ship with
+devkitPro under /opt/devkitpro/licenses.

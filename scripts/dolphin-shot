@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# Boot a .dol in Dolphin (isolated user dir), wait, screenshot its window, quit.
+# Usage: scripts/dolphin-shot path/to/app.dol out.png [seconds]
+set -uo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+DOL="$1"; OUT="$2"; WAIT="${3:-10}"
+DOLPHIN=/Applications/Dolphin.app/Contents/MacOS/Dolphin
+USERDIR="$ROOT/.dolphin-user"
+mkdir -p "$USERDIR"; rm -f "$USERDIR/Logs/dolphin.log"
+
+"$DOLPHIN" -u "$USERDIR" -b -e "$DOL" \
+  -C Dolphin.Analytics.PermissionAsked=True \
+  -C Dolphin.Interface.ConfirmStop=False \
+  -C Dolphin.Interface.UsePanicHandlers=False ${DOLPHIN_EXTRA:-} \
+  -C Logger.Options.WriteToFile=True -C Logger.Options.Verbosity=4 \
+  -C Logger.Logs.OSREPORT=True -C Logger.Logs.OSREPORT_HLE=True \
+  -C Logger.Logs.MI=True -C Logger.Logs.Core=True >"$ROOT/.dolphin-user/last-run.log" 2>&1 &
+PID=$!
+sleep "$WAIT"
+
+WID=$(swift -e '
+import CoreGraphics
+let opts = CGWindowListOption(arrayLiteral: .optionOnScreenOnly)
+let list = CGWindowListCopyWindowInfo(opts, kCGNullWindowID) as! [[String: Any]]
+var best = 0; var area = 0.0
+for w in list where (w["kCGWindowOwnerName"] as? String ?? "").contains("Dolphin") {
+  let b = w["kCGWindowBounds"] as! [String: Double]
+  let a = b["Width"]! * b["Height"]!
+  if a > area { area = a; best = w["kCGWindowNumber"] as! Int }
+}
+print(best)' 2>/dev/null)
+
+if [ -n "$WID" ] && [ "$WID" != "0" ]; then
+  screencapture -x -o -l "$WID" "$OUT" && echo "shot: $OUT (window $WID)"
+else
+  echo "no Dolphin window found" >&2
+fi
+kill "$PID" 2>/dev/null; sleep 1; kill -9 "$PID" 2>/dev/null
+LOG="$USERDIR/Logs/dolphin.log"
+[ -f "$LOG" ] && echo "--- log tail" && grep -E "OSREPORT|Invalid|MI|Core" "$LOG" | tail -40
+exit 0

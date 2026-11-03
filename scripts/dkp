@@ -1,0 +1,7 @@
+#!/usr/bin/env bash
+# Run a command inside the devkitPro devkitPPC image with this repo mounted
+# at /work. Usage: scripts/dkp make -C wii
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+IMAGE="${DKP_IMAGE:-devkitpro/devkitppc:latest}"
+exec docker run --rm -v "$ROOT":/work -w /work "$IMAGE" "$@"
