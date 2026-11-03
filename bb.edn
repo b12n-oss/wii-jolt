@@ -117,6 +117,36 @@
       (doseq [l (game-lines nm r)] (println (str nm ": " l)))
       (println (:shot r)))
 
+    (defn frame-summaries
+      "The parsed `<app>: frames n=...` lines of a run (a vector of maps of
+       keyword to integer), without the first one: its window includes startup."
+      [nm r]
+      (->> (game-lines nm r)
+           (filter (fn [l] (str/starts-with? l "frames n=")))
+           (map (fn [l] (into {} (map (fn [[_ k v]] [(keyword k) (Long/parseLong v)])
+                                      (re-seq (re-pattern "([a-z-]+)=(\\d+)") l)))))
+           (drop 1)
+           vec))
+
+    (defn lower-median
+      "Lower middle of the sorted values, as everywhere else in this project."
+      [xs]
+      (when (seq xs) (nth (vec (sort xs)) (quot (dec (count xs)) 2))))
+
+    (defn count-lines
+      "Like `wc -l` summed over paths (counts newline characters)."
+      [paths]
+      (reduce + (map (fn [pth] (count (filter (fn [c] (= c \newline)) (slurp (fs/file repo-root pth))))) paths)))
+
+    (defn compare-column
+      "Table cells for one run: [summary-count dropped-total work-median work-worst frame-worst]."
+      [sums]
+      [(count sums)
+       (reduce + (map :dropped sums))
+       (lower-median (map :work-median-us sums))
+       (when (seq sums) (apply max (map :work-worst-us sums)))
+       (when (seq sums) (apply max (map :frame-worst-us sums)))])
+
     (defn sd-sync-opts
       "Dolphin flags for an emulated SD card built from folder `dir` (copied
        back to the Mac when Dolphin shuts down), so settings.txt saves work."
@@ -230,6 +260,7 @@
      (hdr "Run in Dolphin")
      (doseq [[nm _ _ what] apps] (row (str "run:" nm) what))
      (doseq [[nm profile] games] (row (str "run:" nm "-wiimote") (str "a round with a scripted Wiimote (" profile ")")))
+     (row "compare:balloons" "Balloon Pop in C and Clojure side by side: size, frame cost, dropped frames, lines")
      (row "run:couch" "press each game's couch setting, check it saves and reloads")
      (hdr "Play on the Mac (Dolphin; Return = HOME)")
      (doseq [[nm _ _ how] games] (row (str "play:" nm) how))
@@ -421,6 +452,52 @@
                (println "  apps/" nm "/boot.dol"))
            (println "  skipped" nm "(not built)"))))
      (println "copy" out "to the root of the SD card (or USB drive)"))}
+
+  compare:balloons
+  {:doc "Run Balloon Pop in C and in Clojure in Dolphin (45 s demo, a scripted round of 64.5 s or 70 s) and print one comparison table"
+   :depends [build:balloons build:jolt-balloons]
+   :task
+   (let [gs ["balloons" "jolt-balloons"]
+         profile (fn [nm] (second (first (filter (fn [gm] (= nm (first gm))) games))))
+         ;; Seconds per game, measured 2026-11-03 (probe runs, wall-clock log stamps):
+         ;; title: jolt-balloons boots ~7 s before its first frame, so 5 s is black;
+         ;; round: the results screen shows for 2 s (C at 64-66 s after launch, jolt at
+         ;; 70-72 s; the screenshot lands 1-3 s after the wait, so C waits 64.5: shots at 63 and 66 landed 1 s before and 2.5 s after the screen) and the game then goes back to the title, so 80 s misses it.
+         title-secs {"balloons" 5 "jolt-balloons" 12}
+         round-secs {"balloons" 64.5 "jolt-balloons" 70}
+         title (into {} (map (fn [nm] [nm (run-in-dolphin nm (title-secs nm) :shot-name (str nm "-compare-title"))]) gs))
+         demo (into {} (map (fn [nm] [nm (run-in-dolphin nm 45 :shot-name (str nm "-compare-play"))]) gs))
+         round (into {} (map (fn [nm] [nm (run-in-dolphin nm (round-secs nm) :user (auto-user (profile nm))
+                                                          :shot-name (str nm "-compare-results"))]) gs))
+         cols (concat (map (fn [nm] [(str nm " demo 45s") (compare-column (frame-summaries nm (demo nm)))]) gs)
+                      (map (fn [nm] [(str nm " round") (compare-column (frame-summaries nm (round nm)))]) gs))
+         dol-size (fn [nm] (fs/size (fs/file repo-root (second (app nm)))))
+         glue ["jolt-gfx/jolt_gfx.c" "jolt-gfx/jolt_gfx.h" "jolt-gfx/src/wii/gfx.clj" "jolt-gfx/src/wii/frame_stats.clj"]
+         c-loc (count-lines ["examples/balloons/game.h" "examples/balloons/game.c" "examples/balloons/main.c"])
+         clj-loc (count-lines ["jolt-balloons/src/balloons/rules.clj" "jolt-balloons/src/balloons/draw.clj" "jolt-balloons/src/balloons/main.clj"])
+         glue-loc (count-lines glue)
+         crashed (filter (fn [[nm r]] (:crashed? r)) (concat title demo round))
+         pr (fn [label cells] (println (apply str (format "%-34s" label) (map (fn [c] (format "%26s" (str c))) cells))))]
+     (println "Balloon Pop, C against Clojure (Dolphin, MMU on). First summary line of each run dropped.")
+     (println)
+     (pr "" (map first cols))
+     (pr ".dol size (bytes)" (map (fn [[nm _]] (dol-size (first (str/split nm (re-pattern " "))))) cols))
+     (pr "summary lines used" (map (fn [[_ c]] (nth c 0)) cols))
+     (pr "work median (us)" (map (fn [[_ c]] (nth c 2)) cols))
+     (pr "work worst, max (us)" (map (fn [[_ c]] (nth c 3)) cols))
+     (pr "frame worst, max (us)" (map (fn [[_ c]] (nth c 4)) cols))
+     (pr "dropped frames, total" (map (fn [[_ c]] (nth c 1)) cols))
+     (println)
+     (println "Lines of code (wc -l):")
+     (println (str "  balloons:        " c-loc "   examples/balloons/{game.h,game.c,main.c}"))
+     (println (str "  jolt-balloons:   " clj-loc "   jolt-balloons/src/balloons/{rules,draw,main}.clj"))
+     (println (str "  glue (Clojure side only):   " glue-loc "   jolt-gfx/jolt_gfx.c, jolt_gfx.h, src/wii/gfx.clj, src/wii/frame_stats.clj"))
+     (println)
+     (println "Screenshots:")
+     (doseq [nm gs]
+       (println (str "  " nm ": title " (:shot (title nm)) ", play " (:shot (demo nm)) ", results " (:shot (round nm)))))
+     (println (if (seq crashed) (str "CRASH MARKERS in: " (str/join ", " (map first crashed))) "no crash markers"))
+     (when (seq crashed) (System/exit 1)))}
 
   run:balloons
   {:doc "Boot Balloon Pop in Dolphin, wait for the robot demo, print its events"

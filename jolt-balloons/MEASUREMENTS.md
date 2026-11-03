@@ -204,3 +204,24 @@ particles, 4 cursors, HUD, the edge-circle sliver at the left), balloons at
 other positions since the frame differs. Exact equality is the golden test's
 job (13 states, 1129 recorded wii.gfx calls), plus
 `casts-agree-on-every-recorded-argument` on all 3108 double arguments.
+
+## Comparison (bb compare:balloons), 2026-11-03
+
+These are Dolphin numbers, not hardware: nothing has run on a physical Wii yet.
+
+```
+Balloon Pop, C against Clojure (Dolphin, MMU on). First summary line of each run dropped.
+
+                                           balloons demo 45s    jolt-balloons demo 45s            balloons round       jolt-balloons round
+.dol size (bytes)                                    1339808                  14478048                   1339808                  14478048
+summary lines used                                        21                        12                        31                        22
+work median (us)                                        3882                     24167                      3122                     22711
+work worst, max (us)                                    5557                     41086                      5144                     42474
+frame worst, max (us)                                  16671                     61977                     16672                     61347
+dropped frames, total                                      0                      1003                         0                      2173
+
+Lines of code (wc -l):
+  balloons:        747   examples/balloons/{game.h,game.c,main.c}
+  jolt-balloons:   602   jolt-balloons/src/balloons/{rules,draw,main}.clj
+  glue (Clojure side only):   398   jolt-gfx/jolt_gfx.c, jolt_gfx.h, src/wii/gfx.clj, src/wii/frame_stats.clj
+```
