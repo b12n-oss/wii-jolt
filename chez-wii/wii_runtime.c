@@ -14,14 +14,27 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <malloc.h>
 
 static void *xfb;
 static const devoptab_t *console_dev, *uart_dev;
 
 static ssize_t tee_write(struct _reent *r, void *fd, const char *ptr, size_t len)
 {
-    if (uart_dev && uart_dev->write_r) uart_dev->write_r(r, fd, ptr, len);
-    return console_dev->write_r(r, fd, ptr, len);
+    // The UART gets a private copy: libogc 3.2.1's WriteUARTN (libogc/exi.c:1038)
+    // rewrites every '\n' to '\r' IN the caller's buffer, despite the const
+    // char* devoptab signature. Handing it our caller's bytes first left the
+    // console only '\r's, so every line overwrote the last on the TV.
+    ssize_t n = console_dev->write_r(r, fd, ptr, len);
+    if (uart_dev && uart_dev->write_r) {
+        char copy[256];
+        for (size_t off = 0; off < len; off += sizeof copy) {
+            size_t k = len - off < sizeof copy ? len - off : sizeof copy;
+            memcpy(copy, ptr + off, k);
+            uart_dev->write_r(r, fd, copy, k);
+        }
+    }
+    return n;
 }
 
 static devoptab_t tee_dev;
@@ -47,7 +60,10 @@ static void wii_runtime_init(void)
     WPAD_Init();
     PAD_Init();
     GXRModeObj *rmode = VIDEO_GetPreferredMode(NULL);
-    xfb = MEM_K0_TO_K1(SYS_AllocateFramebuffer(rmode));
+    // Framebuffer from the malloc heap. (SYS_AllocateFramebuffer works too;
+    // this was swapped while chasing a console bug that turned out to be the
+    // UART writer above, and kept because it's equally valid.)
+    xfb = MEM_K0_TO_K1(memalign(32, VIDEO_GetFrameBufferSize(rmode)));
     console_init(xfb, 20, 20, rmode->fbWidth, rmode->xfbHeight,
                  rmode->fbWidth * VI_DISPLAY_PIX_SZ);
     VIDEO_Configure(rmode);
