@@ -68,13 +68,13 @@
           {:shot shot
            :crashed? (boolean (re-find (re-pattern "Exception \\(DSI\\)|Invalid (read|write)") log))
            :lines (osreport-lines log-file)})))
-    ;; The games: [name scripted-wiimote-profile log-line-for-a-score how-it's-played].
+    ;; The games: [name scripted-wiimote-profile log-line-for-a-score how-it's-played language].
     ;; Each has examples/<name>/game.c with host tests in test/test_game.c, and
     ;; prints "<name>: mode <m>" and one line per score to Dolphin's log.
     (def games
-      [["balloons"    "pointer" "pop player=1 "    "point and press A"]
-       ["starcatcher" "tilt"    "catch player=1 "  "tilt sideways (or arrow keys)"]
-       ["shakerace"   "shake"   "finish player=1 " "shake (space bar on the Mac)"]])
+      [["balloons"    "pointer" "pop player=1 "    "point and press A" :c]
+       ["starcatcher" "tilt"    "catch player=1 "  "tilt sideways (or arrow keys)" :c]
+       ["shakerace"   "shake"   "finish player=1 " "shake (space bar on the Mac)" :c]])
 
     (defn game-lines [nm r]
       (let [prefix (str nm ": ")]
@@ -269,12 +269,17 @@
           (sh! "cc" "-std=c99" "-Wall" "-Wextra" "-Werror" "-Iexamples/common" "examples/common/settings.c"
                "examples/common/test/test_settings.c" "-lm" "-o" (str repo-root "/.work/test_settings"))
           (sh! (str repo-root "/.work/test_settings") (str repo-root "/.work/test_settings.tmp"))
-          (doseq [[nm] games]
+          (doseq [[nm _ _ _ lang] games :when (= lang :c)]
            (let [bin (str repo-root "/.work/test_" nm)]
              (fs/create-dirs (str repo-root "/.work"))
              (sh! "cc" "-std=c99" "-Wall" "-Wextra" "-Werror" (str "-Iexamples/" nm)
                   (str "examples/" nm "/game.c") (str "examples/" nm "/test/test_game.c") "-lm" "-o" bin)
-             (sh! bin))))}
+             (sh! bin)))
+          (let [r (shell {:dir (str repo-root "/jolt-balloons") :continue true}
+                         "jolt" "-A:test" "-m" "balloons.rules-test")]
+            (when-not (zero? (:exit r))
+              (binding [*out* *err*] (println "failed: jolt -A:test -m balloons.rules-test"))
+              (System/exit (:exit r)))))}
 
   build:balloons
   {:doc "Build Balloon Pop (.dol + SD layout)"
