@@ -3,7 +3,12 @@
    the whole draw and each section (median of 120 frames), then the cost of
    single operations (N iterations, the empty loop subtracted). Build it
    against the stub-draw pack so the numbers are Clojure plus the crossing
-   (bb build:jolt-draw-profile). Prints 'draw-profile: ...' lines."
+   (bb build:jolt-draw-profile). Prints 'draw-profile: ...' lines.
+
+   WARNING: the .dol sits at a memory cliff of about 14.76 MB. Builds a few KB
+   larger died with 'out of memory' before printing anything (P2.T4), so adding
+   micro-ops can make it unrunnable. Check that a run prints 'draw-profile:
+   done' after every edit; trim cases or time them in a throwaway copy."
   (:require [jolt.ffi :as ffi]
             [wii.gfx :as gfx]
             [wii.frame-stats :as stats]

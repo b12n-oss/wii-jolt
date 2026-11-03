@@ -167,6 +167,12 @@ Levers (profile medians, microseconds; the golden test was green after each):
 | `^double`/`^long` hints | | | not tried in draw: the profile shows a hinted multiply is 6% cheaper and a hinted `long` cast costs the same as an unhinted one |
 | `loop`/`nth` instead of `doseq` | | | not tried: `doseq` is 3.4 us per element, `loop`/`nth` 9.1 us |
 
+Lever 1 is a deliberate deviation from the "hints and casts" lever list,
+accepted by the controller: `unchecked-long` saturates an out-of-range double
+and turns NaN into 0 where `long` threw. `balloons.draw-test/casts-agree-on-every-recorded-argument`
+pins the agreement: every double argument the 13 golden states draw is finite,
+within +-2^29 and gives the same value under `long` and `unchecked-long`.
+
 Levers left, each estimated from the profile (`estimate:` figures):
 
 - A cheaper double-to-fixnum truncation than `unchecked-long`. 1324 of the busy

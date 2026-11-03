@@ -28,13 +28,24 @@
                  (map (fn [i] (long (nth args (+ off i)))) (range nlong))
                  (drop (+ off nlong) args)))))
 
+(defn- raw-longs
+  "The arguments wii.gfx will cast with long, as draw passed them (before any cast)."
+  [[str-first? nlong] args]
+  (take nlong (drop (if str-first? 1 0) args)))
+
+(def ^:private raw-log
+  "Raw numeric arguments seen by the stubs of the current `calls` run."
+  (atom []))
+
 (defn calls
   "Every wii.gfx call draw makes for state g at time t, as [name & args]."
   [g t]
   (let [log (atom [])
         stub (fn [nm spec]
-               (fn [& args] (swap! log conj (into [(keyword nm)] (record-args spec args))) nil))
-        width (fn [s size] (swap! log conj [:text-width s (long size)]) (* 10 (count s)))
+               (fn [& args]
+                 (swap! raw-log into (raw-longs spec args))
+                 (swap! log conj (into [(keyword nm)] (record-args spec args))) nil))
+        width (fn [s size] (swap! raw-log conj size) (swap! log conj [:text-width s (long size)]) (* 10 (count s)))
         vars (assoc (into {} (map (fn [[nm spec]]
                                     [(resolve (symbol "wii.gfx" (str nm))) (stub nm spec)])
                                   drawing-fns))
@@ -97,6 +108,24 @@
       (is (= gl nl) "state order")
       (is (pos? (count nc)) (str nl " draws something"))
       (is (= gc nc) (str nl ": same wii.gfx calls")))))
+
+(def ^:private fixnum-bound 536870912)
+
+(deftest casts-agree-on-every-recorded-argument
+  ;; wii.gfx casts drawing arguments with unchecked-long (the checked long
+  ;; costs 135 us per double on the Wii). That is the same value only for
+  ;; finite, in-range doubles, so pin it on everything the golden states draw.
+  (reset! raw-log [])
+  (all-calls)
+  (let [vs @raw-log
+        ds (filter double? vs)]
+    (println (str "casts-agree: " (count vs) " numeric arguments, " (count ds) " doubles checked"))
+    (is (pos? (count ds)))
+    (doseq [v ds]
+      (is (not (Double/isNaN v)) (str "NaN argument"))
+      (is (not (Double/isInfinite v)) (str "infinite argument"))
+      (is (< (- fixnum-bound) v fixnum-bound) (str "out of range: " v))
+      (is (= (long v) (unchecked-long v)) (str "long and unchecked-long differ on " v)))))
 
 (defn -main [& args]
   (if (= (first args) "gen")
