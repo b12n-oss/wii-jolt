@@ -1,7 +1,8 @@
 (ns balloons.rules
   "Balloon Pop rules, pure Clojure. A port of examples/balloons/game.c: every
    function takes a game map and returns a new one. Only live balloons,
-   particles and popups are kept, in creation order.")
+   particles and popups are kept, in creation order."
+  (:refer-clojure :exclude [update]))
 
 (def screen-w 640)
 (def screen-h 480)
@@ -90,8 +91,8 @@
           b {:id (:next-id g) :x x :y (+ screen-h r) :r r :vy (- speed)
              :wobble wobble :color (int (* cu palette-size)) :gold gold}]
       (-> g
-          (update :balloons conj b)
-          (update :next-id inc)))))
+          (clojure.core/update :balloons conj b)
+          (clojure.core/update :next-id inc)))))
 
 (defn- burst
   "Up to count particles, fewer if the pool is full."
@@ -102,7 +103,7 @@
       (let [[g a] (randf g 0.0 two-pi)
             [g s] (randf g 60.0 260.0)
             [g life] (randf g 0.4 0.8)]
-        (recur (update g :particles conj {:x x :y y
+        (recur (clojure.core/update g :particles conj {:x x :y y
                                           :vx (* (Math/cos a) s) :vy (* (Math/sin a) s)
                                           :life life :color color})
                (inc i))))))
@@ -110,7 +111,7 @@
 (defn- popup [g x y points player]
   (if (>= (count (:popups g)) max-popups)
     g
-    (update g :popups conj {:x x :y y :life 0.8 :points points :player player})))
+    (clojure.core/update g :popups conj {:x x :y y :life 0.8 :points points :player player})))
 
 (defn try-pop
   "Pop the first live balloon under (x, y) for player. Returns [g' points],
@@ -123,10 +124,10 @@
     (let [gold (:gold b)
           points (if gold points-gold points-normal)]
       [(-> g
-           (update :balloons (fn [bs] (filterv (fn [o] (not= (:id o) (:id b))) bs)))
+           (clojure.core/update :balloons (fn [bs] (filterv (fn [o] (not= (:id o) (:id b))) bs)))
            (update-in [:players player :score] + points)
            (assoc-in [:players player :rumble] (if gold 0.25 0.12))
-           (update :pops-this-round inc)
+           (clojure.core/update :pops-this-round inc)
            (burst (:x b) (:y b) (if gold -1 (:color b)) (if gold 28 16))
            (popup (:x b) (:y b) points player))
        points])
@@ -150,7 +151,7 @@
                   (assoc g' :spawn-timer next-t))
                 (assoc g :spawn-timer t)))
             g)]
-    (update g :balloons
+    (clojure.core/update g :balloons
             (fn [bs]
               (into [] (comp (map (fn [b] (move-balloon dt b)))
                              (remove (fn [b] (< (+ (:y b) (:r b)) 0))))
@@ -160,7 +161,7 @@
   "Age particles and popups, and run down each player's rumble."
   [g dt]
   (-> g
-      (update :particles
+      (clojure.core/update :particles
               (fn [ps]
                 (into [] (comp (map (fn [p] (assoc p :life (- (:life p) dt))))
                                (filter (fn [p] (> (:life p) 0)))
@@ -170,15 +171,177 @@
                                                :x (+ (:x p) (* (:vx p) dt))
                                                :y (+ (:y p) (* vy dt)))))))
                       ps)))
-      (update :popups
+      (clojure.core/update :popups
               (fn [us]
                 (into [] (comp (map (fn [u] (assoc u :life (- (:life u) dt)
                                                    :y (- (:y u) (* 40.0 dt)))))
                                (filter (fn [u] (> (:life u) 0))))
                       us)))
-      (update :players
+      (clojure.core/update :players
               (fn [ps]
                 (mapv (fn [p] (if (> (:rumble p) 0)
                                 (assoc p :rumble (max 0.0 (- (:rumble p) dt)))
                                 p))
                       ps)))))
+
+;; Modes, demo bots and results. Mirrors game_update in game.c: the same
+;; transitions and timers, with update-effects last.
+
+(def demo-bots 2)
+(def ^:private bot-speed 260.0)
+
+(def no-input
+  "Four players, none connected, nothing pressed."
+  (vec (repeat max-players {:connected false :aiming false :x 0.0 :y 0.0 :fire false})))
+
+(defn- reset-players [g]
+  (assoc g :players
+         (mapv (fn [p] (assoc p :joined false :score 0 :rumble 0.0 :target nil
+                              :aim-delay 0.0 :x (/ screen-w 2.0) :y (/ screen-h 2.0)))
+               (:players g))))
+
+(defn- clear-board [g]
+  (assoc g :balloons [] :popups [] :spawn-timer 0.0 :pops-this-round 0))
+
+(defn- set-mode [g m]
+  (assoc g :mode m :mode-time 0.0))
+
+(defn- any-fire? [inputs]
+  (boolean (some (fn [i] (and (:connected i) (:fire i))) inputs)))
+
+(defn- track-pointers [g inputs]
+  (assoc g :players
+         (mapv (fn [p i]
+                 (let [aiming (boolean (and (:connected i) (:aiming i)))]
+                   (if aiming
+                     (assoc p :aiming true :x (:x i) :y (:y i))
+                     (assoc p :aiming false))))
+               (:players g) inputs)))
+
+(defn- join-on-fire [g inputs]
+  (assoc g :players
+         (mapv (fn [p i] (if (and (:connected i) (:fire i)) (assoc p :joined true) p))
+               (:players g) inputs)))
+
+(defn- find-balloon [g id]
+  (first (filter (fn [b] (= (:id b) id)) (:balloons g))))
+
+(defn- nearest-balloon
+  "Id of the closest balloon that is fully on screen, or nil."
+  [g x y]
+  (let [cands (filter (fn [b] (not (or (> (:y b) (* screen-h 0.66)) (< (:y b) (:r b)))))
+                      (:balloons g))
+        d2 (fn [b] (let [dx (- (:x b) x) dy (- (:y b) y)] (+ (* dx dx) (* dy dy))))]
+    (when (seq cands)
+      (:id (reduce (fn [best b] (if (< (d2 b) (d2 best)) b best)) cands)))))
+
+(defn- update-bot [g p dt]
+  (let [g (assoc-in g [:players p :aiming] true)
+        pl (get-in g [:players p])
+        dead? (or (nil? (:target pl)) (nil? (find-balloon g (:target pl))))
+        [g target delay] (if dead?
+                           (let [[g' d] (randf g 0.6 1.4)]
+                             [g' (nearest-balloon g (:x pl) (:y pl)) d])
+                           [g (:target pl) (:aim-delay pl)])
+        b (when target (find-balloon g target))]
+    (if (nil? b)
+      (assoc-in (assoc-in g [:players p :target] nil) [:players p :aim-delay] delay)
+      (let [dx (- (:x b) (:x pl)) dy (- (:y b) (:y pl))
+            d (Math/sqrt (+ (* dx dx) (* dy dy)))
+            step (* bot-speed dt)
+            [x y] (if (> d step)
+                    [(+ (:x pl) (* (/ dx d) step)) (+ (:y pl) (* (/ dy d) step))]
+                    [(:x b) (:y b)])
+            delay (- delay dt)
+            g (update-in g [:players p] assoc :target target :aim-delay delay :x x :y y)]
+        (if (and (< d (* (:r b) 0.6)) (<= delay 0))
+          (-> (first (try-pop g p x y))
+              (assoc-in [:players p :target] nil))
+          g)))))
+
+(defn- update-bots [g dt]
+  (reduce (fn [g p] (update-bot g p dt)) g (range demo-bots)))
+
+(defn update
+  "Advance the game by dt seconds. inputs is a vector of 4 maps
+   {:connected :aiming :x :y :fire}. In :demo the bots play and any fire
+   returns to the title."
+  [g inputs dt]
+  (let [g (clojure.core/update g :mode-time + dt)
+        g (case (:mode g)
+            :title
+            (let [g (-> g (track-pointers inputs) (update-balloons dt true))]
+              (cond
+                (any-fire? inputs)
+                (-> g reset-players (join-on-fire inputs) (set-mode :countdown))
+
+                (>= (:mode-time g) attract-idle-seconds)
+                (let [g (-> g reset-players clear-board)]
+                  (-> g
+                      (assoc :players (vec (map-indexed
+                                            (fn [i p] (if (< i demo-bots) (assoc p :joined true) p))
+                                            (:players g))))
+                      (set-mode :demo)))
+
+                :else g))
+
+            :countdown
+            (let [g (-> g (track-pointers inputs) (join-on-fire inputs) (update-balloons dt false))]
+              (if (>= (:mode-time g) countdown-seconds)
+                (-> g clear-board (set-mode :play))
+                g))
+
+            :play
+            (let [g (track-pointers g inputs)
+                  g (reduce (fn [g p]
+                              (let [i (nth inputs p)]
+                                (if (and (get-in g [:players p :joined])
+                                         (:connected i) (:aiming i) (:fire i))
+                                  (first (try-pop g p (:x i) (:y i)))
+                                  g)))
+                            g (range max-players))
+                  g (update-balloons g dt true)]
+              (if (>= (:mode-time g) round-seconds)
+                (-> g (clojure.core/update :rounds-played inc) (set-mode :results))
+                g))
+
+            :results
+            (let [g (-> g (track-pointers inputs) (update-balloons dt false))]
+              (if (and (>= (:mode-time g) results-lock-seconds) (any-fire? inputs))
+                (-> g reset-players clear-board (set-mode :title))
+                g))
+
+            :demo
+            (let [g (-> g (update-bots dt) (update-balloons dt true))]
+              (if (or (any-fire? inputs) (>= (:mode-time g) demo-seconds))
+                (-> g reset-players clear-board (set-mode :title))
+                g)))]
+    (update-effects g dt)))
+
+(defn joined-count [g]
+  (count (filter :joined (:players g))))
+
+(defn winner
+  "Index of the joined player with the top score (lowest index on a tie), or nil."
+  [g]
+  (reduce (fn [best p]
+            (cond
+              (not (get-in g [:players p :joined])) best
+              (or (nil? best) (> (get-in g [:players p :score]) (get-in g [:players best :score]))) p
+              :else best))
+          nil (range max-players)))
+
+(defn tie? [g]
+  (if-let [w (winner g)]
+    (let [ps (:players g)]
+      (boolean (some (fn [p] (and (not= p w) (:joined (nth ps p))
+                                  (= (:score (nth ps p)) (:score (nth ps w)))))
+                     (range max-players))))
+    false))
+
+(defn time-left [g]
+  (case (:mode g)
+    :play (- round-seconds (:mode-time g))
+    :demo (- demo-seconds (:mode-time g))
+    :countdown (- countdown-seconds (:mode-time g))
+    0.0))
