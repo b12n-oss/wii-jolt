@@ -209,6 +209,8 @@
      (row "chez:setup" "one-time: Chez 10.4.1 + Wii patch, host compiler, tpb32b boots")
      (row "build:chez" "the Chez kernel for the Wii and the chez test app")
      (row "pack" "assemble the jolt target pack for tpb32b")
+     (row "build:jolt-gfx" "the C shim that lets a jolt program draw with raylib and read Wiimotes")
+     (row "gfx-pack" "the graphics pack: the plain pack plus the shim, raylib and SDL")
      (row "build:jolt-hello" "cross-build jolt-hello with jolt build --target tpb32b")
      (row "sd" "collect every built app into build/sd/apps for an SD card")
      (hdr "Run in Dolphin")
@@ -250,6 +252,9 @@
      (check (fs/which "jolt") "jolt on PATH" "install jolt (https://github.com/jolt-lang/jolt)")
      (check (fs/exists? (str repo-root "/.work/pack-tpb32b/xpatch")) "jolt target pack assembled"
             (str runner " build:chez && " runner " pack"))
+     (println "jolt graphics (blocks Clojure games that draw with raylib):")
+     (check (fs/exists? (str repo-root "/.work/pack-tpb32b-gfx/xpatch")) "jolt graphics pack assembled"
+            (str runner " gfx-pack"))
      (println "docs (blocks site:*):")
      (check (docs-engine-dir) "docs-engine checkout" (str "git clone " docs-engine-repo " ../docs-engine"))
      (println)
@@ -312,6 +317,15 @@
   pack
   {:doc "Assemble the jolt target pack for tpb32b in .work/pack-tpb32b"
    :task (sh! "scripts/make-pack")}
+
+  build:jolt-gfx
+  {:doc "Compile the jolt-gfx C shim (raylib and Wiimotes for jolt programs)"
+   :task (sh! "scripts/dkp" "make" "-C" "jolt-gfx")}
+
+  gfx-pack
+  {:doc "Assemble the graphics pack in .work/pack-tpb32b-gfx (needs bb pack first)"
+   :depends [build:jolt-gfx build:raylib]
+   :task (sh! "scripts/make-gfx-pack")}
 
   build:jolt-hello
   {:doc "Cross-build jolt-hello for the Wii with jolt build --target tpb32b"

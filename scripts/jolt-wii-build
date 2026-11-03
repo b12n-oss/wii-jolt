@@ -7,7 +7,7 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 PROJ="$(cd "$1" && pwd)"; NS="$2"; APP="$3"
-PACK="$ROOT/.work/pack-tpb32b"
+PACK="${JOLT_WII_PACK:-$ROOT/.work/pack-tpb32b}"
 cd "$PROJ"
 rm -rf "build/$APP.elf" "build/$APP.elf.build"
 mkdir -p build
@@ -15,7 +15,7 @@ mkdir -p build
 # COMPILING (64-bit) Chez; this forces the 32-bit-safe arm for the Wii.
 JOLT_NARROW_HASH=1 \
 JOLT_CHEZ="$ROOT/.work/ChezScheme/$(ls "$ROOT/.work/ChezScheme/" | grep -E '^t(arm64|a6)osx$' | head -1)/bin/$(ls "$ROOT/.work/ChezScheme/" | grep -E '^t(arm64|a6)osx$' | head -1)/scheme" \
-JOLT_TARGET_CC="$ROOT/scripts/wii-cc" \
+JOLT_TARGET_CC="${JOLT_WII_CC:-$ROOT/scripts/wii-cc}" \
   jolt build -m "$NS" -o "build/$APP.elf" --target tpb32b --target-pack "$PACK"
 "$ROOT/scripts/dkp" elf2dol "${PROJ#$ROOT/}/build/$APP.elf" "${PROJ#$ROOT/}/build/$APP.dol"
 mkdir -p "build/sd/apps/$APP"

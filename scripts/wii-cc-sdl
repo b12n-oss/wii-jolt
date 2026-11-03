@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+# wii-cc for a jolt program that uses raylib. jolt generates its own main();
+# renaming it SDL_main lets SDL's Wii main (libSDL2main) run first, the way it
+# does for the C games: IOS, SD card, WPAD_Init, power callbacks.
+exec "$(dirname "$0")/wii-cc" -Dmain=SDL_main "$@"
