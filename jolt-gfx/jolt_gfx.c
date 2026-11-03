@@ -4,6 +4,7 @@
 // with -Wl,--wrap=Sbuild_heap).
 #include "jolt_gfx.h"
 #include "raylib.h"
+#include <stdlib.h>
 #include <gccore.h>
 #include <ogc/lwp_watchdog.h>
 #include <wiiuse/wpad.h>
@@ -136,7 +137,15 @@ U jg_rumble_all_off(void)
 // stdout/stderr to Dolphin's log (OSREPORT) or a USB Gecko, before jolt's main
 // runs, as the C games do with SYS_STDIO_Report(true). raylib owns the screen.
 __attribute__((constructor))
-static void jg_stdio(void) { SYS_STDIO_Report(true); }
+static void jg_stdio(void)
+{
+    SYS_STDIO_Report(true);
+    // jolt sizes its allocation window (the "nursery") at 16MB, which is more
+    // than the malloc heap has left after a 14MB .dol loads into MEM1, so a
+    // program that allocates dies with "out of memory" before the first
+    // collection. Pin it small; jolt reads this at startup.
+    setenv("JOLT_GC_TRIP_BYTES", "2097152", 0);
+}
 
 // --- registration ---------------------------------------------------------
 void Sforeign_symbol(const char *s, void *v);

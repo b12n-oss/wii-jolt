@@ -27,7 +27,8 @@
        ["shakerace"   "examples/build/shakerace/shakerace.dol"     false "Shake Race: shake the Wiimote to run"]
        ["hello"      "examples/build/hello/hello.dol"     false "stock raylib 6.0: bouncing ball, gamepad readout"]
        ["chez"       "chez-wii/build/chez.dol"            true  "Chez Scheme 10.4.1 (tpb32b) evaluating a test list"]
-       ["jolt-hello" "jolt-hello/build/jolt-hello.dol"    true  "Clojure via jolt: fib, bignums, maps, sets, hashes"]])
+       ["jolt-hello" "jolt-hello/build/jolt-hello.dol"    true  "Clojure via jolt: fib, bignums, maps, sets, hashes"]
+       ["jolt-stress" "jolt-balloons/build/jolt-stress.dol" false "Clojure drawing cost: a busy Balloon Pop frame, timed"]])
 
     (defn app [nm] (first (filter (fn [a] (= nm (first a))) apps)))
 
@@ -212,6 +213,7 @@
      (row "build:jolt-gfx" "the C shim that lets a jolt program draw with raylib and read Wiimotes")
      (row "gfx-pack" "the graphics pack: the plain pack plus the shim, raylib and SDL")
      (row "build:jolt-hello" "cross-build jolt-hello with jolt build --target tpb32b")
+     (row "build:jolt-stress" "cross-build the Clojure drawing stress test")
      (row "sd" "collect every built app into build/sd/apps for an SD card")
      (hdr "Run in Dolphin")
      (doseq [[nm _ _ what] apps] (row (str "run:" nm) what))
@@ -280,11 +282,12 @@
              (sh! "cc" "-std=c99" "-Wall" "-Wextra" "-Werror" (str "-Iexamples/" nm)
                   (str "examples/" nm "/game.c") (str "examples/" nm "/test/test_game.c") "-lm" "-o" bin)
              (sh! bin)))
-          (let [r (shell {:dir (str repo-root "/jolt-balloons") :continue true}
-                         "jolt" "-A:test" "-m" "balloons.rules-test")]
-            (when-not (zero? (:exit r))
-              (binding [*out* *err*] (println "failed: jolt -A:test -m balloons.rules-test"))
-              (System/exit (:exit r)))))}
+          (doseq [[dir ns-name] [["jolt-balloons" "balloons.rules-test"] ["jolt-gfx" "wii.frame-stats-test"]]]
+            (let [r (shell {:dir (str repo-root "/" dir) :continue true}
+                           "jolt" "-A:test" "-m" ns-name)]
+              (when-not (zero? (:exit r))
+                (binding [*out* *err*] (println (str "failed: jolt -A:test -m " ns-name)))
+                (System/exit (:exit r))))))}
 
   build:balloons
   {:doc "Build Balloon Pop (.dol + SD layout)"
@@ -330,6 +333,14 @@
   build:jolt-hello
   {:doc "Cross-build jolt-hello for the Wii with jolt build --target tpb32b"
    :task (sh! "scripts/jolt-wii-build" "jolt-hello" "hello.core" "jolt-hello")}
+
+  build:jolt-stress
+  {:doc "Cross-build the Clojure drawing stress test (busy Balloon Pop frame, timed)"
+   :depends [gfx-pack]
+   :task (do
+           (sh! "env" (str "JOLT_WII_PACK=" repo-root "/.work/pack-tpb32b-gfx")
+                (str "JOLT_WII_CC=" repo-root "/scripts/wii-cc-sdl")
+                "scripts/jolt-wii-build" "jolt-balloons" "balloons.stress" "jolt-stress"))}
 
   build
   {:doc "Build every app"
@@ -406,6 +417,13 @@
   run:jolt-hello
   {:doc "Boot jolt-hello in Dolphin and print its output"
    :task (let [r (run-in-dolphin "jolt-hello" 40)] (doseq [l (:lines r)] (println l)) (println (:shot r)))}
+
+  run:jolt-stress
+  {:doc "Boot the Clojure drawing stress test in Dolphin and print its timing lines"
+   :task (let [r (run-in-dolphin "jolt-stress" 45)]
+           (doseq [l (:lines r)] (when (str/starts-with? l "jolt-stress: ") (println l)))
+           (println (:shot r))
+           (when (:crashed? r) (println "CRASHED") (System/exit 1)))}
 
   verify
   {:doc "Build everything, boot each app in Dolphin with MMU on, check its output"
