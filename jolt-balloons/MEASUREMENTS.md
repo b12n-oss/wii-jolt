@@ -79,6 +79,36 @@ Decision: a command buffer made of `ffi/write` calls would cost more than the
 per-shape calls it replaces, so the per-shape design stays and the work went
 into the draw functions themselves (see the split and profile sections).
 
+## After the cast fix in jolt (branch feat/cheap-double-casts, 2026-11-04)
+
+jolt's checked casts compared a double against the type's bounds held as
+exact integers, which for `long` are bignums on every Chez, so each cast paid
+generic flonum-vs-bignum compares. The fix (jolt `host/chez/converters.ss`,
+branch `feat/cheap-double-casts` at `36c48e7`, not yet upstream) compares
+flonums against flonum bounds. Measured with `balloons.cast-bench`
+(`bb build:jolt-cast-bench`, `bb run:jolt-cast-bench`), the profile's cast
+micro-ops in a program small enough to boot (the draw profile now prints
+"out of memory" at startup with either jolt; it sits on the .dol memory
+cliff). Same Dolphin settings; net nanoseconds per operation, second pass:
+
+| cast | jolt v0.8.23-320 (before) | feat/cheap-double-casts (after) |
+|---|---|---|
+| `(long 123.7)` | 135533 | 27044 |
+| `(long 123.7)` in a `^double`-hinted fn | 135558 | 26279 |
+| `(long 124.0)` | 71623 | 26186 |
+| `(int 123.7)` | 135414 | 26231 |
+| `(unchecked-long 123.7)` | 26316 | 23018 |
+| `(unchecked-int 123.7)` | 26313 | 22969 |
+| `(long 123)` (a fixnum) | 192 | 190 |
+| boxed double multiply, for scale | 2742 | 2742 |
+
+The checked casts are 5x cheaper and now cost what the unchecked ones do;
+what remains (about 23 us) is the generic `exact`/`truncate` on a flonum in
+the portable bytecode. The stress frame, which already used `unchecked-long`,
+went from a draw median of 59404-60097 us to 55014-55310 us (work ~75 ms to
+~70.6 ms); the game's draw code would see the same. The new jolt also makes
+the .dols a little smaller (jolt-balloons 14475232 to 14441440 bytes).
+
 ## Where the draw time goes (split measurement)
 
 Three builds of the same 368-call busy frame, each run in Dolphin 2609a (idle

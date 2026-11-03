@@ -32,6 +32,7 @@
        ["jolt-balloons" "jolt-balloons/build/jolt-balloons.dol" false "Balloon Pop in Clojure (jolt): same game, pure Clojure rules"]
        ["jolt-stress" "jolt-balloons/build/jolt-stress.dol" false "Clojure drawing cost: a busy Balloon Pop frame, timed" :measurement]
        ["jolt-ffi-bench" "jolt-balloons/build/jolt-ffi-bench.dol" false "Clojure FFI cost benchmark" :measurement]
+       ["jolt-cast-bench" "jolt-balloons/build/jolt-cast-bench.dol" false "Clojure double-to-integer cast cost on the Wii" :measurement]
        ["jolt-stress-stub" "jolt-balloons/build/jolt-stress-stub.dol" false "Split measurement: the stress frame with every C draw function stubbed out" :measurement]
        ["jolt-const-draw" "jolt-balloons/build/jolt-const-draw.dol" false "Split measurement: the stress frame's 368 calls with constant arguments" :measurement]
        ["jolt-draw-profile" "jolt-balloons/build/jolt-draw-profile.dol" false "Profile of balloons.draw: time per section and per operation (stub-draw pack)" :measurement]])
@@ -258,6 +259,7 @@
      (row "build:jolt-balloons" "cross-build Balloon Pop in Clojure")
      (row "build:jolt-stress" "cross-build the Clojure drawing stress test")
      (row "build:jolt-ffi-bench" "cross-build the Clojure FFI cost benchmark")
+     (row "build:jolt-cast-bench" "cross-build the cast cost benchmark")
      (row "gfx-pack-stub" "the graphics pack with a shim whose draw functions return at once")
      (row "build:jolt-stress-stub" "cross-build the stress test against the stub-draw pack")
      (row "build:jolt-const-draw" "cross-build the constant-arguments draw test")
@@ -607,6 +609,21 @@
   {:doc "Boot the draw profile in Dolphin and print its lines"
    :task (let [r (run-in-dolphin "jolt-draw-profile" 150)]
            (doseq [l (:lines r)] (when (str/starts-with? l "draw-profile: ") (println l)))
+           (println (:shot r))
+           (when (:crashed? r) (println "CRASHED") (System/exit 1)))}
+
+  build:jolt-cast-bench
+  {:doc "Cross-build the Clojure cast cost benchmark"
+   :depends [gfx-pack]
+   :task (do
+           (sh! "env" "JOLT_WII_NO_META=1" (str "JOLT_WII_PACK=" repo-root "/.work/pack-tpb32b-gfx")
+                (str "JOLT_WII_CC=" repo-root "/scripts/wii-cc-sdl")
+                "scripts/jolt-wii-build" "jolt-balloons" "balloons.cast-bench" "jolt-cast-bench"))}
+
+  run:jolt-cast-bench
+  {:doc "Boot the cast cost benchmark in Dolphin and print its lines"
+   :task (let [r (run-in-dolphin "jolt-cast-bench" 40)]
+           (doseq [l (:lines r)] (when (str/starts-with? l "cast-bench: ") (println l)))
            (println (:shot r))
            (when (:crashed? r) (println "CRASHED") (System/exit 1)))}
 
