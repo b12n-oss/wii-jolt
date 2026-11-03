@@ -4,4 +4,4 @@
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 IMAGE="${DKP_IMAGE:-devkitpro/devkitppc:latest}"
-exec docker run --rm -v "$ROOT":/work -w /work "$IMAGE" "$@"
+exec docker run --rm -e PATH=/opt/devkitpro/devkitPPC/bin:/opt/devkitpro/tools/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin -v "$ROOT":/work -w /work "$IMAGE" "$@"

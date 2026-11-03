@@ -1,0 +1,26 @@
+#!/usr/bin/env bash
+# Assemble a jolt target pack for tpb32b (the Wii) in the layout
+# jolt/host/chez/build.ss expects (cf. jolt/tools/cross-compile/make-pack.sh):
+#   petite.boot scheme.boot scheme.h libkernel.a xpatch link-libs lib/*.a
+# Prereqs: scripts/setup-chez, then scripts/dkp make -C chez-wii runtime.
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+CHEZ="$ROOT/.work/ChezScheme"
+PACK="${1:-$ROOT/.work/pack-tpb32b}"
+B="$ROOT/chez-wii/build"
+
+for f in "$CHEZ/boot/tpb32b/petite.boot" "$CHEZ/boot/tpb32b/scheme.boot" \
+         "$CHEZ/boot/tpb32b/scheme.h" "$CHEZ/xc-tpb32b/s/xpatch" \
+         "$B/libkernel.a" "$B/wii_runtime.o" "$B/posix_stubs.o" "$B/ogc_tls.o"; do
+  [ -e "$f" ] || { echo "missing: $f" >&2; exit 1; }
+done
+
+rm -rf "$PACK"; mkdir -p "$PACK/lib"
+cp "$CHEZ/boot/tpb32b/petite.boot" "$CHEZ/boot/tpb32b/scheme.boot" \
+   "$CHEZ/boot/tpb32b/scheme.h" "$B/libkernel.a" "$PACK/"
+cp "$CHEZ/xc-tpb32b/s/xpatch" "$PACK/xpatch"
+cp "$B/wii_runtime.o" "$B/posix_stubs.o" "$B/ogc_tls.o" "$PACK/lib/"
+# lz4/zlib come from the devkitPPC image's portlibs (wii-cc adds that -L).
+printf '%s\n' "$PACK/lib/wii_runtime.o $PACK/lib/posix_stubs.o $PACK/lib/ogc_tls.o -llz4 -lz -lfat -lwiiuse -lbte -lpthread -logc -lm" > "$PACK/link-libs"
+echo "wrote target pack: $PACK"
+ls -la "$PACK" "$PACK/lib"

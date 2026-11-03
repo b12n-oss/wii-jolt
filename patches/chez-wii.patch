@@ -1,0 +1,165 @@
+diff --git a/c/expeditor.c b/c/expeditor.c
+index 4c015106..c5fffc9b 100644
+--- a/c/expeditor.c
++++ b/c/expeditor.c
+@@ -18,7 +18,7 @@
+ # include "system.h"
+ #endif
+ 
+-#ifdef FEATURE_EXPEDITOR
++#if defined(FEATURE_EXPEDITOR) && !defined(__wii__)
+ 
+ /* locally defined functions */
+ static IBOOL s_ee_init_term(iptr in, iptr out);
+@@ -1432,3 +1432,44 @@ void S_expeditor_init(void) {
+ }
+ 
+ #endif /* FEATURE_EXPEDITOR */
++
++#if defined(FEATURE_EXPEDITOR) && defined(__wii__)
++/* No terminal on a Wii. scheme.boot still binds the expeditor's foreign
++   entries when it loads, so register them all against one stub. With
++   ee_init_term answering 0 ("not a terminal") the expeditor is never
++   entered and the rest are never called. */
++static iptr s_ee_wii_stub(void) { return 0; }
++void S_expeditor_init(void) {
++  Sforeign_symbol("(cs)ee_bell", (void *)s_ee_wii_stub);
++  Sforeign_symbol("(cs)ee_carriage_return", (void *)s_ee_wii_stub);
++  Sforeign_symbol("(cs)ee_char_width", (void *)s_ee_wii_stub);
++  Sforeign_symbol("(cs)ee_clear_screen", (void *)s_ee_wii_stub);
++  Sforeign_symbol("(cs)ee_clr_eol", (void *)s_ee_wii_stub);
++  Sforeign_symbol("(cs)ee_clr_eos", (void *)s_ee_wii_stub);
++  Sforeign_symbol("(cs)ee_down", (void *)s_ee_wii_stub);
++  Sforeign_symbol("(cs)ee_enter_am_mode", (void *)s_ee_wii_stub);
++  Sforeign_symbol("(cs)ee_exit_am_mode", (void *)s_ee_wii_stub);
++  Sforeign_symbol("(cs)ee_flush", (void *)s_ee_wii_stub);
++  Sforeign_symbol("(cs)ee_get_clipboard", (void *)s_ee_wii_stub);
++  Sforeign_symbol("(cs)ee_get_screen_size", (void *)s_ee_wii_stub);
++  Sforeign_symbol("(cs)ee_init_term", (void *)s_ee_wii_stub);
++  Sforeign_symbol("(cs)ee_left", (void *)s_ee_wii_stub);
++  Sforeign_symbol("(cs)ee_line_feed", (void *)s_ee_wii_stub);
++  Sforeign_symbol("(cs)ee_nanosleep", (void *)s_ee_wii_stub);
++  Sforeign_symbol("(cs)ee_nopostoutput", (void *)s_ee_wii_stub);
++  Sforeign_symbol("(cs)ee_noraw", (void *)s_ee_wii_stub);
++  Sforeign_symbol("(cs)ee_nosignal", (void *)s_ee_wii_stub);
++  Sforeign_symbol("(cs)ee_pause", (void *)s_ee_wii_stub);
++  Sforeign_symbol("(cs)ee_pending_winch", (void *)s_ee_wii_stub);
++  Sforeign_symbol("(cs)ee_postoutput", (void *)s_ee_wii_stub);
++  Sforeign_symbol("(cs)ee_raw", (void *)s_ee_wii_stub);
++  Sforeign_symbol("(cs)ee_read_char", (void *)s_ee_wii_stub);
++  Sforeign_symbol("(cs)ee_right", (void *)s_ee_wii_stub);
++  Sforeign_symbol("(cs)ee_scroll_reverse", (void *)s_ee_wii_stub);
++  Sforeign_symbol("(cs)ee_set_color", (void *)s_ee_wii_stub);
++  Sforeign_symbol("(cs)ee_signal", (void *)s_ee_wii_stub);
++  Sforeign_symbol("(cs)ee_up", (void *)s_ee_wii_stub);
++  Sforeign_symbol("(cs)ee_write_char", (void *)s_ee_wii_stub);
++}
++#endif
++
+diff --git a/c/schsig.c b/c/schsig.c
+index 7eb29752..85376cf0 100644
+--- a/c/schsig.c
++++ b/c/schsig.c
+@@ -835,6 +835,12 @@ static void no_op_register(UNUSED int sigid) {
+ 
+ #define SIGACTION(id, act_p, old_p) (register_modified_signal(id), sigaction(id, act_p, old_p))
+ 
++#if defined(__wii__)
++static void init_signal_handlers(void) {
++    if (register_modified_signal == NULL)
++      register_modified_signal = no_op_register;
++}
++#else
+ static void init_signal_handlers(void) {
+     struct sigaction act;
+ 
+@@ -882,6 +888,7 @@ static void init_signal_handlers(void) {
+     SIGACTION(SIGSEGV, &act, (struct sigaction *)0);
+ }
+ 
++#endif /* __wii__ */
+ #endif /* WIN32 */
+ 
+ void S_schsig_init(void) {
+diff --git a/c/stats.c b/c/stats.c
+index 1686142c..579e5d12 100644
+--- a/c/stats.c
++++ b/c/stats.c
+@@ -518,11 +518,15 @@ static long adjust_time_zone(ptr dtvec, struct tm *tmxp, ptr given_tzoff) {
+ #else
+ # if defined(SOLARIS) || defined(sun)
+   tzoff = timezone;
++# elif defined(__wii__)
++  tzoff = 0;
+ # else
+   tzoff = tmxp->tm_gmtoff;
+ # endif
+   if (given_tzoff == Sfalse) {
+-# if defined(__linux__) || defined(SOLARIS) || defined(sun)
++# if defined(__wii__)
++    tz_name = Sstring_utf8("UTC", -1);
++# elif defined(__linux__) || defined(SOLARIS) || defined(sun)
+     /* Linux and Solaris set `tzname`: */
+     tz_name = Sstring_utf8(tzname[tmxp->tm_isdst], -1);
+ # else
+diff --git a/c/types.h b/c/types.h
+index 3532876b..c96245cd 100644
+--- a/c/types.h
++++ b/c/types.h
+@@ -528,7 +528,7 @@ typedef struct thread_gc {
+ /* assuming malloc will give us required alignment */
+ # define CREATEJMPBUF() malloc(sizeof(jmp_buf))
+ # define FREEJMPBUF(jb) free(jb)
+-# if defined(__MINGW32__) && defined(__aarch64__)
++# if (defined(__MINGW32__) && defined(__aarch64__)) || defined(__wii__)
+    /* no _-prefixed variants */
+ #  define SETJMP(jb) setjmp(jb)
+ #  define LONGJMP(jb,n) longjmp(jb, n)
+diff --git a/c/version.h b/c/version.h
+index 4e39cb59..616f1daa 100644
+--- a/c/version.h
++++ b/c/version.h
+@@ -44,7 +44,7 @@
+ /*****************************************/
+ /* Architectures                         */
+ 
+-#if defined(__powerpc__) || defined(__POWERPC__) || defined(__sparc__) || defined(__s390x__) || defined(__m68k__) || defined(__hppa__)
++#if defined(__powerpc__) || defined(__POWERPC__) || defined(__wii__) || defined(__sparc__) || defined(__s390x__) || defined(__m68k__) || defined(__hppa__)
+ # if !(defined(__LITTLE_ENDIAN__) || defined(_LITTLE_ENDIAN))
+ #  define PORTABLE_BYTECODE_BIGENDIAN
+ #  define BIG_ENDIAN_IEEE_DOUBLE
+@@ -453,6 +453,34 @@ typedef char tputsputcchar;
+ #define ICONV_INBUF_TYPE const char **
+ #endif
+ 
++#if defined(__wii__)
++/* Nintendo Wii via devkitPPC + libogc: newlib libc, no mmap, no dlopen,
++   no fork/exec. Modelled on the __EMSCRIPTEN__ branch below. */
++#define USE_MALLOC
++#define GETPAGESIZE() 4096
++#define NOBLOCK O_NONBLOCK
++#define IEEE_DOUBLE
++#define LDEXP
++#define ARCHYPERBOLIC
++#define LOG1P
++typedef char *memcpy_t;
++#define MAKE_NAN(x) { x = 0.0; x = x / x; }
++#define GETWD(x) getcwd((x),PATH_MAX)
++typedef int tputsputcchar;
++#define DIRMARKERP(c) ((c) == '/')
++#define SECATIME(sb) (sb).st_atime
++#define SECCTIME(sb) (sb).st_ctime
++#define SECMTIME(sb) (sb).st_mtime
++#define NSECATIME(sb) 0
++#define NSECCTIME(sb) 0
++#define NSECMTIME(sb) 0
++#define ICONV_INBUF_TYPE char **
++#define NOFILE 64
++#define NO_USELOCALE
++#define DISABLE_X11
++#define DISABLE_CURSES
++#endif
++
+ #if defined(__EMSCRIPTEN__)
+ #define USE_MALLOC
+ #define GETPAGESIZE() 4096

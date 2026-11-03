@@ -1,0 +1,43 @@
+#!/usr/bin/env bash
+# Prepare Chez Scheme for the Wii build:
+#   1. clone Chez at the version Jolt is built on (tag v10.4.1) from a local
+#      checkout (CHEZ_SRC, default ~/dev/ChezScheme, any clone of
+#      cisco/ChezScheme with its submodules checked out),
+#   2. apply patches/chez-wii.patch (newlib/libogc kernel support),
+#   3. build the host Chez (Mac) and the tpb32b boot files.
+# Output: .work/ChezScheme with boot/tpb32b/{petite,scheme}.boot, scheme.h,
+# equates.h, which chez-wii/Makefile compiles against.
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+CHEZ_TAG="${CHEZ_TAG:-v10.4.1}"
+CHEZ_SRC="${CHEZ_SRC:-$HOME/dev/ChezScheme}"
+DEST="$ROOT/.work/ChezScheme"
+
+if [ ! -d "$DEST/.git" ]; then
+  git clone -q "$CHEZ_SRC" "$DEST"
+  git -C "$DEST" checkout -q "$CHEZ_TAG"
+  for m in lz4 nanopass stex zlib zuo; do
+    git -C "$DEST" config "submodule.$m.url" "$CHEZ_SRC/$m"
+  done
+  git -C "$DEST" -c protocol.file.allow=always submodule update --init -q
+fi
+
+cd "$DEST"
+if git apply --check "$ROOT/patches/chez-wii.patch" 2>/dev/null; then
+  git apply "$ROOT/patches/chez-wii.patch"
+  echo "applied patches/chez-wii.patch"
+elif git apply --reverse --check "$ROOT/patches/chez-wii.patch" 2>/dev/null; then
+  echo "patches/chez-wii.patch already applied"
+else
+  echo "patches/chez-wii.patch does not apply to $CHEZ_TAG" >&2
+  exit 1
+fi
+
+case "$(uname -m)" in
+  arm64) HOST_M=tarm64osx ;;
+  x86_64) HOST_M=ta6osx ;;
+  *) echo "unsupported host $(uname -m)" >&2; exit 1 ;;
+esac
+[ -x "$HOST_M/bin/$HOST_M/scheme" ] || { ./configure -m="$HOST_M"; make -j8; }
+make bootquick XM=tpb32b
+ls -la boot/tpb32b/*.boot

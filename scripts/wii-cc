@@ -1,0 +1,16 @@
+#!/usr/bin/env bash
+# powerpc-eabi-gcc for the Wii, run in the devkitPPC image, usable as
+# JOLT_TARGET_CC. The repo is mounted at its own absolute path so the paths
+# jolt build writes into its command line resolve unchanged in the container.
+# Adds the Wii machine flags and libogc include/lib dirs.
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+IMAGE="${DKP_IMAGE:-devkitpro/devkitppc:latest}"
+MACHDEP="-DGEKKO -mrvl -mcpu=750 -meabi -mhard-float"
+exec docker run --rm \
+  -e PATH=/opt/devkitpro/devkitPPC/bin:/opt/devkitpro/tools/bin:/usr/bin:/bin \
+  -v "$ROOT":"$ROOT" -w "$PWD" "$IMAGE" \
+  powerpc-eabi-gcc $MACHDEP \
+    -I/opt/devkitpro/libogc/include -I/opt/devkitpro/portlibs/ppc/include \
+    -L/opt/devkitpro/libogc/lib/wii -L/opt/devkitpro/portlibs/ppc/lib \
+    "$@"

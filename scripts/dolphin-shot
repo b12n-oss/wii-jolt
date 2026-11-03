@@ -6,12 +6,15 @@ ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 DOL="$1"; OUT="$2"; WAIT="${3:-10}"
 DOLPHIN=/Applications/Dolphin.app/Contents/MacOS/Dolphin
 USERDIR="$ROOT/.dolphin-user"
+# MMU emulation is ON by default: without it Dolphin ignores invalid reads
+# that crash a real Wii. DOLPHIN_MMU=0 turns it off.
+MMU=True; [ "${DOLPHIN_MMU:-1}" = "0" ] && MMU=False
 mkdir -p "$USERDIR"; rm -f "$USERDIR/Logs/dolphin.log"
 
 "$DOLPHIN" -u "$USERDIR" -b -e "$DOL" \
   -C Dolphin.Analytics.PermissionAsked=True \
   -C Dolphin.Interface.ConfirmStop=False \
-  -C Dolphin.Interface.UsePanicHandlers=False ${DOLPHIN_EXTRA:-} \
+  -C Dolphin.Interface.UsePanicHandlers=False -C Dolphin.Core.MMU=$MMU ${DOLPHIN_EXTRA:-} \
   -C Logger.Options.WriteToFile=True -C Logger.Options.Verbosity=4 \
   -C Logger.Logs.OSREPORT=True -C Logger.Logs.OSREPORT_HLE=True \
   -C Logger.Logs.MI=True -C Logger.Logs.Core=True >"$ROOT/.dolphin-user/last-run.log" 2>&1 &
@@ -28,7 +31,7 @@ for w in list where (w["kCGWindowOwnerName"] as? String ?? "").contains("Dolphin
   let a = b["Width"]! * b["Height"]!
   if a > area { area = a; best = w["kCGWindowNumber"] as! Int }
 }
-print(best)' 2>/dev/null)
+print(best)' 2>"$USERDIR/swift.err")
 
 if [ -n "$WID" ] && [ "$WID" != "0" ]; then
   screencapture -x -o -l "$WID" "$OUT" && echo "shot: $OUT (window $WID)"
@@ -38,4 +41,5 @@ fi
 kill "$PID" 2>/dev/null; sleep 1; kill -9 "$PID" 2>/dev/null
 LOG="$USERDIR/Logs/dolphin.log"
 [ -f "$LOG" ] && echo "--- log tail" && grep -E "OSREPORT|Invalid|MI|Core" "$LOG" | tail -40
+grep -q "Exception (DSI)\|Invalid read\|Invalid write" "$LOG" 2>/dev/null && echo "!!! crash markers in log"
 exit 0
