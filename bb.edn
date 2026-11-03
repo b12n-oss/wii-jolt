@@ -477,6 +477,8 @@
          clj-loc (count-lines ["jolt-balloons/src/balloons/rules.clj" "jolt-balloons/src/balloons/draw.clj" "jolt-balloons/src/balloons/main.clj"])
          glue-loc (count-lines glue)
          crashed (filter (fn [[nm r]] (:crashed? r)) (concat title demo round))
+         empty-runs (filter (fn [[_ c]] (< (nth c 0) 1)) cols)
+         played (into {} (map (fn [nm] [nm (boolean (scripted-pass? nm (round nm)))]) gs))
          pr (fn [label cells] (println (apply str (format "%-34s" label) (map (fn [c] (format "%26s" (str c))) cells))))]
      (println "Balloon Pop, C against Clojure (Dolphin, MMU on). First summary line of each run dropped.")
      (println)
@@ -487,6 +489,7 @@
      (pr "work worst, max (us)" (map (fn [[_ c]] (nth c 3)) cols))
      (pr "frame worst, max (us)" (map (fn [[_ c]] (nth c 4)) cols))
      (pr "dropped frames, total" (map (fn [[_ c]] (nth c 1)) cols))
+     (pr "scripted round played" (concat (map (fn [_] "n/a") gs) (map (fn [nm] (if (played nm) "yes" "NO")) gs)))
      (println)
      (println "Lines of code (wc -l):")
      (println (str "  balloons:        " c-loc "   examples/balloons/{game.h,game.c,main.c}"))
@@ -497,7 +500,13 @@
      (doseq [nm gs]
        (println (str "  " nm ": title " (:shot (title nm)) ", play " (:shot (demo nm)) ", results " (:shot (round nm)))))
      (println (if (seq crashed) (str "CRASH MARKERS in: " (str/join ", " (map first crashed))) "no crash markers"))
-     (when (seq crashed) (System/exit 1)))}
+     (when (seq empty-runs)
+       (println (str "FAILED: no frame-summary line in " (str/join ", " (map first empty-runs))
+                     " (the game did not boot, the log is missing, or the window is too short)")))
+     (doseq [nm gs :when (not (played nm))]
+       (println (str "FAILED: the scripted round of " nm " did not play (no join, no round start or no score)")))
+     (when (or (seq crashed) (seq empty-runs) (not (every? true? (vals played))))
+       (System/exit 1)))}
 
   run:balloons
   {:doc "Boot Balloon Pop in Dolphin, wait for the robot demo, print its events"
