@@ -209,30 +209,47 @@ runtime, one run each of `bb run:jolt-stress` and `bb compare:balloons`.
 
 | | unhinted (baseline, same jolt) | hinted |
 |---|---|---|
-| stress draw median (us) | 28857 to 29008 | did not boot (below) |
+| stress draw median (us) | 28857 to 29008 | 26463 to 26578 |
+| stress work median (us) | 44341 to 44494 | 41962 to 42062 |
+| stress update median (us) | 15484 | 15483 |
 | game demo 45 s, work median (us) | 16343 | 15475 |
 | game demo 45 s, dropped frames | 189 | 101 |
 | game round, work median (us) | 11769 | 11515 |
 | game round, dropped frames | 46 | 46 |
 | game .dol (bytes) | 14447776 | 14555616 |
 
-The game's medians moved 5% (demo) and 2% (round), which is inside the
+The stress frame, whose medians are stable to 100 us, settles it: the draw
+fell 2.4 ms (8%) for the 368 calls, about 6.5 us a call, which is the
+micro-op's 2 us per cast times the three to six geometry casts each call
+makes. The game's medians moved 5% (demo) and 2% (round), inside the
 run-to-run spread seen so far (demo 15393 to 16343 us across the last three
-unhinted runs, round 11769 to 12346), so one run cannot separate the hint's
-effect from noise. The direction and size match the arithmetic: each cast is
-2 us cheaper (3.1 to 1.1 us on the `unchecked-long` micro-op), and a game
-frame makes a few hundred of them (estimate: the stress frame's 368 calls
-carry 3 to 6 geometry arguments each, and the game draws far fewer shapes),
-so a saving of several hundred microseconds. The stress program, whose
-medians are stable to 100 us and would have settled it, no longer boots: the
-inline forms grew every .dol by 107840 bytes, and `jolt-stress.dol` at
-14618464 bytes prints "out of memory" before its first line (twice, same
-build), while the game at 14555616 runs. So with this runtime the cliff sits
-between those two sizes, about 14.6 MB rather than the 14.76 MB the profile
-program's docstring recorded on an earlier runtime, and the game has about
-60 KB of headroom. The next measurement of the stress frame needs either a
-smaller stress build or a bigger heap (the Chez heap is carved from MEM1,
-which the .dol itself occupies; MEM2's 64 MB is untouched).
+unhinted runs, round 11769 to 12346), the same saving spread over fewer
+calls.
+
+The stress number needed a detour. The inline forms grew every .dol by
+107840 bytes, and `jolt-stress.dol` at 14618464 bytes printed "out of
+memory" before its first line, twice, while the game at 14555616 booted.
+That was taken for the .dol size cliff the profile program's docstring
+records at 14.76 MB, and it is not one. Instrumenting `malloc` in the shim
+(`--wrap=malloc` in the gfx pack's link) showed the heap at the failure:
+58.2 MB held after 1184 allocations, the failing request 1.36 MB, MEM1's
+arena with 3.7 MB still free and MEM2's with 1.27 MB. libogc's `sbrk` serves
+`malloc` from MEM1's arena (what is left after the .dol loads, 7.3 MB here)
+and, once a request does not fit there, from MEM2's 52 MB; it never goes
+back, so MEM1's remainder is stranded. And the heap is jolt's own: at the
+game's `jg_init`, Chez reports 42.3 MB allocated and 40.8 MB live after a
+full collection (`bytes-allocated` through the C API), the malloc total is
+49.4 MB, and the boot peaks 10 MB above that while collections copy the
+runtime's live data (a jolt hello-world on the 64-bit Mac holds 74 MB live,
+`JOLT_GC_LOG=1`). So a jolt program on the Wii runs about 60 MB into a 60 MB
+heap, and the game had the stranded 3.8 MB plus 237 KB to spare. The stress
+row above comes from a shim that serves `malloc` failures from the two
+arenas' remainders through libogc's `lwp_heap` (MEM1 minus 1.5 MB for the
+framebuffers SDL takes later): 3.4 MB more, the stress used 1.36 MB of it,
+the game none. The same shim promotes the boot's data to Chez's static
+generation at `jg_init` (`(collect (collect-maximum-generation) 'static)`,
+17 ms), which lowered the live figure by 1.5 MB; its effect on later
+collection peaks is not measured.
 
 ## Where the draw time goes (split measurement)
 
