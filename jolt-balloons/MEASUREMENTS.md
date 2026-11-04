@@ -138,6 +138,26 @@ The checked cast is 4x cheaper again and the unchecked one 7x; what is left
 compiler can remove. Built with the branch's jolt first on PATH; the target
 pack needs no rebuild for a runtime change.
 
+The same runtime under the stress frame and the game (`bb run:jolt-stress`,
+`bb compare:balloons`, same settings as the sections above):
+
+| | after the cast fix | after the lane |
+|---|---|---|
+| stress draw median (us) | 55014 to 55310 | 28905 to 29123 |
+| stress work median (us) | 70495 to 70794 | 44392 to 44615 |
+| stress update median (us) | 15480 | 15484 |
+| game demo 45 s, work median (us) | 23 to 24 ms (comparison below) | 16269 |
+| game demo 45 s, dropped frames | 1003 | 259 |
+| game round, work median (us) | ~23 ms | 12346 |
+| game round, dropped frames | 2173 | 41 |
+
+The game's own per-window lines read a work median of 11.6 to 13.1 ms with
+one dropped frame per 120 during play, against the C game's 3.3 to 3.7 ms
+and none. Still not 60 fps, but the cast lane alone closed most of the gap
+the comparison page describes; the stress frame's 29 ms draw is now the
+calls themselves (368 per frame) plus what the compiler still emits around
+each cast.
+
 ## Where the draw time goes (split measurement)
 
 Three builds of the same 368-call busy frame, each run in Dolphin 2609a (idle
