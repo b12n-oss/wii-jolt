@@ -204,18 +204,21 @@ ms). None is done.
   trick registers the shim's functions as the heap builds.
 - **SDL's `main` must run first.** `-Dmain=SDL_main` renames jolt's `main`, so
   SDL's wrapper can initialise the Wiimotes.
-- **The GC trips too late.** jolt sizes its allocation window at 16 MB, more
-  than the malloc heap left after a 14 MB `.dol` loads, and the first runs died
-  with "out of memory". The shim's constructor sets `JOLT_GC_TRIP_BYTES` to
-  2097152.
+- **The GC trips too late.** jolt sizes its allocation window at 16 MB, and
+  the first runs died with "out of memory". The shim's constructor sets
+  `JOLT_GC_TRIP_BYTES` to 2097152.
 - **Fixnums are 30 bits.** Anything above 2^29 is a bignum. Colours
   (`0xRRGGBBAA`) are bignums, which costs about 2 us per call, and the IR
   position is biased by 4096 so an off-screen pointer isn't negative.
-- **There is a size cliff.** The profile program's docstring
-  (`jolt-balloons/src/balloons/draw_profile.clj`) records a memory cliff at a
-  `.dol` of about 14.76 MB, where builds a few KB larger died with "out of
-  memory" before printing. It is not in `MEASUREMENTS.md`. The game is at about
-  14.48 MB.
+- **The heap is nearly full before the program starts.** A jolt program's
+  runtime holds about 41 MB live on the Wii (58 MB at the boot peak) in a heap
+  of about 60 MB: what MEM1 has left after the `.dol` loads, plus MEM2. What
+  looked like a `.dol` size cliff at about 14.76 MB was that heap running out;
+  a build a little bigger, or one that keeps a little more data, dies with
+  "out of memory" before its first line. The shim wraps `malloc` in the pack's
+  link and serves the overflow from what libogc's sbrk strands in both arenas
+  (3.4 MB), and prints the heap's state at `jg_init` to Dolphin's log. The
+  numbers are in `MEASUREMENTS.md`.
 
 ## What's next
 

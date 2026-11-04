@@ -243,13 +243,14 @@ full collection (`bytes-allocated` through the C API), the malloc total is
 runtime's live data (a jolt hello-world on the 64-bit Mac holds 74 MB live,
 `JOLT_GC_LOG=1`). So a jolt program on the Wii runs about 60 MB into a 60 MB
 heap, and the game had the stranded 3.8 MB plus 237 KB to spare. The stress
-row above comes from a shim that serves `malloc` failures from the two
-arenas' remainders through libogc's `lwp_heap` (MEM1 minus 1.5 MB for the
-framebuffers SDL takes later): 3.4 MB more, the stress used 1.36 MB of it,
-the game none. The same shim promotes the boot's data to Chez's static
-generation at `jg_init` (`(collect (collect-maximum-generation) 'static)`,
-17 ms), which lowered the live figure by 1.5 MB; its effect on later
-collection peaks is not measured.
+row above comes from the shim as it now is: it serves `malloc` failures
+from the two arenas' remainders through libogc's `lwp_heap` (MEM1 minus
+1.5 MB for the framebuffers SDL takes later), 3.4 MB more, of which the
+stress used 1.36 MB and the game none, and `jg_init` prints the heap's
+state to Dolphin's log (`jolt_gfx: heap at jg_init: ...`). A boot-time
+`(collect (collect-maximum-generation) 'static)` was tried in the same
+shim and dropped: 17 ms and 1.5 MB off the live figure, its effect on later
+collection peaks unmeasured.
 
 ## Where the draw time goes (split measurement)
 

@@ -3,7 +3,8 @@
 include $(DEVKITPPC)/wii_rules
 
 PORTS  := $(DEVKITPRO)/portlibs
-CFLAGS := -O2 -Wall $(MACHDEP) -I../vendor/raylib \
+# ../.work/pack-tpb32b/scheme.h: the Chez C API, for the heap report (bb pack first).
+CFLAGS := -O2 -Wall $(MACHDEP) -I../vendor/raylib -I../.work/pack-tpb32b \
           -I$(PORTS)/wii/include -I$(PORTS)/ppc/include -I$(LIBOGC_INC)
 
 all: build/jolt_gfx.o

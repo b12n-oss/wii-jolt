@@ -1,7 +1,7 @@
 (ns balloons.cast-bench
   "The double-to-integer casts alone, timed on the Wii: balloons.draw-profile's
-   cast micro-ops in a program small enough to boot (the profile sits at the
-   .dol memory cliff and no longer prints). Prints one
+   cast micro-ops in a program small enough to boot (the profile program's
+   heap no longer fits and it dies before printing). Prints one
    'cast-bench: micro <name> iters=<n> ops=<n> total-us=<t> net-ns-per-op=<ns>'
    line per case, the empty loop's cost per iteration subtracted, in the same
    format as draw-profile so the two can be read side by side."

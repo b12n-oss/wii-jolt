@@ -5,9 +5,10 @@
    against the stub-draw pack so the numbers are Clojure plus the crossing
    (bb build:jolt-draw-profile). Prints 'draw-profile: ...' lines.
 
-   WARNING: the .dol sits at a memory cliff of about 14.76 MB. Builds a few KB
-   larger died with 'out of memory' before printing anything (found while optimising the draw), so
-   adding micro-ops can make it unrunnable. Check that a run prints 'draw-profile:
+   WARNING: the heap is nearly full at boot (jolt's runtime holds about 41 MB of
+   the Wii's 60 MB; MEASUREMENTS.md). Builds a few KB larger than this one died
+   with 'out of memory' before printing anything (found while optimising the draw),
+   so adding micro-ops can make it unrunnable. Check that a run prints 'draw-profile:
    done' after every edit; trim cases or time them in a throwaway copy."
   (:require [jolt.ffi :as ffi]
             [wii.gfx :as gfx]
