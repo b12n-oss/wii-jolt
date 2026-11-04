@@ -158,6 +158,41 @@ the comparison page describes; the stress frame's 29 ms draw is now the
 calls themselves (368 per frame) plus what the compiler still emits around
 each cast.
 
+## After the cast lowering in jolt (branch feat/cast-lowering, 2026-11-04)
+
+jolt's compiler now emits the cast's window test and `flonum->fixnum` in
+place when it has proven the operand a double (a `^double` parameter, an
+`aget` on `^doubles`, flonum arithmetic), calling the runtime cast only
+outside the window. Same bench, same settings, net ns per op, second pass.
+The hinted case is the one the compiler can see; `long-cast` reads its
+operand from a var and is the unlowered control. The edges line now also
+prints the hinted cast at the 30-bit edges and read
+`[... 1152921504606846976 536870911 536870656 -123]`, the JVM's answers.
+
+| cast | after the lane | after the lowering |
+|---|---|---|
+| `(long 123.7)` in a `^double`-hinted fn | 6417 | 1060 |
+| `(long 123.7)` (var operand, control) | 6343 | 6344 |
+| `(int 123.7)` (control) | 5808 | 5808 |
+| `(unchecked-long 123.7)` (control) | 3145 | 3145 |
+| `(long 123)` (a fixnum) | 193 | 192 |
+| boxed double multiply, for scale | 2742 | 2742 |
+
+Mac (`bench/run.sh num-casts`, 2M casts, the phases read a `^doubles`
+array so all are lowered): `long` of a double 41.1 -> 18.4 ms, `int` 38.6
+-> 18.9, `unchecked-long` 27.5 -> 19.0, against 15.7 for the same loop on a
+fixnum; mean 169.9 -> 90.2 (JVM 17.2).
+
+The frame did not move: stress draw 28878 to 28960 us, the game's demo
+15393 us work median with 158 dropped frames (16269 and 259 before, within
+the run-to-run spread) and the round 12310 us with 41 (identical). That is
+expected: every cast in `wii.gfx` takes an unhinted parameter, so the
+compiler cannot prove a double there and emits the runtime cast as before.
+Hinting those parameters `^double` (a wii-jolt change) is what would carry
+the lowering into the frame; the integer-literal callers would then pay a
+fixnum-to-flonum widening on entry, so it needs its own measurement. The
+.dol grew 4704 bytes (14441440 to 14446144) for the inline forms.
+
 ## Where the draw time goes (split measurement)
 
 Three builds of the same 368-call busy frame, each run in Dolphin 2609a (idle
