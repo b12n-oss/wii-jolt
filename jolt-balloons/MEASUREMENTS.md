@@ -193,6 +193,47 @@ the lowering into the frame; the integer-literal callers would then pay a
 fixnum-to-flonum widening on entry, so it needs its own measurement. The
 .dol grew 4704 bytes (14441440 to 14446144) for the inline forms.
 
+## After hinting wii.gfx's geometry ^double (2026-11-04)
+
+The wii-jolt side of the lowering: every drawing wrapper in `wii.gfx`
+(`rect!`, `circle!`, `triangle!`, `text!`, ... and `text-width`) now hints
+its geometry parameters `^double`, so the compiler proves the operand of each
+`unchecked-long` and emits the inline window test. jolt coerces a hinted
+parameter on entry (`(if (flonum? x) x (jolt->fl x))`), so the
+integer-literal callers (`(gfx/rect! 0 0 screen-w 36 c)`) widen to a flonum
+first and then take the lowered cast; a double argument costs one predicate.
+Colours and channels stay unhinted. Built with jolt's `develop` branch
+(`v0.8.23-343-g7208ddd3`: upstream main plus #1491, #1493, #1494,
+`feat/wii-tpb32b` and #1497) first on PATH, baseline and hinted from the same
+runtime, one run each of `bb run:jolt-stress` and `bb compare:balloons`.
+
+| | unhinted (baseline, same jolt) | hinted |
+|---|---|---|
+| stress draw median (us) | 28857 to 29008 | did not boot (below) |
+| game demo 45 s, work median (us) | 16343 | 15475 |
+| game demo 45 s, dropped frames | 189 | 101 |
+| game round, work median (us) | 11769 | 11515 |
+| game round, dropped frames | 46 | 46 |
+| game .dol (bytes) | 14447776 | 14555616 |
+
+The game's medians moved 5% (demo) and 2% (round), which is inside the
+run-to-run spread seen so far (demo 15393 to 16343 us across the last three
+unhinted runs, round 11769 to 12346), so one run cannot separate the hint's
+effect from noise. The direction and size match the arithmetic: each cast is
+2 us cheaper (3.1 to 1.1 us on the `unchecked-long` micro-op), and a game
+frame makes a few hundred of them (estimate: the stress frame's 368 calls
+carry 3 to 6 geometry arguments each, and the game draws far fewer shapes),
+so a saving of several hundred microseconds. The stress program, whose
+medians are stable to 100 us and would have settled it, no longer boots: the
+inline forms grew every .dol by 107840 bytes, and `jolt-stress.dol` at
+14618464 bytes prints "out of memory" before its first line (twice, same
+build), while the game at 14555616 runs. So with this runtime the cliff sits
+between those two sizes, about 14.6 MB rather than the 14.76 MB the profile
+program's docstring recorded on an earlier runtime, and the game has about
+60 KB of headroom. The next measurement of the stress frame needs either a
+smaller stress build or a bigger heap (the Chez heap is carved from MEM1,
+which the .dol itself occupies; MEM2's 64 MB is untouched).
+
 ## Where the draw time goes (split measurement)
 
 Three builds of the same 368-call busy frame, each run in Dolphin 2609a (idle

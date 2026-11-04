@@ -1,8 +1,11 @@
 (ns wii.gfx
   "raylib and the Wiimotes for a jolt program on the Wii. One function per
    jg_* shim function (see jolt-gfx/jolt_gfx.h for units). Every C function
-   takes and returns :uptr; coordinates are truncated with long here, as C
-   truncates a float passed as int. Colours are 0xRRGGBBAA."
+   takes and returns :uptr; coordinates are truncated with unchecked-long here,
+   as C truncates a float passed as int. The drawing wrappers hint their
+   geometry parameters ^double so jolt lowers that cast to an inline
+   flonum->fixnum (a fixnum argument widens on entry, which costs less than the
+   generic cast did). Colours are 0xRRGGBBAA and go through untouched."
   (:require [jolt.ffi :as ffi]))
 
 (ffi/defcfn c-init "jg_init" [:uptr :uptr] :uptr)
@@ -48,33 +51,38 @@
 (defn time-us [] (c-time-us))
 (defn seed [] (c-seed))
 
-;; Drawing.
-(defn gradient-v! [x y w h top bottom]
+;; Drawing. Geometry is ^double (see the ns docstring); colours pass through.
+(defn gradient-v! [^double x ^double y ^double w ^double h top bottom]
   (c-gradient-v (unchecked-long x) (unchecked-long y) (unchecked-long w) (unchecked-long h) top bottom) nil)
-(defn rect! [x y w h c] (c-rect (unchecked-long x) (unchecked-long y) (unchecked-long w) (unchecked-long h) c) nil)
-(defn rect-rounded! [x y w h roundness c]
+(defn rect! [^double x ^double y ^double w ^double h c]
+  (c-rect (unchecked-long x) (unchecked-long y) (unchecked-long w) (unchecked-long h) c) nil)
+(defn rect-rounded! [^double x ^double y ^double w ^double h ^double roundness c]
   (c-rect-rounded (unchecked-long x) (unchecked-long y) (unchecked-long w) (unchecked-long h) (unchecked-long roundness) c) nil)
-(defn circle! [x y r c] (c-circle (unchecked-long x) (unchecked-long y) (unchecked-long r) c) nil)
-(defn ellipse! [x y rx ry c] (c-ellipse (unchecked-long x) (unchecked-long y) (unchecked-long rx) (unchecked-long ry) c) nil)
-(defn triangle! [x1 y1 x2 y2 x3 y3 c]
+(defn circle! [^double x ^double y ^double r c]
+  (c-circle (unchecked-long x) (unchecked-long y) (unchecked-long r) c) nil)
+(defn ellipse! [^double x ^double y ^double rx ^double ry c]
+  (c-ellipse (unchecked-long x) (unchecked-long y) (unchecked-long rx) (unchecked-long ry) c) nil)
+(defn triangle! [^double x1 ^double y1 ^double x2 ^double y2 ^double x3 ^double y3 c]
   (c-triangle (unchecked-long x1) (unchecked-long y1) (unchecked-long x2) (unchecked-long y2) (unchecked-long x3) (unchecked-long y3) c) nil)
-(defn line! [x1 y1 x2 y2 c] (c-line (unchecked-long x1) (unchecked-long y1) (unchecked-long x2) (unchecked-long y2) c) nil)
-(defn line-thick! [x1 y1 x2 y2 thick c]
+(defn line! [^double x1 ^double y1 ^double x2 ^double y2 c]
+  (c-line (unchecked-long x1) (unchecked-long y1) (unchecked-long x2) (unchecked-long y2) c) nil)
+(defn line-thick! [^double x1 ^double y1 ^double x2 ^double y2 ^double thick c]
   (c-line-thick (unchecked-long x1) (unchecked-long y1) (unchecked-long x2) (unchecked-long y2) (unchecked-long thick) c) nil)
-(defn ring! [x y inner outer c] (c-ring (unchecked-long x) (unchecked-long y) (unchecked-long inner) (unchecked-long outer) c) nil)
-(defn poly! [x y sides radius rot c]
+(defn ring! [^double x ^double y ^double inner ^double outer c]
+  (c-ring (unchecked-long x) (unchecked-long y) (unchecked-long inner) (unchecked-long outer) c) nil)
+(defn poly! [^double x ^double y ^double sides ^double radius ^double rot c]
   (c-poly (unchecked-long x) (unchecked-long y) (unchecked-long sides) (unchecked-long radius) (unchecked-long rot) c) nil)
 
 (defn text!
   "Draw s at (x, y). The string goes over as a C string's address, freed after."
-  [s x y size c]
+  [s ^double x ^double y ^double size c]
   (let [p (ffi/string->ptr s)]
     (try
       (c-text p (unchecked-long x) (unchecked-long y) (unchecked-long size) c)
       (finally (ffi/free p))))
   nil)
 
-(defn text-width [s size]
+(defn text-width [s ^double size]
   (let [p (ffi/string->ptr s)]
     (try
       (c-text-width p (unchecked-long size))
