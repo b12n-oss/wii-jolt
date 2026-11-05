@@ -216,6 +216,9 @@
         w (assoc-in w [:player :x] (- (:x (get-in w [:enemies 1])) 6 2))
         w (settle w 30 (right))]
     (is (= :kicked (:state (get-in w [:enemies 1]))) "walking into a shell kicks it")
+    ;; the shell travels right, away from slot 0, so the bug behind it is never reached
+    (is (= :walk (:state (get-in w [:enemies 0]))) "the bug behind stays walking")
+    (is (true? (:alive? (get-in w [:enemies 0]))) "and alive")
     (let [w (settle w 60)]
       (is (= [0 1 2] (mapv :id (:enemies w))) "ids are the slots")
       (is (= :dead (:state (get-in w [:enemies 2]))) "the bug ahead was hit by the shell"))))
@@ -223,7 +226,15 @@
 (deftest dead-enemies-stay-out-of-play
   (let [lv (-> (blank-level) (r/enemy 8) (r/enemy 9))
         w (r/new-world lv (r/new-session))
-        w (-> w (assoc-in [:enemies 0 :alive? ] false) (assoc-in [:enemies 0 :state] :dead))
+        p (:player w)
+        e0 (get-in w [:enemies 0])
+        ;; the dead slot sits on top of the player, so only the :alive? guard keeps it harmless
+        w (-> w
+              (assoc-in [:enemies 0 :alive?] false)
+              (assoc-in [:enemies 0 :state] :walk)
+              (assoc-in [:enemies 0 :active?] true)
+              (assoc-in [:enemies 0 :x] (:x p))
+              (assoc-in [:enemies 0 :y] (double (- (+ (:y p) (r/player-h p)) (:h e0)))))
         w (settle w 30)]
     (is (= 2 (count (:enemies w))) "the dead slot stays")
     (is (false? (:alive? (get-in w [:enemies 0]))))

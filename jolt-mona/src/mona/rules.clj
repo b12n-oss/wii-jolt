@@ -986,9 +986,10 @@
         n (count (:enemies world))
         world (loop [w world i 0]
                 (if (< i n) (recur (update-enemy-at w i dt) (inc i)) w))
+        es (:enemies world)
         walkers (loop [i 0 k 0]
                   (if (< i n)
-                    (recur (inc i) (if (walker? (nth (:enemies world) i)) (inc k) k))
+                    (recur (inc i) (if (walker? (nth es i)) (inc k) k))
                     k))]
     (if (> walkers 1) (walkers-bounce world) world)))
 
