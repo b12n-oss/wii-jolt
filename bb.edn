@@ -349,7 +349,7 @@
              (sh! "cc" "-std=c99" "-Wall" "-Wextra" "-Werror" (str "-Iexamples/" nm)
                   (str "examples/" nm "/game.c") (str "examples/" nm "/test/test_game.c") "-lm" "-o" bin)
              (sh! bin)))
-          (doseq [[dir ns-name] [["jolt-balloons" "balloons.rules-test"] ["jolt-balloons" "balloons.draw-test"] ["jolt-gfx" "wii.frame-stats-test"] ["jolt-mona" "mona.rules-test"]]]
+          (doseq [[dir ns-name] [["jolt-balloons" "balloons.rules-test"] ["jolt-balloons" "balloons.draw-test"] ["jolt-gfx" "wii.frame-stats-test"] ["jolt-mona" "mona.rules-test"] ["jolt-mona" "mona.levels-test"]]]
             (let [r (shell {:dir (str repo-root "/" dir) :continue true}
                            "jolt" "-A:test" "-m" ns-name)]
               (when-not (zero? (:exit r))

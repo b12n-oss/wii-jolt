@@ -1,0 +1,55 @@
+#!/usr/bin/env bash
+# Run the badge's own levels.py once and dump every stage to EDN, the golden
+# the Clojure stage builders are checked against.
+# Usage: scripts/mona-golden   (MONA_SRC overrides the badge repo location)
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+MONA_SRC="${MONA_SRC:-$HOME/dev/b12n-oss/martinwoodward--super-mona}"
+OUT="$ROOT/jolt-mona/test/mona/golden_levels.edn"
+export MONA_SRC OUT
+
+python3 -I - <<'PY'
+import os
+import sys
+
+sys.path.insert(0, os.path.join(os.environ["MONA_SRC"], "super_mona"))
+import levels  # noqa: E402
+
+
+def q(s):
+    return '"' + s.replace("\\", "\\\\").replace('"', '\\"') + '"'
+
+
+def content(c):
+    if c.startswith("multi"):
+        return "[:multi %d]" % int(c[5:])
+    return ":" + c
+
+
+def dump(lv):
+    tiles = " ".join(str(t) for t in lv.tiles)
+    decor = " ".join("%d %d" % (k, lv.decor[k]) for k in sorted(lv.decor))
+    contents = " ".join("%d %s" % (k, content(lv.contents[k])) for k in sorted(lv.contents))
+    stars = " ".join("[%d %d]" % s for s in sorted(lv.stars))
+    spawns = " ".join("[%d %d :%s]" % s for s in lv.spawns)
+    return (
+        "{:name %s :width %d :theme :%s :time %d :switch %s\n"
+        " :start [%d %d] :flag-x %s :castle-door %s\n"
+        " :tiles [%s]\n"
+        " :decor {%s}\n"
+        " :contents {%s}\n"
+        " :stars #{%s}\n"
+        " :spawns [%s]}"
+    ) % (
+        q(lv.name), lv.width, lv.theme, lv.time, "true" if lv.switch else "false",
+        lv.start[0], lv.start[1],
+        "nil" if lv.flag_x is None else lv.flag_x,
+        "nil" if lv.castle_door is None else lv.castle_door,
+        tiles, decor, contents, stars, spawns,
+    )
+
+
+with open(os.environ["OUT"], "w") as f:
+    f.write("[" + "\n".join(dump(fn()) for fn in levels.LEVELS) + "]\n")
+PY
+echo "wrote $OUT"
