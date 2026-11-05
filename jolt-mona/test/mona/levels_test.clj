@@ -46,13 +46,14 @@
               (str "first differing tile index " (first-diff (:tiles g) (:tiles got)))))))))
 
 (deftest every-stage-can-be-finished-by-the-autopilot
-  (doseq [n (range 32)]
+  (doseq [[step-dt bound] [[dt 3600] [(/ 1.0 60) 7200]]
+          n (range 32)]
     (let [w0 (assoc (r/new-world ((nth lv/levels n)) (r/new-session)) :demo? true)
           w (loop [w w0 c r/no-controls i 0]
-              (if (or (= :clear (:state w)) (>= i 3600))
+              (if (or (= :clear (:state w)) (>= i bound))
                 w
-                (let [c (r/autopilot w c)] (recur (r/step (r/clear-events w) c dt) c (inc i)))))]
-      (testing (:name (:level w0))
+                (let [c (r/autopilot w c)] (recur (r/step (r/clear-events w) c step-dt) c (inc i)))))]
+      (testing (str (:name (:level w0)) " at dt " step-dt)
         (is (= :clear (:state w)))
         (is (pos? (:score (:session w))))))))
 

@@ -87,6 +87,7 @@
         level (levels/level-at n)]
     (-> app
         (assoc :demo-world (assoc (rules/new-world level (rules/new-session)) :demo? true)
+               :demo-controls rules/no-controls
                :demo-next (inc (long (:demo-next app))))
         (log (stage-line n level))
         (set-state :demo))))
@@ -110,9 +111,10 @@
       (if select?
         (new-game app (:ch input))
         (set-state app :title)))
-    (let [w (rules/step (:demo-world app) (rules/autopilot (:demo-world app) rules/no-controls) dt)
+    (let [c (rules/autopilot (:demo-world app) (:demo-controls app))
+          w (rules/step (:demo-world app) c dt)
           [app w] (log-events app w "demo")
-          app (assoc app :demo-world w)]
+          app (assoc app :demo-world w :demo-controls c)]
       (if (or (#{:clear :dead} (:state w)) (> (double (:state-time app)) demo-seconds))
         (let [played (inc (long (:demo-played app)))
               app (assoc app :demo-played played)]
@@ -212,7 +214,7 @@
   "A fresh app on the title with `high` as the saved high score."
   [high]
   {:state :title :state-time 0.0 :session nil :world nil
-   :title-world (title-world) :demo-world nil :demo-next 0 :demo-played 0
+   :title-world (title-world) :demo-world nil :demo-controls rules/no-controls :demo-next 0 :demo-played 0
    :page 0 :cursor 0 :high high :player-ch nil :log []
    :last-mode nil :high-before high})
 

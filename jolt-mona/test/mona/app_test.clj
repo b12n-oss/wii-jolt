@@ -51,6 +51,15 @@
     (let [a (app/tick (assoc-in (assoc-in a [:session :level] 31) [:world :state] :clear) no-input dt)]
       (is (= :win (:state a))))))
 
+(deftest demo-bot-clears-the-first-pipe
+  (let [dt60 (/ 1.0 60)
+        a (loop [a (app/init 0) i 0]
+            (if (or (>= i 2400) (and (= :demo (:state a)) (>= (double (:state-time a)) 20.0)))
+              a
+              (recur (app/tick a no-input dt60) (inc i))))]
+    (is (= :demo (:state a)))
+    (is (< 400.0 (double (:x (:player (:demo-world a))))) "stage 1-1's first pipe is at x 298")))
+
 (defn -main [& _]
   (let [res (run-tests 'mona.app-test)]
     (System/exit (if (zero? (+ (:fail res 0) (:error res 0))) 0 1))))
