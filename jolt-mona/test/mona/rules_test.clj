@@ -207,6 +207,38 @@
       (is (= :kicked (:state (first (:enemies w)))))
       (is (pos? (:vx (first (:enemies w))))))))
 
+(deftest falling-off-the-stage-kills
+  (let [lv (-> (r/make-level "T" 40 :day 300 false) (r/ground 0 10))
+        w (loop [w (r/new-world lv (r/new-session)) i 0]
+            (if (or (= :dying (:state w)) (= i 300)) w (recur (r/step w (assoc r/no-controls :right true :run true) dt) (inc i))))]
+    (is (= :dying (:state w)))
+    (is (>= (:vy (:player w)) 0.0) "a fall death starts with vy 0, not the -170 hop")))
+
+(deftest flag-ends-the-stage
+  (let [lv (-> (blank-level) (r/flag 20))
+        ;; the pole's base is a hard tile at row 12, so a walker stops at x 154 and the
+        ;; flag is only reached airborne (as the badge's stages and autopilot do)
+        w (-> (r/new-world lv (r/new-session)) (assoc-in [:player :x] 154.0) (settle 1))
+        w (r/step (r/clear-events w) (assoc (right) :jump true :jump-pressed true) dt)
+        w (settle w 20 (assoc (right) :jump true))]
+    (is (= :flag (:state w)))
+    (is (some (fn [e] (= e :flag)) (:events w)))
+    (is (contains? #{100.0 400.0 800.0 2000.0 5000.0} (:flag-bonus w)) "a bonus from the height table")
+    (let [w (loop [w w i 0] (if (or (= :clear (:state w)) (= i 900)) w (recur (r/step w r/no-controls dt) (inc i))))]
+      (is (= :clear (:state w)))
+      (is (= 0.0 (:time-left w)) "the tally spent the clock")
+      (is (> (:score (:session w)) 100) "the tally added time points"))))
+
+(deftest autopilot-clears-walls-and-gaps
+  ;; stairs at 13, not 14: with 14 the badge's own bot lands 3 px short of the far edge and dies in the gap
+  (let [lv (-> (r/make-level "T" 60 :day 300 false) (r/ground 0 20) (r/stairs 13 3) (r/ground 24 59) (r/row 40 12 "H") (r/flag 52))
+        w (assoc (r/new-world lv (r/new-session)) :demo? true)
+        w (loop [w w c r/no-controls i 0]
+            (if (or (= :clear (:state w)) (= i 3600))
+              w
+              (let [c (r/autopilot w c)] (recur (r/step w c dt) c (inc i)))))]
+    (is (= :clear (:state w)))))
+
 (defn -main [& _]
   (let [res (run-tests 'mona.rules-test)]
     (System/exit (if (zero? (+ (:fail res 0) (:error res 0))) 0 1))))

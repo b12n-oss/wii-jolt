@@ -913,7 +913,8 @@
   "Gravity, the walls and the floor for one live enemy. Returns the enemy;
    alive? is false once it left the screen."
   [e world dt]
-  (let [level (:level world)
+  (let [dt (double dt)
+        level (:level world)
         e (assoc e :vy (min (+ (double (:vy e)) (* 600.0 dt)) (double max-fall)))
         [e hit?] (move-x e (:h e) level dt)
         e (if hit? (assoc e :vx (- (double (:vx e)))) e)
@@ -926,7 +927,8 @@
   "One enemy's frame: the state timers and motion, then its contact effects.
    The enemy is re-read from the world after each effect, as the Python does."
   [world id dt]
-  (let [e (find-enemy world id)
+  (let [dt (double dt)
+        e (find-enemy world id)
         px (double (:x (:player world)))
         activate (+ (double (:cam-x world)) view-w 16.0)]
     (cond
@@ -975,8 +977,85 @@
 
 ;; The step
 
-(defn- check-flag [world]
-  world)
+;; Flag, castle and tally
+
+(def ^:private flag-bonuses [[64 5000] [48 2000] [32 800] [16 400]])
+
+(defn- flag-bonus-for [height]
+  (or (some (fn [[limit points]] (when (>= height limit) points)) flag-bonuses) 100))
+
+(defn- check-flag
+  "Grab the pole once the player's right edge reaches it: freeze, score the
+   height bonus and drop a carried shell."
+  [world]
+  (let [fx (:flag-x (:level world))
+        p (:player world)]
+    (if (and fx
+             (>= (+ (double (:x p)) (long (:w p))) (+ (* (long fx) tile) 3))
+             (< (double (:y p)) (* (- rows 2) tile)))
+      (let [carried (:carrying p)
+            world (if carried
+                    (update-enemy world carried (fn [e] (assoc e :state :shell)))
+                    world)
+            h (long (player-h p))
+            x (double (- (+ (* (long fx) tile) 3) (long (:w p))))
+            height (- (* (- rows 3) tile) (+ (double (:y p)) h))
+            bonus (flag-bonus-for height)]
+        (-> world
+            (update :player assoc :carrying nil :x x :vx 0.0 :vy 0.0)
+            (assoc :state :flag :state-time 0.0 :flag-bonus (double bonus))
+            (add-points bonus)
+            (spawn-particle :score (+ x 8) (:y p) 0 -20 bonus)
+            (add-event :flag)))
+      world)))
+
+(defn- update-flag [world dt]
+  (let [dt (double dt)
+        p (:player world)
+        h (long (player-h p))
+        base (* (- rows 3) tile)
+        py (min (+ (double (:y p)) (* 70.0 dt)) (double (- base h)))
+        fy (when (:flag-y world)
+             (min (+ (double (:flag-y world)) (* 70.0 dt)) (double (- base tile))))
+        world (-> world (assoc-in [:player :y] py) (assoc :flag-y fy))]
+    (if (and (>= py (- base h))
+             (or (nil? fy) (>= fy (- base tile)))
+             (> (double (:state-time world)) 0.4))
+      (-> world
+          (assoc :state :castle :state-time 0.0)
+          (update :player assoc :x (+ (double (:x p)) (long (:w p)) 2.0) :facing 1))
+      world)))
+
+(defn- update-castle [world dt]
+  (let [dt (double dt)
+        level (:level world)
+        p (:player world)
+        h (player-h p)
+        p (assoc p :vx 40.0 :vy (min (+ (double (:vy p)) (* 900.0 dt)) (double max-fall)))
+        [p _] (move-x p h level dt)
+        [p _] (move-y p h level dt)
+        p (assoc p :walk-phase (+ (double (:walk-phase p)) (* 40.0 dt)))
+        world (update-camera (assoc world :player p))
+        door (or (:castle-door level) (+ (double (:x p)) 1.0))]
+    (if (or (>= (double (:x p)) (- (double door) 3.0))
+            (> (double (:state-time world)) 4.0))
+      (-> world (assoc :state :tally :state-time 0.0) (assoc-in [:player :vx] 0.0))
+      world)))
+
+(defn- update-tally [world dt]
+  (let [dt (double dt)
+        left (double (:time-left world))]
+    (cond
+      (> left 0.0)
+      (let [units (double (min left (double (max 1 (long (* dt 120.0))))))]
+        (-> world
+            (assoc :time-left (- left units))
+            (add-points (* (long units) 50))))
+
+      (> (double (:state-time world)) 1.0)
+      (assoc world :state :clear)
+
+      :else world)))
 
 (defn- play-frame [world c dt]
   (let [dt (double dt)
@@ -1015,6 +1094,9 @@
         (case (:state world)
           :play (play-frame world c dt)
           :dying (dying-frame world dt)
+          :flag (update-flag world dt)
+          :castle (update-castle world dt)
+          :tally (update-tally world dt)
           world)))))
 
 (defn step
@@ -1024,3 +1106,24 @@
       (assoc :controls-run? (boolean (:run controls))
              :controls-jump? (boolean (:jump controls)))
       (update-world controls dt)))
+
+;; Demo autopilot
+
+(defn autopilot
+  "The attract-mode driver: run right, hop walls and gaps. Takes and returns
+   a controls map."
+  [world c]
+  (let [p (:player world)
+        level (:level world)
+        h (player-h p)
+        py (double (:y p))
+        edge (+ (double (:x p)) (long (:w p)))
+        rs (range (tile-of py) (inc (tile-of (- (+ py h) 0.01))))
+        wall? (boolean (some (fn [d] (some (fn [ty] (solid? level (tile-of (+ edge d)) ty)) rs)) [1 10]))
+        front (tile-of (+ edge 10))
+        feet (tile-of (+ py h 1))
+        gap? (not (some (fn [k] (some (fn [y] (solid? level (+ front k) y)) (range feet rows))) [0 1]))
+        want (boolean (and (or wall? gap?) (:on-ground? p)))]
+    (assoc c :left false :up false :down false :right true :run true
+           :jump-pressed (and want (not (:jump c)))
+           :jump (boolean (or want (and (:jump c) (< (double (:vy p)) 0.0)))))))
