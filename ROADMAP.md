@@ -7,7 +7,7 @@
 - Chez Scheme 10.4.1 on `tpb32b`: kernel patch, TLS hooks, POSIX stubs, boot
   files embedded in the `.dol`.
 - Clojure through `jolt build --target tpb32b`, with output matching the Mac
-  build. jolt-side fix on a local branch, `feat/wii-tpb32b`.
+  build. The jolt-side fix is upstream (jolt-lang/jolt#1514, 2026-11-05).
 - `bb verify` builds all three and checks each one's output in Dolphin with MMU
   emulation on.
 
@@ -54,6 +54,21 @@ Dolphin, not on a console. A checked `(long x)` on 32-bit Chez was the big cost
 [Balloon Pop in Clojure](docs/guide/balloon-pop-in-clojure.md) has the
 comparison and what it taught us about jolt.
 
+## Done: Super Mona in jolt (2026-11-05)
+
+Super Mona, Martin Woodward's 32-stage MicroPython platformer for the GitHub
+Universe 2026 badge, is ported to Clojure (`jolt-mona/`) as the second Clojure
+game, played with the remote held sideways. The stages match the Python byte
+for byte and the demo bot finishes every one at 30 and 60 Hz. In Dolphin, play
+on the first screen takes 6.5 ms of work per frame, but the demo deep in stage
+1-1 takes 12.8 to 18.2 ms with up to 53 frames dropped per 300, and every run
+stalls for 280 to 340 ms every few seconds. The spec's bar (12 ms median, no
+work frame over 16.7 ms) is missed on busy frames. The fallback ladder is
+untried and the next rung is the user's call: an algorithmic fix to the enemy
+update, then the collector, then batched sprite calls, enemy physics in C, and
+the renderer in C. [Super Mona in jolt](docs/guide/super-mona-in-jolt.md) has
+the numbers.
+
 ## Next: the real console
 
 1. Copy `bb sd`'s output to an SD card and run every app on the family Wii.
@@ -83,14 +98,15 @@ comparison and what it taught us about jolt.
   find tilting hard.
 - **raylib from Clojure.** Done for Balloon Pop, through link-time
   registration of the shim's functions (see
-  [Balloon Pop in Clojure](docs/guide/balloon-pop-in-clojure.md)). The games
-  stay in C: the Clojure one plays but drops most frames. Two jolt-side
-  changes could alter that, in this order. First, a cheaper checked `long`
-  cast on 32-bit (4x on this game's drawing; useful on any 32-bit target).
-  Second, a native PowerPC backend: Chez ships `s/ppc32.ss` with big-endian
+  [Balloon Pop in Clojure](docs/guide/balloon-pop-in-clojure.md)). The cast
+  work merged upstream (jolt-lang/jolt#1491, #1493, #1494) and Super Mona is
+  the second Clojure game: it plays at 6.5 ms of work a frame on the first
+  screen, but its busy frames reach 18.2 ms in Dolphin. The cheaper
+  checked `long` cast on 32-bit is in (4x on this game's drawing). One
+  jolt-side change could still go further: a native PowerPC backend: Chez ships `s/ppc32.ss` with big-endian
   support, and the Wii's 750CL is the G3 family it targeted, so a `tppc32wii`
   machine type over the existing libogc runtime patch could replace the
-  bytecode interpreter. That is the only change with a chance of 60 fps. It
+  bytecode interpreter. That is the change with the best chance of 60 fps. It
   needs a spike: the EABI foreign-call convention and the executable-memory
   path are the unknowns. Also still open: keep the link-time glue, or teach
   `jolt build --target` about `:jolt/native` static archives.
@@ -102,9 +118,10 @@ comparison and what it taught us about jolt.
 
 Nothing goes upstream until it's explicitly asked for. Candidates:
 
-- **jolt:** the `feat/wii-tpb32b` branch (32-bit cross targets get the narrow
-  hash arm and generic fx ops). A longer-term fix would replace the checked fx
-  ops at each int-width site.
+- **jolt:** done. The 32-bit cross-target fix (narrow hash arm and generic fx
+  ops in the generated compile script) merged as jolt-lang/jolt#1514 on
+  2026-11-05, after the cast work (#1491, #1493, #1494). A longer-term fix
+  would replace the checked fx ops at each int-width site.
 - **Chez Scheme:** the `__wii__` kernel branch, and adding `__PPC__` to the
   big-endian test in `version.h`, which helps any PowerPC toolchain that doesn't
   define `__powerpc__`.

@@ -26,8 +26,18 @@
 (ffi/defcfn c-line-thick "jg_line_thick" [:uptr :uptr :uptr :uptr :uptr :uptr] :uptr)
 (ffi/defcfn c-ring "jg_ring" [:uptr :uptr :uptr :uptr :uptr] :uptr)
 (ffi/defcfn c-poly "jg_poly" [:uptr :uptr :uptr :uptr :uptr :uptr] :uptr)
+(ffi/defcfn c-scale "jg_scale" [:uptr] :uptr)
+(ffi/defcfn c-sheet-load "jg_sheet_load" [:uptr] :uptr)
+(ffi/defcfn c-sprite "jg_sprite" [:uptr :uptr :uptr :uptr :uptr :uptr] :uptr)
+(ffi/defcfn c-tiles-load "jg_tiles_load" [:uptr :uptr :uptr] :uptr)
+(ffi/defcfn c-tile-set "jg_tile_set" [:uptr :uptr] :uptr)
+(ffi/defcfn c-tiles-draw "jg_tiles_draw" [:uptr] :uptr)
+(ffi/defcfn c-tiles-map "jg_tiles_map" [:uptr :uptr :uptr :uptr :uptr :uptr] :uptr)
+(ffi/defcfn c-calls "jg_calls" [] :uptr)
 (ffi/defcfn c-text "jg_text" [:uptr :uptr :uptr :uptr :uptr] :uptr)
 (ffi/defcfn c-text-width "jg_text_width" [:uptr :uptr] :uptr)
+(ffi/defcfn c-setting-get "jg_setting_get" [:uptr :uptr] :uptr)
+(ffi/defcfn c-setting-put "jg_setting_put" [:uptr :uptr] :uptr)
 (ffi/defcfn c-connected "jg_connected" [:uptr] :uptr)
 (ffi/defcfn c-held "jg_held" [:uptr] :uptr)
 (ffi/defcfn c-ir-valid "jg_ir_valid" [:uptr] :uptr)
@@ -40,6 +50,20 @@
 (def button-a 0x0008)
 (def button-b 0x0004)
 (def button-home 0x0080)
+(def button-2 0x0001)
+(def button-1 0x0002)
+(def button-minus 0x0010)
+(def button-plus 0x1000)
+(def button-left 0x0100)
+(def button-right 0x0200)
+(def button-down 0x0400)
+(def button-up 0x0800)
+
+(def sheet-tiles 0)
+(def sheet-players 1)
+(def sheet-mobs 2)
+(def flip-x 1)
+(def flip-y 2)
 
 ;; Window and frame.
 (defn init! [w h] (c-init (long w) (long h)) nil)
@@ -73,6 +97,38 @@
 (defn poly! [^double x ^double y ^double sides ^double radius ^double rot c]
   (c-poly (unchecked-long x) (unchecked-long y) (unchecked-long sides) (unchecked-long radius) (unchecked-long rot) c) nil)
 
+;; Sprite sheets. Positions are in game pixels, scaled by scale!.
+(defn scale! [n] (c-scale (long n)) nil)
+(defn sheet-load! [id] (zero? (c-sheet-load (long id))))
+(defn sprite! [sheet col row ^double x ^double y flags]
+  (c-sprite sheet col row (unchecked-long x) (unchecked-long y) flags) nil)
+
+;; Tile layers: 15 rows, width columns (at most 190), ids as in sheet 0.
+(defn tiles-load!
+  "Copy the tile and decor byte arrays (width * 15 each) into the shim. Returns
+   true when the shim accepted them."
+  [^bytes tiles ^bytes decor width]
+  (let [n (* 15 (long width))]
+    (when-not (= (alength tiles) (alength decor) n)
+      (throw (ex-info "tiles-load!: layers must be width*15 bytes"
+                      {:width width :tiles (alength tiles) :decor (alength decor)})))
+    (let [tp (ffi/alloc n)]
+      (try
+        (let [dp (ffi/alloc n)]
+          (try
+            (ffi/write-bytes tp tiles)
+            (ffi/write-bytes dp decor)
+            (zero? (c-tiles-load tp dp (long width)))
+            (finally (ffi/free dp))))
+        (finally (ffi/free tp))))))
+(defn tile-set! [index tile] (c-tile-set (long index) (long tile)) nil)
+(defn tiles-draw! [^double cam-x] (c-tiles-draw (unchecked-long cam-x)) nil)
+(defn tiles-map! [x y w h solid sky]
+  (c-tiles-map (long x) (long y) (long w) (long h) solid sky) nil)
+(defn calls
+  "The number of counted shim calls since the last call to this."
+  [] (c-calls))
+
 (defn text!
   "Draw s at (x, y). The string goes over as a C string's address, freed after."
   [s ^double x ^double y ^double size c]
@@ -86,6 +142,19 @@
   (let [p (ffi/string->ptr s)]
     (try
       (c-text-width p (unchecked-long size))
+      (finally (ffi/free p)))))
+
+;; An integer setting in settings.txt beside boot.dol.
+(defn setting-get [k default]
+  (let [p (ffi/string->ptr k)]
+    (try
+      (c-setting-get p default)
+      (finally (ffi/free p)))))
+
+(defn setting-put! [k value]
+  (let [p (ffi/string->ptr k)]
+    (try
+      (= 1 (c-setting-put p value))
       (finally (ffi/free p)))))
 
 ;; Wiimotes, by channel 0..3.

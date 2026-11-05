@@ -11,3 +11,4 @@ _site/
 
 # jolt build cache
 jolt-balloons/.jolt/
+jolt-mona/.jolt/

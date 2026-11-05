@@ -1,5 +1,6 @@
 // See settings.h.
 #include "settings.h"
+#include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -45,6 +46,9 @@ bool settings_save(const char *path, const char *key, float value)
 {
     FILE *f = fopen(path, "w");
     if (!f) return false;
-    bool ok = fprintf(f, "%s=%g\n", key, value) > 0;
+    // %g keeps 6 significant digits, so an integer from 1000000 up would be
+    // saved as 1.23457e+06. Whole values print exactly.
+    bool ok = (value == floorf(value) ? fprintf(f, "%s=%.0f\n", key, value)
+                                      : fprintf(f, "%s=%g\n", key, value)) > 0;
     return fclose(f) == 0 && ok;
 }

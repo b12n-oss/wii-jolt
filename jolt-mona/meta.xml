@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<app version="1">
+  <name>Super Mona</name>
+  <coder>b12n, after Martin Woodward's Super Mona</coder>
+  <version>0.1</version>
+  <short_description>Run, jump and stomp through 32 stages. Hold the remote sideways.</short_description>
+  <long_description>An original side-scrolling platformer. Run, jump and stomp through 32 stages across eight worlds as Mona (or Ducky the rubber duck). Hold the Wiimote sideways: the D-pad runs, 2 jumps and 1 runs, HOME quits. Written in Clojure (jolt), ported from the GitHub Universe 2026 badge game.</long_description>
+</app>

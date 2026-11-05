@@ -30,6 +30,7 @@
        ["chez"       "chez-wii/build/chez.dol"            true  "Chez Scheme 10.4.1 (tpb32b) evaluating a test list"]
        ["jolt-hello" "jolt-hello/build/jolt-hello.dol"    true  "Clojure via jolt: fib, bignums, maps, sets, hashes"]
        ["jolt-balloons" "jolt-balloons/build/jolt-balloons.dol" false "Balloon Pop in Clojure (jolt): same game, pure Clojure rules"]
+       ["jolt-mona" "jolt-mona/build/jolt-mona.dol" false "Super Mona in Clojure (jolt): a 32-stage platformer, remote held sideways"]
        ["jolt-stress" "jolt-balloons/build/jolt-stress.dol" false "Clojure drawing cost: a busy Balloon Pop frame, timed" :measurement]
        ["jolt-ffi-bench" "jolt-balloons/build/jolt-ffi-bench.dol" false "Clojure FFI cost benchmark" :measurement]
        ["jolt-cast-bench" "jolt-balloons/build/jolt-cast-bench.dol" false "Clojure double-to-integer cast cost on the Wii" :measurement]
@@ -38,6 +39,18 @@
        ["jolt-draw-profile" "jolt-balloons/build/jolt-draw-profile.dol" false "Profile of balloons.draw: time per section and per operation (stub-draw pack)" :measurement]])
 
     (defn app [nm] (first (filter (fn [a] (= nm (first a))) apps)))
+
+    (defn jolt-cross-ready?
+      "True when `jolt --version` names a jolt that carries jolt-lang/jolt#1514
+       (32-bit cross targets compile for the target's fixnum width): a release
+       after 0.8.23, or a main build v0.8.23-N-g... with N >= 429 (the merge)."
+      []
+      (let [r (shell {:out :string :err :string :continue true} "jolt" "--version")
+            [_ maj mnr pat n] (re-find (re-pattern "v(\\d+)\\.(\\d+)\\.(\\d+)(?:-(\\d+)-g)?") (str (:out r)))]
+        (when maj
+          (let [v [(parse-long maj) (parse-long mnr) (parse-long pat)]]
+            (or (pos? (compare v [0 8 23]))
+                (and (= v [0 8 23]) (some? n) (>= (parse-long n) 429)))))))
 
     (defn sh! [& args]
       (let [r (apply shell {:dir repo-root :continue true} args)]
@@ -59,7 +72,7 @@
        Never Dolphin's default profile, which maps the Mac's own mouse and
        keyboard, and dolphin-shot turns on background input, so whatever the
        person at the Mac is doing would reach the game."
-      [nm seconds & {:keys [user shot-name]}]
+      [nm seconds & {:keys [user shot-name extra-env]}]
       (let [[_ dol console?] (app nm)
             user (or user (auto-user "idle"))
             shot (str shots-dir "/" (or shot-name nm) ".png")
@@ -70,20 +83,24 @@
           (System/exit 1))
         (shell {:dir repo-root :continue true
                 :extra-env (merge (if console? {"DOLPHIN_EXTRA" "-C GFX.Hacks.XFBToTextureEnable=False"} {})
-                                  {"DOLPHIN_USER" user})}
+                                  {"DOLPHIN_USER" user}
+                                  extra-env)}
                "scripts/dolphin-shot" dol shot (str seconds))
         (let [log (if (fs/exists? log-file) (slurp log-file) "")]
           {:shot shot
-           :crashed? (boolean (re-find (re-pattern "Exception \\(DSI\\)|Invalid (read|write)") log))
+           :crashed? (boolean (re-find (re-pattern "Exception \\(DSI\\)|Invalid (read|write)|Unhandled exception|Exception in ") log))
            :lines (osreport-lines log-file)})))
-    ;; The games: [name scripted-wiimote-profile log-line-for-a-score how-it's-played language].
+    ;; The games: [name scripted-wiimote-profile log-line-for-a-score how-it's-played
+    ;;            language demo-seconds join-mode]. join-mode is the mode line that
+    ;; shows the remote joined (optional, default "countdown").
     ;; Each has examples/<name>/game.c with host tests in test/test_game.c, and
     ;; prints "<name>: mode <m>" and one line per score to Dolphin's log.
     (def games
       [["balloons"    "pointer" "pop player=1 "    "point and press A" :c 20]
        ["starcatcher" "tilt"    "catch player=1 "  "tilt sideways (or arrow keys)" :c 20]
        ["shakerace"   "shake"   "finish player=1 " "shake (space bar on the Mac)" :c 20]
-       ["jolt-balloons" "pointer" "pop player=1 " "point and press A" :clj 30]])
+       ["jolt-balloons" "pointer" "pop player=1 " "point and press A" :clj 30]
+       ["jolt-mona" "platformer" "event jump " "hold the remote sideways: d-pad moves, 2 jumps, 1 runs" :clj 45 "intro"]])
 
     (defn game-lines [nm r]
       (let [prefix (str nm ": ")]
@@ -101,24 +118,32 @@
       (nth (first (filter (fn [gm] (= nm (first gm))) games)) 5))
 
     (defn scripted-pass?
-      "The scripted remote joined (countdown), the round started, and player 1
-       scored during it."
+      "The scripted remote joined (the join mode from the row's 7th element,
+       default countdown), the round started, and player 1 scored during it."
       [nm r]
-      (let [[_ _ score-line] (first (filter (fn [gm] (= nm (first gm))) games))
+      (let [row (first (filter (fn [gm] (= nm (first gm))) games))
+            score-line (nth row 2)
+            join-mode (nth row 6 "countdown")
             ls (game-lines nm r)
             play-mode (if (= nm "shakerace") "race" "play")]
         (and (not (:crashed? r))
-             (some (fn [l] (= l "mode countdown")) ls)
+             (some (fn [l] (= l (str "mode " join-mode))) ls)
              (some (fn [l] (= l (str "mode " play-mode))) ls)
              (some (fn [l] (and (str/starts-with? l score-line) (str/ends-with? l (str "mode=" play-mode)))) ls))))
 
     (defn demo-pass?
-      "Title, then the robot demo scores at least three times."
+      "Title, then the robot demo scores at least three times. A :clj game
+       (the 5th element of its games row) must also still print its
+       `frames n=` summaries late in the run: at least 6 of them, so a loop
+       that threw after the first scores does not pass."
       [nm r]
-      (let [ls (game-lines nm r)]
+      (let [ls (game-lines nm r)
+            lang (nth (first (filter (fn [gm] (= nm (first gm))) games)) 4)]
         (and (not (:crashed? r))
              (some (fn [l] (= l "mode demo")) ls)
-             (>= (count (filter (fn [l] (str/ends-with? l "mode=demo")) ls)) 3))))
+             (>= (count (filter (fn [l] (str/ends-with? l "mode=demo")) ls)) 3)
+             (or (not= lang :clj)
+                 (>= (count (filter (fn [l] (str/starts-with? l "frames n=")) ls)) 6)))))
 
     (defn print-game-run [nm r]
       (doseq [l (game-lines nm r)] (println (str nm ": " l)))
@@ -190,15 +215,17 @@
            :file (let [f (str sd "/apps/" nm "/settings.txt")] (when (fs/exists? f) (str/trim (slurp f))))})))
 
     (defn play-game
-      "Open a game in Dolphin for a person to play with the Mac."
-      [nm]
+      "Open a game in Dolphin for a person to play with the Mac. The optional
+       profile (default \"play\") is a dolphin-auto-wiimote profile."
+      ([nm] (play-game nm "play"))
+      ([nm profile]
       (let [dol (str repo-root "/" (second (app nm)))]
         (when-not (fs/exists? dol) (run (symbol (str "build:" nm))))
         (fs/create-dirs (str repo-root "/.work/sd-play/apps/" nm))
         (apply shell {:dir repo-root} "/Applications/Dolphin.app/Contents/MacOS/Dolphin"
-               "-u" (auto-user "play") "-e" dol
+               "-u" (auto-user profile) "-e" dol
                "-C" "Dolphin.Core.MMU=True" "-C" "Dolphin.Analytics.PermissionAsked=True"
-               (sd-sync-opts (str repo-root "/.work/sd-play")))))
+               (sd-sync-opts (str repo-root "/.work/sd-play"))))))
 
 
     (def docs-engine-repo "https://github.com/jlt-commons/docs-engine")
@@ -303,6 +330,8 @@
             (str runner " chez:setup"))
      (println "jolt (blocks pack users: build:jolt-hello):")
      (check (fs/which "jolt") "jolt on PATH" "install jolt (https://github.com/jolt-lang/jolt)")
+     (check (jolt-cross-ready?) "jolt at or past jolt-lang/jolt#1514 (32-bit cross builds)"
+            "build jolt from main at a65c59ed or later, or a release after 0.8.23")
      (check (fs/exists? (str repo-root "/.work/pack-tpb32b/xpatch")) "jolt target pack assembled"
             (str runner " build:chez && " runner " pack"))
      (println "jolt graphics (blocks Clojure games that draw with raylib):")
@@ -333,7 +362,7 @@
              (sh! "cc" "-std=c99" "-Wall" "-Wextra" "-Werror" (str "-Iexamples/" nm)
                   (str "examples/" nm "/game.c") (str "examples/" nm "/test/test_game.c") "-lm" "-o" bin)
              (sh! bin)))
-          (doseq [[dir ns-name] [["jolt-balloons" "balloons.rules-test"] ["jolt-balloons" "balloons.draw-test"] ["jolt-gfx" "wii.frame-stats-test"]]]
+          (doseq [[dir ns-name] [["jolt-balloons" "balloons.rules-test"] ["jolt-balloons" "balloons.draw-test"] ["jolt-gfx" "wii.frame-stats-test"] ["jolt-mona" "mona.rules-test"] ["jolt-mona" "mona.levels-test"] ["jolt-mona" "mona.draw-test"] ["jolt-mona" "mona.app-test"]]]
             (let [r (shell {:dir (str repo-root "/" dir) :continue true}
                            "jolt" "-A:test" "-m" ns-name)]
               (when-not (zero? (:exit r))
@@ -429,6 +458,16 @@
            (sh! "env" (str "JOLT_WII_PACK=" repo-root "/.work/pack-tpb32b-gfx")
                 (str "JOLT_WII_CC=" repo-root "/scripts/wii-cc-sdl")
                 "scripts/jolt-wii-build" "jolt-balloons" "balloons.main" "jolt-balloons"))}
+
+  build:jolt-mona
+  {:doc "Cross-build Super Mona in Clojure (mona.main)"
+   :depends [gfx-pack]
+   :task (do
+           ;; Without these the .dol is 17.5 MB and the boot runs out of memory.
+           (sh! "env" (str "JOLT_WII_PACK=" repo-root "/.work/pack-tpb32b-gfx")
+                (str "JOLT_WII_CC=" repo-root "/scripts/wii-cc-sdl")
+                "JOLT_BUILD_FLAGS=--closed-world --boot small"
+                "scripts/jolt-wii-build" "jolt-mona" "mona.main" "jolt-mona"))}
 
   build:jolt-ffi-bench
   {:doc "Cross-build the Clojure FFI cost benchmark"
@@ -560,6 +599,10 @@
   {:doc "Play Balloon Pop in Clojure in Dolphin: the mouse is the pointer, left click = A, Return = HOME"
    :task (play-game "jolt-balloons")}
 
+  play:jolt-mona
+  {:doc "Play Super Mona in Dolphin: arrows move, X jumps, Z runs, Return pauses, Escape = HOME"
+   :task (play-game "jolt-mona" "play-sideways")}
+
   play:starcatcher
   {:doc "Play Star Catcher in Dolphin: left click or 2 joins, arrow keys steer, Return = HOME"
    :task (play-game "starcatcher")}
@@ -579,6 +622,18 @@
   run:jolt-hello
   {:doc "Boot jolt-hello in Dolphin and print its output"
    :task (let [r (run-in-dolphin "jolt-hello" 40)] (doseq [l (:lines r)] (println l)) (println (:shot r)))}
+
+  run:jolt-mona
+  {:doc "Boot Super Mona in Dolphin, wait for the demo, print its log lines"
+   :task (let [sd (str repo-root "/.work/sd-mona")
+               _ (fs/create-dirs (str sd "/apps/jolt-mona"))
+               r (run-in-dolphin "jolt-mona" (demo-secs "jolt-mona") :extra-env {"DOLPHIN_EXTRA" (str/join " " (sd-sync-opts sd))})]
+           (print-game-run "jolt-mona" r)
+           (when (:crashed? r) (println "CRASHED") (System/exit 1)))}
+
+  run:jolt-mona-wiimote
+  {:doc "A game of Super Mona with a scripted Wiimote held sideways: 2 jumps, 1 runs, the d-pad runs right"
+   :task (print-game-run "jolt-mona" (run-scripted "jolt-mona"))}
 
   run:jolt-balloons
   {:doc "Boot Balloon Pop in Clojure in Dolphin, wait for the robot demo, print its events"

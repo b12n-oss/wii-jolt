@@ -112,25 +112,21 @@ aren't touched, and with fix 1 those are on the narrow arm anyway.
 
 ## Where the fixes live
 
-There are two copies, and they do the same thing.
+In jolt, since [jolt-lang/jolt#1514](https://github.com/jolt-lang/jolt/pull/1514)
+(merged 2026-11-05, the first release after 0.8.23 carries it). `build.ss` has
+`bld-narrow-target?`, which recognises the i3, arm32, armv7, ppc32 and pb32
+machine families. For those targets the generated compile script sets
+`JOLT_NARROW_HASH` and defines the fx-to-generic aliases right after loading
+the xpatch. Native builds and 64-bit cross builds generate exactly the script
+they did before.
 
-**In this repo**, for the installed jolt: the pack's `xpatch` is a small source
-file, `chez-wii/xpatch-narrow.ss`, which loads the real cross patch
-(`xpatch.chez`) and then defines the fx-to-generic aliases. jolt `(load ...)`s
-whatever file is at `<pack>/xpatch`, so this needs no jolt changes.
-`scripts/jolt-wii-build` sets `JOLT_NARROW_HASH=1`.
-
-**In jolt itself**, on a local branch `feat/wii-tpb32b` in a worktree of
-`~/dev/jolt` (not pushed anywhere). `build.ss` gains `bld-narrow-target?`,
-which recognises the i3, arm32, armv7, ppc32 and pb32 machine families. For
-those targets the generated compile script sets `JOLT_NARROW_HASH` and defines
-the same aliases right after loading the xpatch. Native builds and 64-bit cross
-builds generate exactly the script they did before. Tested both ways: a Wii
-build from the branch with a plain pack and no environment variable matches
-the Mac output, and a native macOS build from the branch is unchanged.
-
-Once a jolt release carries the branch's change, the pack can go back to the
-plain `xpatch` and the environment variable can go away.
+So this repo needs a jolt at or past that merge and nothing else: the pack's
+`xpatch` is Chez's own cross patch, and `scripts/jolt-wii-build` sets no
+environment variable. `bb doctor` checks the installed jolt's version. Until
+then the repo carried the same two fixes itself, as a wrapper `xpatch` that
+defined the aliases plus `JOLT_NARROW_HASH=1` in the build script; a jolt
+older than the merge fails at init on the Wii with "variable murmur3-seed is
+not bound".
 
 ## The console tee, and a libogc surprise
 

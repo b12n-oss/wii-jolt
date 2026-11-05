@@ -90,6 +90,22 @@ That's where Shake Race's 0.25 g dead zone comes from: well above a
 still remote, well below a shake. A real remote's noise, and how hard a
 child really shakes, are both still unmeasured.
 
+## The sideways remote
+
+Super Mona holds the remote sideways, like an NES pad, so the buttons map
+differently from the other games:
+
+| Remote | Action |
+|---|---|
+| D-pad | Move. Down crouches when Mona is big |
+| 2 | Jump. Hold for a higher jump |
+| 1 | Run. Hold to carry a shell, release to throw it |
+| + | Pause. Left and Right switch between PAUSED, MAP, ITEMS and HERO |
+| Home | Quit |
+
+The remote that presses 2 on the title drives that game. See
+[Super Mona in jolt](super-mona-in-jolt.md).
+
 ## Scripted remotes for testing
 
 `scripts/dolphin-auto-wiimote <profile>` writes a Dolphin user directory under
@@ -103,6 +119,8 @@ input expressions:
 | `shake` | Shake Race | A four times a second; shaken 1 s in every 2 |
 | `minus`, `plus` | the couch check | one press of − or +, 3.4 to 4 s after start |
 | `idle` | the couch check | connected, presses nothing |
+| `platformer` | Super Mona | held sideways: 2 pressed every second, with 1 and D-pad down held |
+| `play-sideways` | `bb play:jolt-mona` | nothing scripted: Left and Right Arrow move, Up and Down Arrow are the pad's up and down, X is 2, Z is 1, Return is +, Escape is Home |
 | `play` | `bb play:*` | nothing scripted: Dolphin's mouse and keyboard defaults (Q is −, E is +), plus Space to shake |
 
 `bb verify` boots each game twice, once to watch the robot demo and once with
@@ -132,7 +150,9 @@ game's `boot.dol`. The Homebrew Channel launches a game with `argv[0]` set to
 its path (`usb:/apps/starcatcher/boot.dol`), and SDL's `main` passes it
 through and mounts the SD card and USB drive (`fatInitDefault`). Without a
 path (Dolphin passes `"app"`) it falls back to `sd:/apps/<game>/`. If the file
-can't be written, the banner says so instead of claiming it saved.
+can't be written, the banner says so instead of claiming it saved. Integral
+values are saved exactly (the old `%g` format cut them off from 1,000,000 up),
+and `jolt-mona` keeps its high score there as `mona_high`.
 
 `bb verify` checks each setting end to end (`bb run:couch` runs just that).
 Dolphin builds an emulated SD card from a folder on the Mac, `.work/sd-couch`,
