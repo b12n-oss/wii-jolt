@@ -1,8 +1,8 @@
 (ns mona.rules
   "Super Mona rules, pure Clojure. A port of super_mona/game.py from the badge
-   game. This first slice holds the constants, the records and the Level
-   builders, the bodies and the world step. The only in-place structure is a level's tile byte array, which
-   set-tile! mutates.")
+   game. It holds the constants, the records and the Level builders, the
+   bodies and the world step. The only in-place structure is a level's tile
+   byte array, which set-tile! mutates.")
 
 ;; Constants
 
@@ -210,7 +210,7 @@
                  (range n))))
 
 (defn hill
-  "A six-tile hill with its base on row `base` (default 13)."
+  "A six-tile hill, three wide and two tall, from row 11."
   [level x]
   (decor-block level x 11 6 3 t-hill))
 

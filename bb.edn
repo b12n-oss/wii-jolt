@@ -90,7 +90,9 @@
           {:shot shot
            :crashed? (boolean (re-find (re-pattern "Exception \\(DSI\\)|Invalid (read|write)|Unhandled exception|Exception in ") log))
            :lines (osreport-lines log-file)})))
-    ;; The games: [name scripted-wiimote-profile log-line-for-a-score how-it's-played language].
+    ;; The games: [name scripted-wiimote-profile log-line-for-a-score how-it's-played
+    ;;            language demo-seconds join-mode]. join-mode is the mode line that
+    ;; shows the remote joined (optional, default "countdown").
     ;; Each has examples/<name>/game.c with host tests in test/test_game.c, and
     ;; prints "<name>: mode <m>" and one line per score to Dolphin's log.
     (def games
@@ -116,8 +118,8 @@
       (nth (first (filter (fn [gm] (= nm (first gm))) games)) 5))
 
     (defn scripted-pass?
-      "The scripted remote joined (countdown), the round started, and player 1
-       scored during it."
+      "The scripted remote joined (the join mode from the row's 7th element,
+       default countdown), the round started, and player 1 scored during it."
       [nm r]
       (let [row (first (filter (fn [gm] (= nm (first gm))) games))
             score-line (nth row 2)

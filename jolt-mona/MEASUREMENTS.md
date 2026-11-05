@@ -9,7 +9,7 @@ First frame-cost measurements of Super Mona (Clojure on jolt) for the Wii, taken
 - Build: `bb build:jolt-mona`, `jolt build --target tpb32b` with `--closed-world --boot small`; `jolt-mona/build/jolt-mona.dol` is 11,901,344 bytes (11.9 MB).
 - Dolphin with MMU emulation on. The demo runs (`bb run:jolt-mona`, 45 s) use the `idle` profile; the scripted runs (`bb run:jolt-mona-wiimote`, 40 s) use the `platformer` profile.
 - The game prints one summary line per 300 frames. Work is update plus draw, timed from the top of the frame to just before `EndDrawing`. Dropped counts frames whose interval exceeded 20 ms. Calls is shim crossings per frame.
-- The Dolphin log carried no `jolt_gfx:` heap line in these runs.
+- The saved measure logs keep only the `jolt-mona:` lines, so they show no `jolt_gfx:` heap line. The shim prints it to stderr at `jg_init`, and Dolphin's own log has it for a jolt-mona run: `jolt_gfx: heap at jg_init: malloc live 46987384, fallback used 0 + 0, free 0 + 0; chez bytes-allocated 39710984, collect-trip-bytes 2097152`.
 - Each task ran twice. The two demo runs produced identical medians, worst-case and dropped counts to the digit; the two scripted runs differ by at most 1 microsecond in some medians and a few milliseconds in the worst cases (the second run's lines are in the task's measure logs). The tables below are the first run of each; the second run's lines agree.
 
 ## Demo run (`bb run:jolt-mona`, 45 s)
@@ -48,4 +48,4 @@ The spec asks for a work median of at most 12 ms and no frame's work over 16.7 m
 
 ## Reading
 
-The update dominates the heavy demo frames: 12.9 ms at the worst against 5.3 ms of drawing, and it falls to 2.9 ms where fewer things are live. The drawing is a flat 4.2 to 5.3 ms in every window, including the title screen, and 27 to 33 shim crossings per frame cannot account for it, so it is mostly the shim's tile window (345 scaled quads on OpenGX) rather than crossings. The demo's busiest frames need the update to fall by about a third to fit 12 ms of work, and the stalls of 280 to 330 ms need their own look.
+The update dominates the heavy demo frames: 12.9 ms at the worst against 5.3 ms of drawing, and it falls to 2.9 ms where fewer things are live. The drawing is a flat 4.2 to 5.3 ms in every window, including the title screen, and 27 to 33 shim crossings per frame cannot account for it, so it is likely the shim's tile window (the stub-draw pack would split it; a 23 by 15 cell window, up to two quads per non-empty cell, on OpenGX) rather than crossings. The demo's busiest frames need the update to fall by about a third to fit 12 ms of work, and the stalls of 280 to 330 ms need their own look.
