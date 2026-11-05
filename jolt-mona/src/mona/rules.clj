@@ -414,7 +414,8 @@
    (update world :particles conj [kind (double x) (double y) (double vx) (double vy) 0.0 data])))
 
 (defn- advance-particle [[kind x y vx vy age data] dt]
-  (let [vy (double (case kind :debris (+ (double vy) (* 500.0 dt)) :star (+ (double vy) (* 520.0 dt)) vy))]
+  (let [dt (double dt)
+        vy (double (case kind :debris (+ (double vy) (* 500.0 dt)) :star (+ (double vy) (* 520.0 dt)) vy))]
     [kind (+ (double x) (* (double vx) dt)) (+ (double y) (* vy dt)) vx vy (+ (double age) dt) data]))
 
 (defn- particle-life [kind]
@@ -442,8 +443,8 @@
 
 ;; Player
 
-(defn- defeat-enemy
-  "Knock enemy `id` out for `points`. Enemy rules proper come in the next slice."
+(defn defeat-enemy
+  "Knock enemy `id` out: dead, thrown up, `points` scored with a score particle."
   [world id points]
   (let [e (find-enemy world id)]
     (-> world
@@ -628,7 +629,8 @@
 (defn- update-item
   "One item's own motion. Returns the item (alive? false once gone)."
   [item level cam-x dt]
-  (let [emerge (double (:emerge item))]
+  (let [dt (double dt)
+        emerge (double (:emerge item))]
     (if (> emerge 0.0)
       (let [emerge (- emerge dt)
             item (assoc item :emerge emerge
@@ -715,23 +717,27 @@
     (if (empty? stars)
       world
       (let [x (double (:x p)) y (double (:y p))
-            cells (for [tx (range (tile-of x) (inc (tile-of (- (+ x (long (:w p))) 0.01))))
-                        ty (range (tile-of y) (inc (tile-of (- (+ y (player-h p)) 0.01))))]
-                    [tx ty])]
-        (reduce (fn [w [tx ty :as cell]]
-                  (if (contains? (:stars (:level w)) cell)
-                    (-> w
-                        (update :level update :stars disj cell)
-                        add-world-star
-                        (spawn-particle :sparkle (* tx tile) (* ty tile) 0 0))
-                    w))
+            txs (range (tile-of x) (inc (tile-of (- (+ x (long (:w p))) 0.01))))
+            tys (range (tile-of y) (inc (tile-of (- (+ y (player-h p)) 0.01))))]
+        (reduce (fn [w tx]
+                  (reduce (fn [w ty]
+                            (let [cell [tx ty]]
+                              (if (contains? (:stars (:level w)) cell)
+                                (-> w
+                                    (update :level update :stars disj cell)
+                                    add-world-star
+                                    (spawn-particle :sparkle (* tx tile) (* ty tile) 0 0))
+                                w)))
+                          w
+                          tys))
                 world
-                cells)))))
+                txs)))))
 
 (defn- steer
   "Timers, direction, acceleration, skid and facing for one frame."
   [p s c dt]
-  (let [dir (- (if (:right c) 1 0) (if (:left c) 1 0))
+  (let [dt (double dt)
+        dir (- (if (:right c) 1 0) (if (:left c) 1 0))
         crouch? (boolean (and (:big? p) (:down c) (:on-ground? p)))
         dir (if crouch? 0 dir)
         ground? (:on-ground? p)
@@ -762,7 +768,8 @@
 (defn- jump-step
   "Jump buffer, coyote time and the jump itself. Returns [player jumped?]."
   [p s c dt]
-  (let [jb (double (:jump-buffer p))
+  (let [dt (double dt)
+        jb (double (:jump-buffer p))
         jb (cond (:jump-pressed c) 0.12 (> jb 0.0) (- jb dt) :else jb)
         coyote (double (:coyote p))
         ground? (:on-ground? p)
@@ -805,18 +812,175 @@
             p)]
     (-> world (assoc :player p) collect-stars (update-carry c))))
 
-;; The step
+;; Enemies
+
+(defn- shell-hits
+  "A moving or carried shell defeats the enemies it overlaps. A carried shell
+   dies with the first one and is dropped."
+  [world shell-id]
+  (loop [world world
+         ids (mapv :id (:enemies world))]
+    (if-let [id (first ids)]
+      (let [shell (find-enemy world shell-id)
+            other (find-enemy world id)]
+        (if (or (= id shell-id) (not (:alive? other)) (not (:active? other))
+                (contains? #{:dead :squashed} (:state other))
+                (not (overlap? (:x shell) (:y shell) (:w shell) (:h shell)
+                               (:x other) (:y other) (:w other) (:h other))))
+          (recur world (rest ids))
+          (let [world (defeat-enemy world id 200)]
+            (if (= :carried (:state shell))
+              (-> world
+                  (defeat-enemy shell-id 200)
+                  (assoc-in [:player :carrying] nil))
+              (recur world (rest ids))))))
+      world)))
+
+(defn- touch-player
+  "What happens when enemy `id` meets the player: defeat, pick up, kick,
+   stomp or hurt."
+  [world id]
+  (let [e (find-enemy world id)
+        p (:player world)
+        ph (player-h p)]
+    (if (or (not= :play (:state world))
+            (contains? #{:dead :squashed :carried} (:state e))
+            (not (overlap? (:x p) (:y p) (:w p) ph (:x e) (:y e) (:w e) (:h e))))
+      world
+      (if (or (> (double (:sparkle p)) 0.0) (:demo? world))
+        (defeat-enemy world id 200)
+        (let [falling-onto? (and (> (double (:vy p)) 0.0)
+                                 (<= (- (+ (double (:y p)) ph) (double (:y e))) 5.0))]
+          (cond
+            (= :shell (:state e))
+            (if (and (not falling-onto?) (nil? (:carrying p)) (:controls-run? world))
+              (-> world
+                  (update-enemy id (fn [e] (assoc e :state :carried :timer 0.0)))
+                  (assoc-in [:player :carrying] id)
+                  (add-event :pickup))
+              (let [right? (>= (+ (double (:x e)) (/ (long (:w e)) 2.0))
+                               (+ (double (:x p)) (/ (long (:w p)) 2.0)))]
+                (cond-> (-> world
+                            (update-enemy id (fn [e] (assoc e :state :kicked
+                                                            :vx (double (if right? shell-speed (- shell-speed)))
+                                                            :grace 0.25)))
+                            (add-points 400)
+                            (add-event :kick))
+                  falling-onto? (assoc-in [:player :vy] (double (- stomp-bounce))))))
+
+            falling-onto?
+            (let [chain (inc (long (:stomp-chain p)))
+                  points (min (* 100 (bit-shift-left 1 (dec chain))) 8000)
+                  jump (:jump (get characters (:character p)))]
+              (-> world
+                  (update :player assoc :stomp-chain chain
+                          :vy (double (- (if (:controls-jump? world) jump stomp-bounce)))
+                          :y (double (- (double (:y e)) ph)))
+                  (add-points points)
+                  (spawn-particle :score (:x e) (- (double (:y e)) 4.0) 0 -30 points)
+                  (update-enemy id (fn [e] (if (= :bug (:kind e))
+                                             (assoc e :state :squashed :timer 0.0)
+                                             (assoc e :state :shell :timer 0.0 :vx 0.0))))
+                  (add-event :stomp)))
+
+            (and (= :kicked (:state e)) (> (double (:grace e)) 0.0))
+            world
+
+            :else (hurt-player world)))))))
+
+(defn- walkers-bounce
+  "Two overlapping walkers turn away from each other."
+  [world]
+  (let [walkers (filterv (fn [e] (and (:alive? e) (:active? e) (= :walk (:state e)))) (:enemies world))
+        n (count walkers)
+        walkers (reduce
+                 (fn [ws [i j]]
+                   (let [a (nth ws i) b (nth ws j)]
+                     (if (overlap? (:x a) (:y a) (:w a) (:h a) (:x b) (:y b) (:w b) (:h b))
+                       (let [av (Math/abs (double (:vx a))) bv (Math/abs (double (:vx b)))
+                             left? (< (double (:x a)) (double (:x b)))]
+                         (assoc ws
+                                i (assoc a :vx (if left? (- av) av))
+                                j (assoc b :vx (if left? bv (- bv)))))
+                       ws)))
+                 walkers
+                 (for [i (range n) j (range (inc i) n)] [i j]))
+        vxs (into {} (map (fn [e] [(:id e) (:vx e)])) walkers)]
+    (update world :enemies
+            (fn [es] (mapv (fn [e] (if (contains? vxs (:id e)) (assoc e :vx (get vxs (:id e))) e)) es)))))
+
+(defn- move-enemy
+  "Gravity, the walls and the floor for one live enemy. Returns the enemy;
+   alive? is false once it left the screen."
+  [e world dt]
+  (let [level (:level world)
+        e (assoc e :vy (min (+ (double (:vy e)) (* 600.0 dt)) (double max-fall)))
+        [e hit?] (move-x e (:h e) level dt)
+        e (if hit? (assoc e :vx (- (double (:vx e)))) e)
+        [e _] (move-y e (:h e) level dt)]
+    (if (or (> (double (:y e)) (+ view-h 16)) (< (double (:x e)) (- (double (:cam-x world)) 64.0)))
+      (assoc e :alive? false)
+      e)))
+
+(defn- update-enemy-at
+  "One enemy's frame: the state timers and motion, then its contact effects.
+   The enemy is re-read from the world after each effect, as the Python does."
+  [world id dt]
+  (let [e (find-enemy world id)
+        px (double (:x (:player world)))
+        activate (+ (double (:cam-x world)) view-w 16.0)]
+    (cond
+      (not (:alive? e)) world
+      (and (not (:active? e)) (>= (double (:x e)) activate)) world
+      :else
+      (let [e (assoc e :active? true)
+            e (if (> (double (:grace e)) 0.0) (assoc e :grace (- (double (:grace e)) dt)) e)
+            put (fn [w e] (update-enemy w id (fn [_] e)))]
+        (case (:state e)
+          :squashed
+          (let [t (+ (double (:timer e)) dt)]
+            (put world (assoc e :timer t :alive? (not (> t 0.5)))))
+
+          :dead
+          (let [vy (min (+ (double (:vy e)) (* 600.0 dt)) (double max-fall))
+                y (+ (double (:y e)) (* vy dt))]
+            (put world (assoc e :vy vy :x (+ (double (:x e)) (* (double (:vx e)) dt)) :y y
+                              :alive? (not (> y (+ view-h 16))))))
+
+          :carried (shell-hits (put world e) id)
+
+          (let [e (if (= :shell (:state e))
+                    (let [t (+ (double (:timer e)) dt)
+                          e (assoc e :timer t :vx 0.0)]
+                      (if (> t 6.0)
+                        (assoc e :state :walk :vx (if (< px (double (:x e))) -18.0 18.0))
+                        e))
+                    e)
+                e (move-enemy e world dt)
+                world (put world e)]
+            (if-not (:alive? e)
+              world
+              (cond-> world
+                (= :kicked (:state e)) (shell-hits id)
+                true (touch-player id)))))))))
 
 (defn update-enemies
-  "Enemy rules arrive in the next slice; for now the enemies stand still."
-  [world _dt]
-  world)
+  "Activate, move and resolve every enemy in order, bounce overlapping
+   walkers off each other and drop the dead."
+  [world dt]
+  (let [dt (double dt)
+        world (reduce (fn [w id] (update-enemy-at w id dt)) world (mapv :id (:enemies world)))
+        world (if (> (count (:enemies world)) 1) (walkers-bounce world) world)]
+    (update world :enemies (fn [es] (filterv :alive? es)))))
+
+;; The step
 
 (defn- check-flag [world]
   world)
 
 (defn- play-frame [world c dt]
-  (let [left (- (double (:time-left world)) (* dt 2.5))
+  (let [dt (double dt)
+        left (- (double (:time-left world)) (* dt 2.5))
         world (if (<= left 0.0)
                 (kill-player (assoc world :time-left 0.0))
                 (assoc world :time-left left))
@@ -830,7 +994,8 @@
     (update-camera world)))
 
 (defn- dying-frame [world dt]
-  (let [world (if (> (double (:state-time world)) 0.5)
+  (let [dt (double dt)
+        world (if (> (double (:state-time world)) 0.5)
                 (let [p (:player world)
                       vy (min (+ (double (:vy p)) (* 600.0 dt)) (* max-fall 1.5))]
                   (assoc world :player (assoc p :vy (double vy) :y (+ (double (:y p)) (* vy dt)))))

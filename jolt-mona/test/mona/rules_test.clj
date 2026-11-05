@@ -81,6 +81,8 @@
       (r/ground 0 59)
       (assoc :start [4 12])))
 
+(defn- right [] (assoc r/no-controls :right true))
+
 (defn- settle
   ([w n] (settle w n r/no-controls))
   ([w n controls] (reduce (fn [w _] (r/step w controls dt)) w (range n))))
@@ -165,6 +167,45 @@
         w (settle (r/new-world lv (r/new-session)) 30)]
     (is (= :dying (:state w)))
     (is (some (fn [e] (= e :die)) (:events w)))))
+
+(deftest stomp-squashes-bug
+  (let [lv (-> (blank-level) (r/enemy 8))
+        w (r/new-world lv (r/new-session))
+        e (first (:enemies w))
+        w (-> w (assoc-in [:player :x] (:x e)) (assoc-in [:player :y] (- (:y e) 20)) (assoc-in [:player :vy] 60.0))
+        w (settle w 8)]
+    (is (= :squashed (:state (first (:enemies w)))))
+    (is (pos? (:score (:session w))))
+    (is (some (fn [e] (= e :stomp)) (:events w)))))
+
+(deftest side-hit-shrinks-big-player-then-kills
+  (let [lv (-> (blank-level) (r/enemy 9))
+        w (settle (r/new-world lv (assoc (r/new-session) :big? true)) 2)
+        w (settle w 40 (right))]
+    (is (not (:big? (:player w))))
+    (is (pos? (:invulnerable (:player w))))
+    (is (= :play (:state w)))
+    (let [p (:player w)
+          e (first (:enemies w))
+          w (-> w (assoc-in [:player :invulnerable] 0.0)
+                (assoc-in [:enemies 0 :x] (+ (:x p) 2))
+                (assoc-in [:enemies 0 :y] (- (+ (:y p) (r/player-h p)) (:h e))))
+          w (r/step w r/no-controls dt)]
+      (is (= :dying (:state w))))))
+
+(deftest shell-pickup-and-throw
+  (let [lv (-> (blank-level) (r/enemy 10 :shellbot))
+        w (settle (r/new-world lv (r/new-session)) 2)
+        w (-> w (assoc-in [:enemies 0 :state] :shell) (assoc-in [:enemies 0 :vx] 0.0))
+        w (assoc-in w [:player :x] (- (:x (first (:enemies w))) 6 2))
+        c (assoc r/no-controls :right true :run true)
+        w (loop [w w i 0] (if (or (:carrying (:player w)) (= i 10)) w (recur (r/step w c dt) (inc i))))]
+    (is (= 0 (:carrying (:player w))))
+    (is (= :carried (:state (first (:enemies w)))))
+    (let [w (r/step w r/no-controls dt)]
+      (is (nil? (:carrying (:player w))))
+      (is (= :kicked (:state (first (:enemies w)))))
+      (is (pos? (:vx (first (:enemies w))))))))
 
 (defn -main [& _]
   (let [res (run-tests 'mona.rules-test)]
