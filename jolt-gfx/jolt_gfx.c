@@ -191,7 +191,7 @@ static int tile_width;
 U jg_tiles_load(U tiles_ptr, U decor_ptr, U width)
 {
     calls++;
-    if (width > 190) return 1;
+    if (!tiles_ptr || !decor_ptr || width == 0 || width > 190) return 1;
     tile_width = (int)width;
     memcpy(tile_layer, (const void *)tiles_ptr, (size_t)width * 15);
     memcpy(decor_layer, (const void *)decor_ptr, (size_t)width * 15);
@@ -201,7 +201,7 @@ U jg_tiles_load(U tiles_ptr, U decor_ptr, U width)
 U jg_tile_set(U index, U tile)
 {
     calls++;
-    if ((int)index >= tile_width * 15) return 1;
+    if ((int)index < 0 || (int)index >= tile_width * 15) return 1;
     tile_layer[(int)index] = (unsigned char)tile;
     return 0;
 }
@@ -246,8 +246,8 @@ U jg_tiles_map(U x, U y, U w, U h, U solid, U sky)
     return 0;
 }
 
-// Calls to counted jg_* functions since the last jg_calls (a function that
-// calls another counts both). Masked to stay a fixnum.
+// Calls to counted jg_* functions since the last jg_calls; each counted
+// function adds exactly 1. Masked to stay a fixnum.
 U jg_calls(void)
 {
     unsigned n = calls & 0x0FFFFFFF;

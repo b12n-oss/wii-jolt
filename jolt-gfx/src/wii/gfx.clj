@@ -106,16 +106,19 @@
   "Copy the tile and decor byte arrays (width * 15 each) into the shim. Returns
    true when the shim accepted them."
   [^bytes tiles ^bytes decor width]
-  (let [n (alength tiles)
-        tp (ffi/alloc n)
-        dp (ffi/alloc n)]
-    (try
-      (ffi/write-bytes tp tiles)
-      (ffi/write-bytes dp decor)
-      (zero? (c-tiles-load tp dp (long width)))
-      (finally
-        (ffi/free tp)
-        (ffi/free dp)))))
+  (let [n (* 15 (long width))]
+    (when-not (= (alength tiles) (alength decor) n)
+      (throw (ex-info "tiles-load!: layers must be width*15 bytes"
+                      {:width width :tiles (alength tiles) :decor (alength decor)})))
+    (let [tp (ffi/alloc n)]
+      (try
+        (let [dp (ffi/alloc n)]
+          (try
+            (ffi/write-bytes tp tiles)
+            (ffi/write-bytes dp decor)
+            (zero? (c-tiles-load tp dp (long width)))
+            (finally (ffi/free dp))))
+        (finally (ffi/free tp))))))
 (defn tile-set! [index tile] (c-tile-set (long index) (long tile)) nil)
 (defn tiles-draw! [^double cam-x] (c-tiles-draw (unchecked-long cam-x)) nil)
 (defn tiles-map! [x y w h solid sky]
