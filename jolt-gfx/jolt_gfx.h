@@ -63,9 +63,10 @@ U jg_sprite(U sheet, U col, U row, U x, U y, U flags);
 // jg_calls and resets it.
 U jg_tiles_load(U tiles_ptr, U decor_ptr, U width);
 // The fast way to load a stage on this target is per cell: jg_tiles_begin
-// (width), then jg_tile_set / jg_decor_set for the non-empty cells only. The
-// two block copies jg_tiles_load needs (ffi/write-bytes of up to 2,850 bytes
-// each) measured 245 ms for stage 1-1 in Dolphin; see jolt-mona/MEASUREMENTS.md.
+// (width), then jg_tile_set / jg_decor_set for the non-empty cells only.
+// tiles-load! (two allocs, two ffi/write-bytes, this C call, two frees)
+// measured 245 ms for a 190-wide stage, the per-cell path 32 ms; the cost
+// looks per element on this target. See jolt-mona/MEASUREMENTS.md.
 U jg_tiles_begin(U width);
 U jg_decor_set(U index, U id);
 U jg_tile_set(U index, U tile);

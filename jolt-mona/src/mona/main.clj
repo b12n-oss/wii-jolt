@@ -69,8 +69,9 @@
 (defn- sync-world
   "Hand a new stage to the shim when the title, intro or demo began (or its
    level changed), forward the world's tile changes and clear them. Returns
-   [app stage-name hand-off-us], the level name to remember and, on a load,
-   draw/load-stage!'s time in microseconds (else nil)."
+   [app stage-name load], the level name to remember and, on a load,
+   [hand-off-us calls-before calls-after] (the shim call count read before and
+   after draw/load-stage!, else nil)."
   [a last-state last-name]
   (let [state (:state a)
         k (world-key state)
@@ -80,11 +81,13 @@
       (let [lvl (:level world)
             load? (and (#{:title :intro :demo} state)
                        (or (not= state last-state) (not= (:name lvl) last-name)))]
-        (let [times (when load? (draw/load-stage! lvl))]
-        (doseq [[i tile] (:dirty world)] (gfx/tile-set! i tile))
-        [(assoc a k (rules/clear-events world))
-         (if (#{:title :intro :demo} state) (:name lvl) last-name)
-         times])))))
+        (let [c0 (when load? (long (gfx/calls)))
+              us (when load? (draw/load-stage! lvl))
+              load (when load? [us c0 (long (gfx/calls))])]
+          (doseq [[i tile] (:dirty world)] (gfx/tile-set! i tile))
+          [(assoc a k (rules/clear-events world))
+           (if (#{:title :intro :demo} state) (:name lvl) last-name)
+           load])))))
 
 (defn- rumble-event?
   "True when a log line is a play-mode event worth a pulse."
@@ -119,9 +122,7 @@
            stage-key nil
            rumble-ch nil
            rumble-left 0.0
-           last-rumble [false false false false]
-           prev-end-us 0
-           prev-post-us 0]
+           last-rumble [false false false false]]
       (let [t0 (gfx/time-us)
             fus (gfx/frame-us)
             dt (if (zero? fus) (/ 1.0 60) (min 0.05 (/ fus 1000000.0)))
@@ -136,15 +137,13 @@
               (gfx/close!))
           (let [a (app/tick a (channel-input a held last-held conn) dt)
                 t-tick (gfx/time-us)
-                [a stage-key load-times] (sync-world a last-state stage-key)
+                [a stage-key load] (sync-world a last-state stage-key)
+                calls-total (if load (+ calls-total (long (nth load 1)) (long (nth load 2))) calls-total)
                 log-lines (:log a)
-                t-pr0 (gfx/time-us)
                 _ (print-log a)
-                t-pr1 (gfx/time-us)
-                _ (when load-times
+                _ (when load
                     (println (str name* ": stage-load tick-us=" (stats/elapsed-us t0 t-tick)
-                                  " hand-off-us=" load-times
-                                  " print-us=" (stats/elapsed-us t-pr0 t-pr1))))
+                                  " hand-off-us=" (first load) " calls=" (nth load 2))))
                 ch (:player-ch a)
                 pulse? (and ch (boolean (some rumble-event? log-lines)))
                 a (app/clear-log a)
@@ -167,25 +166,17 @@
             (draw/draw-app a t)
             (let [t2 (gfx/time-us)]
               (gfx/end!)
-              (let [t3 (gfx/time-us)
-                    calls-total (+ calls-total (long (gfx/calls)))
+              (let [calls-total (+ calls-total (long (gfx/calls)))
                     sample {:update-us (stats/elapsed-us t0 t1)
                             :draw-us (stats/elapsed-us t1 t2)
                             :frame-us fus}
                     samples (conj samples sample)
-                    done? (= (count samples) summary-every)
-                    t4 (gfx/time-us)
-                    end-us (stats/elapsed-us t2 t3)
-                    post-us (stats/elapsed-us t3 t4)]
+                    done? (= (count samples) summary-every)]
                 (when (> fus stall-us)
                   (println (str name* ": stall frame-us=" fus
-                                " work-us=" (+ (:update-us sample) (:draw-us sample))
-                                " prev-end-us=" prev-end-us " prev-post-us=" prev-post-us)))
-                (when (> end-us stall-us)
-                  (println (str name* ": slow-end end-us=" end-us)))
+                                " work-us=" (+ (:update-us sample) (:draw-us sample)))))
                 (when done?
                   (println (str (stats/summary-line name* (stats/summary samples))
                                 " calls=" (quot calls-total summary-every))))
                 (recur a t held (if done? [] samples) (if done? 0 calls-total)
-                       written state stage-key rumble-ch rumble-left want-rumble
-                       end-us post-us)))))))))
+                       written state stage-key rumble-ch rumble-left want-rumble)))))))))

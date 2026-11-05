@@ -48,8 +48,9 @@
   [level]
   (let [t0 (gfx/time-us)
         tiles ^bytes (:tiles level)
-        n (alength tiles)]
-    (gfx/tiles-begin! (:width level))
+        n (long (alength tiles))]
+    (when-not (gfx/tiles-begin! (:width level))
+      (throw (ex-info "load-stage!: the shim refused the stage width" {:width (:width level)})))
     (loop [i 0]
       (when (< i n)
         (let [id (bit-and (aget tiles i) 0xFF)]

@@ -24,7 +24,7 @@
     (with-redefs [gfx/sprite! (stub :sprite!)
                   gfx/tiles-draw! (stub :tiles-draw!)
                   gfx/tiles-map! (stub :tiles-map!)
-                  gfx/tiles-begin! (stub :tiles-begin!)
+                  gfx/tiles-begin! (fn [& args] (apply (stub :tiles-begin!) args) true)
                   gfx/tile-set! (stub :tile-set!)
                   gfx/decor-set! (stub :decor-set!)
                   gfx/time-us (fn [] 0)
