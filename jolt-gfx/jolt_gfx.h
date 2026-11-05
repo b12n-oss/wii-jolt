@@ -49,6 +49,13 @@ U jg_line(U x1, U y1, U x2, U y2, U c);
 U jg_line_thick(U x1, U y1, U x2, U y2, U thick, U c);
 U jg_ring(U x, U y, U inner, U outer, U c);
 U jg_poly(U x, U y, U sides, U radius, U rot, U c);
+// Sprite sheets (Super Mona): sheet 0 tiles (8x8 cells), 1 players (16x16),
+// 2 mobs (8x8). jg_sheet_load returns 0 on success, 1 on failure. jg_sprite
+// takes x, y in game pixels, scaled by jg_scale; flags bit 0 flips x, bit 1
+// flips y.
+U jg_scale(U n);
+U jg_sheet_load(U id);
+U jg_sprite(U sheet, U col, U row, U x, U y, U flags);
 U jg_text(U s, U x, U y, U size, U c);
 U jg_text_width(U s, U size);
 

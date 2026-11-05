@@ -26,6 +26,9 @@
 (ffi/defcfn c-line-thick "jg_line_thick" [:uptr :uptr :uptr :uptr :uptr :uptr] :uptr)
 (ffi/defcfn c-ring "jg_ring" [:uptr :uptr :uptr :uptr :uptr] :uptr)
 (ffi/defcfn c-poly "jg_poly" [:uptr :uptr :uptr :uptr :uptr :uptr] :uptr)
+(ffi/defcfn c-scale "jg_scale" [:uptr] :uptr)
+(ffi/defcfn c-sheet-load "jg_sheet_load" [:uptr] :uptr)
+(ffi/defcfn c-sprite "jg_sprite" [:uptr :uptr :uptr :uptr :uptr :uptr] :uptr)
 (ffi/defcfn c-text "jg_text" [:uptr :uptr :uptr :uptr :uptr] :uptr)
 (ffi/defcfn c-text-width "jg_text_width" [:uptr :uptr] :uptr)
 (ffi/defcfn c-connected "jg_connected" [:uptr] :uptr)
@@ -40,6 +43,20 @@
 (def button-a 0x0008)
 (def button-b 0x0004)
 (def button-home 0x0080)
+(def button-2 0x0001)
+(def button-1 0x0002)
+(def button-minus 0x0010)
+(def button-plus 0x1000)
+(def button-left 0x0100)
+(def button-right 0x0200)
+(def button-down 0x0400)
+(def button-up 0x0800)
+
+(def sheet-tiles 0)
+(def sheet-players 1)
+(def sheet-mobs 2)
+(def flip-x 1)
+(def flip-y 2)
 
 ;; Window and frame.
 (defn init! [w h] (c-init (long w) (long h)) nil)
@@ -72,6 +89,12 @@
   (c-ring (unchecked-long x) (unchecked-long y) (unchecked-long inner) (unchecked-long outer) c) nil)
 (defn poly! [^double x ^double y ^double sides ^double radius ^double rot c]
   (c-poly (unchecked-long x) (unchecked-long y) (unchecked-long sides) (unchecked-long radius) (unchecked-long rot) c) nil)
+
+;; Sprite sheets. Positions are in game pixels, scaled by scale!.
+(defn scale! [n] (c-scale (long n)) nil)
+(defn sheet-load! [id] (zero? (c-sheet-load (long id))))
+(defn sprite! [sheet col row ^double x ^double y flags]
+  (c-sprite sheet col row (unchecked-long x) (unchecked-long y) flags) nil)
 
 (defn text!
   "Draw s at (x, y). The string goes over as a C string's address, freed after."

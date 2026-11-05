@@ -115,6 +115,49 @@ U jg_poly(U x, U y, U sides, U radius, U rot, U c)
              (float)(int)radius, (float)(int)rot, rgba(c));
     return 0;
 }
+// --- sprite sheets ---
+#include "mona_assets.h"
+
+static Texture2D sheets[3];
+static int cell_w[3] = {8, 16, 8};
+static float scale = 1.0f;
+
+U jg_scale(U n)
+{
+    scale = (float)(int)n;
+    return 0;
+}
+
+// Sheet id 0 tiles (8x8 cells), 1 players (16x16), 2 mobs (8x8). Returns 0 on
+// success, 1 when the image or texture failed to load.
+U jg_sheet_load(U id)
+{
+    static const unsigned char *const data[3] = { mona_tiles_png, mona_players_png, mona_mobs_png };
+    static const unsigned int *const len[3] = { &mona_tiles_png_len, &mona_players_png_len, &mona_mobs_png_len };
+    if (id > 2) return 1;
+    Image img = LoadImageFromMemory(".png", data[id], (int)*len[id]);
+    Texture2D tex = LoadTextureFromImage(img);
+    UnloadImage(img);
+    if (tex.id == 0) return 1;
+    SetTextureFilter(tex, TEXTURE_FILTER_POINT);
+    sheets[id] = tex;
+    return 0;
+}
+
+// Draw cell (col, row) of a sheet at game pixel (x, y), scaled by jg_scale.
+// flags bit 0 flips x, bit 1 flips y, both in place.
+U jg_sprite(U sheet, U col, U row, U x, U y, U flags)
+{
+    JG_STUB();
+    if (sheet > 2) return 1;
+    float cw = (float)cell_w[sheet];
+    Rectangle src = { (float)(int)col * cw, (float)(int)row * cw,
+                      (flags & 1) ? -cw : cw, (flags & 2) ? -cw : cw };
+    Rectangle dst = { (float)(int)x * scale, (float)(int)y * scale, cw * scale, cw * scale };
+    DrawTexturePro(sheets[sheet], src, dst, (Vector2){ 0, 0 }, 0.0f, WHITE);
+    return 0;
+}
+
 U jg_text(U s, U x, U y, U size, U c)
 {
     JG_STUB();
@@ -187,6 +230,7 @@ static void register_all(void)
     R(jg_frame_us); R(jg_time_us); R(jg_seed);
     R(jg_gradient_v); R(jg_rect); R(jg_rect_rounded); R(jg_circle); R(jg_ellipse);
     R(jg_triangle); R(jg_line); R(jg_line_thick); R(jg_ring); R(jg_poly);
+    R(jg_scale); R(jg_sheet_load); R(jg_sprite);
     R(jg_text); R(jg_text_width);
     R(jg_connected); R(jg_held); R(jg_ir_valid); R(jg_ir_x); R(jg_ir_y);
     R(jg_rumble); R(jg_rumble_all_off);

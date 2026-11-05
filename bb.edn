@@ -30,6 +30,7 @@
        ["chez"       "chez-wii/build/chez.dol"            true  "Chez Scheme 10.4.1 (tpb32b) evaluating a test list"]
        ["jolt-hello" "jolt-hello/build/jolt-hello.dol"    true  "Clojure via jolt: fib, bignums, maps, sets, hashes"]
        ["jolt-balloons" "jolt-balloons/build/jolt-balloons.dol" false "Balloon Pop in Clojure (jolt): same game, pure Clojure rules"]
+       ["jolt-mona" "jolt-mona/build/jolt-mona.dol" false "Super Mona in Clojure (jolt): a 32-stage platformer, remote held sideways"]
        ["jolt-stress" "jolt-balloons/build/jolt-stress.dol" false "Clojure drawing cost: a busy Balloon Pop frame, timed" :measurement]
        ["jolt-ffi-bench" "jolt-balloons/build/jolt-ffi-bench.dol" false "Clojure FFI cost benchmark" :measurement]
        ["jolt-cast-bench" "jolt-balloons/build/jolt-cast-bench.dol" false "Clojure double-to-integer cast cost on the Wii" :measurement]
@@ -444,6 +445,14 @@
                 (str "JOLT_WII_CC=" repo-root "/scripts/wii-cc-sdl")
                 "scripts/jolt-wii-build" "jolt-balloons" "balloons.main" "jolt-balloons"))}
 
+  build:jolt-mona
+  {:doc "Cross-build Super Mona in Clojure (mona.main)"
+   :depends [gfx-pack]
+   :task (do
+           (sh! "env" (str "JOLT_WII_PACK=" repo-root "/.work/pack-tpb32b-gfx")
+                (str "JOLT_WII_CC=" repo-root "/scripts/wii-cc-sdl")
+                "scripts/jolt-wii-build" "jolt-mona" "mona.main" "jolt-mona"))}
+
   build:jolt-ffi-bench
   {:doc "Cross-build the Clojure FFI cost benchmark"
    :depends [gfx-pack]
@@ -593,6 +602,10 @@
   run:jolt-hello
   {:doc "Boot jolt-hello in Dolphin and print its output"
    :task (let [r (run-in-dolphin "jolt-hello" 40)] (doseq [l (:lines r)] (println l)) (println (:shot r)))}
+
+  run:jolt-mona
+  {:doc "Boot Super Mona in Dolphin for 20 s and print its log lines"
+   :task (let [r (run-in-dolphin "jolt-mona" 20)] (doseq [l (:lines r)] (when (str/starts-with? l "jolt-mona: ") (println l))) (println (:shot r)) (when (:crashed? r) (println "CRASHED") (System/exit 1)))}
 
   run:jolt-balloons
   {:doc "Boot Balloon Pop in Clojure in Dolphin, wait for the robot demo, print its events"
