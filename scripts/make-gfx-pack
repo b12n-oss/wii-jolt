@@ -18,7 +18,6 @@ for f in "$ROOT/jolt-gfx/build/$SHIM.o" "$ROOT/raylib-wii/build/wii_shim.o" "$RO
 done
 rm -rf "$PACK"; cp -R "$SRC" "$PACK"
 rm -f "$PACK/lib/wii_runtime.o"
-sed "s|$SRC/xpatch.chez|$PACK/xpatch.chez|" "$SRC/xpatch" > "$PACK/xpatch"
 cp "$ROOT/jolt-gfx/build/$SHIM.o" "$PACK/lib/jolt_gfx.o"
 cp "$ROOT/raylib-wii/build/wii_shim.o" "$PACK/lib/"
 W=/opt/devkitpro/portlibs/wii/lib

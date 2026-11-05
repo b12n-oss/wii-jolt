@@ -7,7 +7,7 @@
 - Chez Scheme 10.4.1 on `tpb32b`: kernel patch, TLS hooks, POSIX stubs, boot
   files embedded in the `.dol`.
 - Clojure through `jolt build --target tpb32b`, with output matching the Mac
-  build. jolt-side fix on a local branch, `feat/wii-tpb32b`.
+  build. The jolt-side fix is upstream (jolt-lang/jolt#1514, 2026-11-05).
 - `bb verify` builds all three and checks each one's output in Dolphin with MMU
   emulation on.
 
@@ -102,9 +102,10 @@ comparison and what it taught us about jolt.
 
 Nothing goes upstream until it's explicitly asked for. Candidates:
 
-- **jolt:** the `feat/wii-tpb32b` branch (32-bit cross targets get the narrow
-  hash arm and generic fx ops). A longer-term fix would replace the checked fx
-  ops at each int-width site.
+- **jolt:** done. The 32-bit cross-target fix (narrow hash arm and generic fx
+  ops in the generated compile script) merged as jolt-lang/jolt#1514 on
+  2026-11-05, after the cast work (#1491, #1493, #1494). A longer-term fix
+  would replace the checked fx ops at each int-width site.
 - **Chez Scheme:** the `__wii__` kernel branch, and adding `__PPC__` to the
   big-endian test in `version.h`, which helps any PowerPC toolchain that doesn't
   define `__powerpc__`.

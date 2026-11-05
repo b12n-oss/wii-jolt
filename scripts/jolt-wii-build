@@ -11,9 +11,8 @@ PACK="${JOLT_WII_PACK:-$ROOT/.work/pack-tpb32b}"
 cd "$PROJ"
 rm -rf "build/$APP.elf" "build/$APP.elf.build"
 mkdir -p build
-# JOLT_NARROW_HASH=1: jolt picks its hash-engine width at expand time on the
-# COMPILING (64-bit) Chez; this forces the 32-bit-safe arm for the Wii.
-JOLT_NARROW_HASH=1 \
+# Needs a jolt at or past jolt-lang/jolt#1514 (2026-11-05): a cross build to a
+# 32-bit target then compiles for the target's fixnum width by itself.
 JOLT_CHEZ="$ROOT/.work/ChezScheme/$(ls "$ROOT/.work/ChezScheme/" | grep -E '^t(arm64|a6)osx$' | head -1)/bin/$(ls "$ROOT/.work/ChezScheme/" | grep -E '^t(arm64|a6)osx$' | head -1)/scheme" \
 JOLT_TARGET_CC="${JOLT_WII_CC:-$ROOT/scripts/wii-cc}" \
   jolt build -m "$NS" -o "build/$APP.elf" --target tpb32b --target-pack "$PACK"

@@ -39,6 +39,18 @@
 
     (defn app [nm] (first (filter (fn [a] (= nm (first a))) apps)))
 
+    (defn jolt-cross-ready?
+      "True when `jolt --version` names a jolt that carries jolt-lang/jolt#1514
+       (32-bit cross targets compile for the target's fixnum width): a release
+       after 0.8.23, or a main build v0.8.23-N-g... with N >= 429 (the merge)."
+      []
+      (let [r (shell {:out :string :err :string :continue true} "jolt" "--version")
+            [_ maj mnr pat n] (re-find (re-pattern "v(\\d+)\\.(\\d+)\\.(\\d+)(?:-(\\d+)-g)?") (str (:out r)))]
+        (when maj
+          (let [v [(parse-long maj) (parse-long mnr) (parse-long pat)]]
+            (or (pos? (compare v [0 8 23]))
+                (and (= v [0 8 23]) (some? n) (>= (parse-long n) 429)))))))
+
     (defn sh! [& args]
       (let [r (apply shell {:dir repo-root :continue true} args)]
         (when-not (zero? (:exit r))
@@ -303,6 +315,8 @@
             (str runner " chez:setup"))
      (println "jolt (blocks pack users: build:jolt-hello):")
      (check (fs/which "jolt") "jolt on PATH" "install jolt (https://github.com/jolt-lang/jolt)")
+     (check (jolt-cross-ready?) "jolt at or past jolt-lang/jolt#1514 (32-bit cross builds)"
+            "build jolt from main at a65c59ed or later, or a release after 0.8.23")
      (check (fs/exists? (str repo-root "/.work/pack-tpb32b/xpatch")) "jolt target pack assembled"
             (str runner " build:chez && " runner " pack"))
      (println "jolt graphics (blocks Clojure games that draw with raylib):")
