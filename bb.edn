@@ -72,7 +72,7 @@
        Never Dolphin's default profile, which maps the Mac's own mouse and
        keyboard, and dolphin-shot turns on background input, so whatever the
        person at the Mac is doing would reach the game."
-      [nm seconds & {:keys [user shot-name]}]
+      [nm seconds & {:keys [user shot-name extra-env]}]
       (let [[_ dol console?] (app nm)
             user (or user (auto-user "idle"))
             shot (str shots-dir "/" (or shot-name nm) ".png")
@@ -83,7 +83,8 @@
           (System/exit 1))
         (shell {:dir repo-root :continue true
                 :extra-env (merge (if console? {"DOLPHIN_EXTRA" "-C GFX.Hacks.XFBToTextureEnable=False"} {})
-                                  {"DOLPHIN_USER" user})}
+                                  {"DOLPHIN_USER" user}
+                                  extra-env)}
                "scripts/dolphin-shot" dol shot (str seconds))
         (let [log (if (fs/exists? log-file) (slurp log-file) "")]
           {:shot shot
@@ -605,7 +606,9 @@
 
   run:jolt-mona
   {:doc "Boot Super Mona in Dolphin for 20 s and print its log lines"
-   :task (let [r (run-in-dolphin "jolt-mona" 20)] (doseq [l (:lines r)] (when (str/starts-with? l "jolt-mona: ") (println l))) (println (:shot r)) (when (:crashed? r) (println "CRASHED") (System/exit 1)))}
+   :task (let [sd (str repo-root "/.work/sd-mona")
+               _ (fs/create-dirs (str sd "/apps/jolt-mona"))
+               r (run-in-dolphin "jolt-mona" 20 :extra-env {"DOLPHIN_EXTRA" (str/join " " (sd-sync-opts sd))})] (doseq [l (:lines r)] (when (str/starts-with? l "jolt-mona: ") (println l))) (println (:shot r)) (when (:crashed? r) (println "CRASHED") (System/exit 1)))}
 
   run:jolt-balloons
   {:doc "Boot Balloon Pop in Clojure in Dolphin, wait for the robot demo, print its events"

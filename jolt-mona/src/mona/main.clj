@@ -35,6 +35,9 @@
   (gfx/scale! 4)
   (let [ok (count (filter gfx/sheet-load! [gfx/sheet-tiles gfx/sheet-players gfx/sheet-mobs]))]
     (println (str app ": sheets ok=" ok)))
+  (let [v (gfx/setting-get "mona_high" 0)]
+    (println (str app ": setting mona_high=" v))
+    (println (str app ": saved=" (if (gfx/setting-put! "mona_high" (inc v)) 1 0))))
   (println (str app ": tiles ok=" (gfx/tiles-load! (test-tiles) (test-decor) grid-width)))
   (loop [frame 0]
     (when (< frame 1200)

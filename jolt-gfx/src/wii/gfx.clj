@@ -36,6 +36,8 @@
 (ffi/defcfn c-calls "jg_calls" [] :uptr)
 (ffi/defcfn c-text "jg_text" [:uptr :uptr :uptr :uptr :uptr] :uptr)
 (ffi/defcfn c-text-width "jg_text_width" [:uptr :uptr] :uptr)
+(ffi/defcfn c-setting-get "jg_setting_get" [:uptr :uptr] :uptr)
+(ffi/defcfn c-setting-put "jg_setting_put" [:uptr :uptr] :uptr)
 (ffi/defcfn c-connected "jg_connected" [:uptr] :uptr)
 (ffi/defcfn c-held "jg_held" [:uptr] :uptr)
 (ffi/defcfn c-ir-valid "jg_ir_valid" [:uptr] :uptr)
@@ -140,6 +142,19 @@
   (let [p (ffi/string->ptr s)]
     (try
       (c-text-width p (unchecked-long size))
+      (finally (ffi/free p)))))
+
+;; An integer setting in settings.txt beside boot.dol.
+(defn setting-get [k default]
+  (let [p (ffi/string->ptr k)]
+    (try
+      (c-setting-get p default)
+      (finally (ffi/free p)))))
+
+(defn setting-put! [k value]
+  (let [p (ffi/string->ptr k)]
+    (try
+      (= 1 (c-setting-put p value))
       (finally (ffi/free p)))))
 
 ;; Wiimotes, by channel 0..3.

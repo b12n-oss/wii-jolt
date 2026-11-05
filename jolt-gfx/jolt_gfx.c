@@ -3,6 +3,7 @@
 // with Sforeign_symbol from inside Sbuild_heap's init callback (the pack links
 // with -Wl,--wrap=Sbuild_heap).
 #include "jolt_gfx.h"
+#include "settings.h"
 #include "raylib.h"
 #include <stdlib.h>
 #include <string.h>
@@ -269,6 +270,38 @@ U jg_text_width(U s, U size)
     return (U)MeasureText((const char *)s, (int)size);
 }
 
+// --- settings ---
+// An integer setting in settings.txt beside boot.dol (examples/common/settings.c).
+// The path is worked out once, on first use.
+static char settings_file[256];
+static bool settings_ready;
+
+static const char *settings_file_path(void)
+{
+    if (!settings_ready) {
+        const char *argv0 = (__system_argv && __system_argv->argc > 0) ? __system_argv->argv[0] : NULL;
+        if (!settings_path(settings_file, sizeof settings_file, argv0, "jolt-mona"))
+            settings_file[0] = 0;
+        settings_ready = true;
+    }
+    return settings_file;
+}
+
+U jg_setting_get(U key_ptr, U fallback)
+{
+    calls++;
+    const char *path = settings_file_path();
+    if (!key_ptr || !path[0]) return fallback;
+    return (U)(int)settings_load(path, (const char *)key_ptr, (float)(int)fallback);
+}
+U jg_setting_put(U key_ptr, U value)
+{
+    calls++;
+    const char *path = settings_file_path();
+    if (!key_ptr || !path[0]) return 0;
+    return settings_save(path, (const char *)key_ptr, (float)(int)value) ? 1 : 0;
+}
+
 // Wiimote channel ch. Each call probes the channel itself.
 static bool connected(U ch)
 {
@@ -336,6 +369,7 @@ static void register_all(void)
     R(jg_scale); R(jg_sheet_load); R(jg_sprite);
     R(jg_tiles_load); R(jg_tile_set); R(jg_tiles_draw); R(jg_tiles_map); R(jg_calls);
     R(jg_text); R(jg_text_width);
+    R(jg_setting_get); R(jg_setting_put);
     R(jg_connected); R(jg_held); R(jg_ir_valid); R(jg_ir_x); R(jg_ir_y);
     R(jg_rumble); R(jg_rumble_all_off);
 #undef R

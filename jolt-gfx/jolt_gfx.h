@@ -69,6 +69,12 @@ U jg_calls(void);
 U jg_text(U s, U x, U y, U size, U c);
 U jg_text_width(U s, U size);
 
+// An integer setting stored in settings.txt beside boot.dol (key_ptr is a C
+// string). jg_setting_get returns the fallback when the file or key is
+// missing. jg_setting_put returns 1 when the file was written, 0 when not.
+U jg_setting_get(U key_ptr, U fallback);
+U jg_setting_put(U key_ptr, U value);
+
 // Wiimotes, by channel 0..3. The IR position is biased (see JG_IR_BIAS) and 0
 // when the pointer is not valid, so check jg_ir_valid first.
 U jg_connected(U ch);

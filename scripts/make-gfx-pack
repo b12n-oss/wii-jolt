@@ -13,14 +13,15 @@ if [ "${1:-}" = "--stub-draw" ]; then
 fi
 SRC="$ROOT/.work/pack-tpb32b"; PACK="${1:-$ROOT/.work/$PACKNAME}"
 [ -e "$SRC/xpatch" ] || { echo "the plain pack is missing: run bb pack first" >&2; exit 1; }
-for f in "$ROOT/jolt-gfx/build/$SHIM.o" "$ROOT/raylib-wii/build/wii_shim.o" "$ROOT/raylib-wii/build/libraylib.a"; do
+for f in "$ROOT/jolt-gfx/build/$SHIM.o" "$ROOT/jolt-gfx/build/settings.o" "$ROOT/raylib-wii/build/wii_shim.o" "$ROOT/raylib-wii/build/libraylib.a"; do
   [ -e "$f" ] || { echo "missing: $f (bb build:jolt-gfx, bb build:raylib)" >&2; exit 1; }
 done
 rm -rf "$PACK"; cp -R "$SRC" "$PACK"
 rm -f "$PACK/lib/wii_runtime.o"
 cp "$ROOT/jolt-gfx/build/$SHIM.o" "$PACK/lib/jolt_gfx.o"
+cp "$ROOT/jolt-gfx/build/settings.o" "$PACK/lib/"
 cp "$ROOT/raylib-wii/build/wii_shim.o" "$PACK/lib/"
 W=/opt/devkitpro/portlibs/wii/lib
-printf '%s\n' "$PACK/lib/jolt_gfx.o $PACK/lib/wii_shim.o $PACK/lib/posix_stubs.o $PACK/lib/ogc_tls.o -Wl,--wrap=Sbuild_heap -Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=realloc -Wl,--wrap=free -Wl,--wrap=KEYBOARD_Init -Wl,--wrap=KEYBOARD_GetEvent -L$ROOT/raylib-wii/build -lraylib -L$W -lSDL2main -lSDL2 -laesnd -lopengx -lfat -lwiiuse -lbte -lwiikeyboard -llz4 -lz -lpthread -logc -lstdc++ -lm" > "$PACK/link-libs"
+printf '%s\n' "$PACK/lib/jolt_gfx.o $PACK/lib/settings.o $PACK/lib/wii_shim.o $PACK/lib/posix_stubs.o $PACK/lib/ogc_tls.o -Wl,--wrap=Sbuild_heap -Wl,--wrap=malloc -Wl,--wrap=calloc -Wl,--wrap=realloc -Wl,--wrap=free -Wl,--wrap=KEYBOARD_Init -Wl,--wrap=KEYBOARD_GetEvent -L$ROOT/raylib-wii/build -lraylib -L$W -lSDL2main -lSDL2 -laesnd -lopengx -lfat -lwiiuse -lbte -lwiikeyboard -llz4 -lz -lpthread -logc -lstdc++ -lm" > "$PACK/link-libs"
 echo "wrote target pack: $PACK"
 cat "$PACK/link-libs"
