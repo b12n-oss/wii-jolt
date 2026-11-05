@@ -88,7 +88,7 @@
                "scripts/dolphin-shot" dol shot (str seconds))
         (let [log (if (fs/exists? log-file) (slurp log-file) "")]
           {:shot shot
-           :crashed? (boolean (re-find (re-pattern "Exception \\(DSI\\)|Invalid (read|write)") log))
+           :crashed? (boolean (re-find (re-pattern "Exception \\(DSI\\)|Invalid (read|write)|Unhandled exception|Exception in ") log))
            :lines (osreport-lines log-file)})))
     ;; The games: [name scripted-wiimote-profile log-line-for-a-score how-it's-played language].
     ;; Each has examples/<name>/game.c with host tests in test/test_game.c, and
@@ -130,12 +130,18 @@
              (some (fn [l] (and (str/starts-with? l score-line) (str/ends-with? l (str "mode=" play-mode)))) ls))))
 
     (defn demo-pass?
-      "Title, then the robot demo scores at least three times."
+      "Title, then the robot demo scores at least three times. A :clj game
+       (the 5th element of its games row) must also still print its
+       `frames n=` summaries late in the run: at least 6 of them, so a loop
+       that threw after the first scores does not pass."
       [nm r]
-      (let [ls (game-lines nm r)]
+      (let [ls (game-lines nm r)
+            lang (nth (first (filter (fn [gm] (= nm (first gm))) games)) 4)]
         (and (not (:crashed? r))
              (some (fn [l] (= l "mode demo")) ls)
-             (>= (count (filter (fn [l] (str/ends-with? l "mode=demo")) ls)) 3))))
+             (>= (count (filter (fn [l] (str/ends-with? l "mode=demo")) ls)) 3)
+             (or (not= lang :clj)
+                 (>= (count (filter (fn [l] (str/starts-with? l "frames n=")) ls)) 6)))))
 
     (defn print-game-run [nm r]
       (doseq [l (game-lines nm r)] (println (str nm ": " l)))

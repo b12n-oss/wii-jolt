@@ -6,8 +6,7 @@
    `:session` is the authority for score, lives and level: it is pushed into
    the world before each step and pulled back after, so a 1-up in the world
    and a death handled here both stick.
-   Extra keys beyond the draw contract: `:last-mode` (the state last logged)
-   and `:high-before` (`:high` at the start of the tick, for `save-high?`)."
+   Extra key beyond the draw contract: `:last-mode` (the state last logged)."
   (:require [mona.levels :as levels]
             [mona.rules :as rules]))
 
@@ -40,8 +39,12 @@
 (defn- log [app line]
   (update app :log conj line))
 
-(defn- set-state [app state]
-  (assoc app :state state :state-time 0.0))
+(defn- set-state
+  "Enter `state`. The title frees the player's remote: any remote can start
+   the next game."
+  [app state]
+  (cond-> (assoc app :state state :state-time 0.0)
+    (= state :title) (assoc :player-ch nil)))
 
 (defn- level-count [] (count levels/levels))
 
@@ -216,7 +219,7 @@
   {:state :title :state-time 0.0 :session nil :world nil
    :title-world (title-world) :demo-world nil :demo-controls rules/no-controls :demo-next 0 :demo-played 0
    :page 0 :cursor 0 :high high :player-ch nil :log []
-   :last-mode nil :high-before high})
+   :last-mode nil})
 
 (defn tick
   "Advance the app one frame."
@@ -225,8 +228,7 @@
         app (if (nil? (:last-mode app))
               (-> app (log (str "mode " (name (:state app)))) (assoc :last-mode (:state app)))
               app)
-        app (assoc app :high-before (:high app)
-                       :state-time (+ (double (:state-time app)) dt))
+        app (assoc app :state-time (+ (double (:state-time app)) dt))
         app (case (:state app)
               :title (title-tick app input)
               :intro (intro-tick app input)
@@ -238,12 +240,17 @@
       app
       (-> app (log (str "mode " (name (:state app)))) (assoc :last-mode (:state app))))))
 
+(defn choose-channel
+  "The channel whose buttons the app reads. `now` and `before` are vectors of
+   four held masks. The player's channel when set, else the first channel with
+   a new press, else the first with any held bit, else nil."
+  [player-ch now before]
+  (let [chs (range (count now))]
+    (or player-ch
+        (first (filter (fn [c] (pos? (bit-and (nth now c) (bit-not (nth before c))))) chs))
+        (first (filter (fn [c] (pos? (nth now c))) chs)))))
+
 (defn clear-log
   "The app with its log emptied."
   [app]
   (assoc app :log []))
-
-(defn save-high?
-  "True when `:high` rose during the last tick."
-  [app]
-  (> (long (:high app)) (long (:high-before app))))

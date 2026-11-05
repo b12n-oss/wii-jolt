@@ -42,13 +42,10 @@
 
 (defn- channel-input
   "The app's input map from this frame's masks, last frame's masks and the app
-   (its :player-ch picks the channel; with none set, the first channel with a
-   button down does)."
+   (see app/choose-channel for how the reading channel is picked)."
   [a now before]
   (let [connected (set (filter (fn [ch] (gfx/connected? ch)) channels))
-        ch (or (:player-ch a)
-               (first (filter (fn [c] (pos? (bit-or (nth now c) (pressed-mask (nth now c) (nth before c)))))
-                              channels)))]
+        ch (app/choose-channel (:player-ch a) now before)]
     {:connected connected
      :any-pressed? (boolean (some (fn [c] (pos? (pressed-mask (nth now c) (nth before c)))) channels))
      :held (if ch (pad-set (nth now ch)) #{})
@@ -99,7 +96,8 @@
 (defn -main [& _]
   (gfx/init! 640 480)
   (gfx/scale! 4)
-  (doseq [s [gfx/sheet-tiles gfx/sheet-players gfx/sheet-mobs]] (gfx/sheet-load! s))
+  (println (str name* ": sheets ok="
+                (count (filter true? (map gfx/sheet-load! [gfx/sheet-tiles gfx/sheet-players gfx/sheet-mobs])))))
   (let [high0 (gfx/setting-get "mona_high" 0)
         a0 (app/init high0)]
     (println (str name* ": start"))
@@ -134,7 +132,7 @@
                 state (:state a)
                 written (if (and (not= state last-state) (#{:over :win} state)
                                  (> (long (:high a)) (long written)))
-                          (do (gfx/setting-put! "mona_high" (:high a)) (:high a))
+                          (if (gfx/setting-put! "mona_high" (:high a)) (:high a) written)
                           written)
                 [rumble-ch rumble-left] (cond
                                           pulse? [ch rumble-secs]
