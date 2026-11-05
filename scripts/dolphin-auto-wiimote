@@ -3,9 +3,9 @@
 # game can be tested end to end with nobody holding a remote and without
 # touching the Mac's real mouse. Prints the dir, for DOLPHIN_USER.
 #
-#   scripts/dolphin-auto-wiimote [pointer|tilt|shake|minus|plus|idle|play]   (default: pointer)
+#   scripts/dolphin-auto-wiimote [pointer|tilt|shake|minus|plus|idle|play|platformer|play-sideways]   (default: pointer)
 #
-# Every scripted profile presses A for the 2nd half of every 0.25 s
+# Every scripted profile (except platformer) presses A for the 2nd half of every 0.25 s
 # (timer(0.25)), which joins the game. Then:
 #
 #   pointer  the IR pointer sweeps left and right across the middle of the
@@ -24,6 +24,13 @@
 #            keys are the D-pad, the 1 and 2 keys are 1 and 2, Q = -, E = +,
 #            Return = HOME),
 #            plus the space bar (or middle click) to shake.
+#   platformer     held sideways, for Super Mona: 2 (jump) pressed for 0.3 s
+#            of every second, 1 (run) and the d-pad's Down (the sideways
+#            remote's "right") held. It never presses A.
+#   play-sideways  not scripted: you play Super Mona with the Mac, the remote
+#            held sideways. Left/Right/Up/Down arrows are left/right/up/down,
+#            X = 2 (jump, select), Z = 1 (run, back), Return = + (pause),
+#            Escape = HOME.
 #
 # Dolphin's input expressions (timer, sin, ...) are documented in its source,
 # Source/Core/InputCommon/ControlReference/FunctionExpression.cpp. A bare
@@ -37,7 +44,7 @@ mkdir -p "$DIR/Config"
 {
   echo "[Wiimote1]"
   echo "Device = Quartz/0/Keyboard & Mouse"
-  case "$PROFILE" in play|minus|plus|idle) ;; *) echo "Buttons/A = timer(0.25)" ;; esac
+  case "$PROFILE" in play|minus|plus|idle|platformer|play-sideways) ;; *) echo "Buttons/A = timer(0.25)" ;; esac
   case "$PROFILE" in
     pointer)
       echo "IR/Right = sin(timer(5) * 6.2832) * 0.6"
@@ -70,7 +77,20 @@ mkdir -p "$DIR/Config"
       echo "IR/Left = \`Cursor X-\`"
       echo "IR/Right = \`Cursor X+\`"
       for a in X Y Z; do echo "Shake/$a = Space | \`Middle Click\`"; done ;;
-    *) echo "unknown profile: $PROFILE (pointer, tilt, shake, minus, plus, idle or play)" >&2; exit 1 ;;
+    platformer)
+      echo "Buttons/2 = timer(1) > 0.7"
+      echo "Buttons/1 = sin(1.5708)"
+      echo "D-Pad/Down = sin(1.5708)" ;;
+    play-sideways)
+      echo "D-Pad/Up = \`Left Arrow\`"
+      echo "D-Pad/Down = \`Right Arrow\`"
+      echo "D-Pad/Right = \`Up Arrow\`"
+      echo "D-Pad/Left = \`Down Arrow\`"
+      echo "Buttons/2 = X"
+      echo "Buttons/1 = Z"
+      echo "Buttons/+ = Return"
+      echo "Buttons/Home = Escape" ;;
+    *) echo "unknown profile: $PROFILE (pointer, tilt, shake, minus, plus, idle, play, platformer or play-sideways)" >&2; exit 1 ;;
   esac
   echo "Extension = None"
 } > "$DIR/Config/WiimoteNew.ini"

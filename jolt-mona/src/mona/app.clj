@@ -52,10 +52,11 @@
   (assoc (rules/new-world (levels/level-at 0) (rules/new-session)) :demo? true))
 
 (defn- log-events
-  "Log the world's events as `event <kw> mode=<mode>` and empty them."
+  "Log the world's events as `event <kw> mode=<mode>` and empty them. :dirty
+   stays for the main loop, which forwards it to the shim and clears it."
   [app world mode]
   (let [app (reduce (fn [a e] (log a (str "event " (name e) " mode=" mode))) app (:events world))]
-    [app (rules/clear-events world)]))
+    [app (assoc world :events [])]))
 
 (defn- raise-high [app]
   (assoc app :high (max (long (:high app)) (long (:high (:session app))))))

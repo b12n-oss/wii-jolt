@@ -97,7 +97,8 @@
       [["balloons"    "pointer" "pop player=1 "    "point and press A" :c 20]
        ["starcatcher" "tilt"    "catch player=1 "  "tilt sideways (or arrow keys)" :c 20]
        ["shakerace"   "shake"   "finish player=1 " "shake (space bar on the Mac)" :c 20]
-       ["jolt-balloons" "pointer" "pop player=1 " "point and press A" :clj 30]])
+       ["jolt-balloons" "pointer" "pop player=1 " "point and press A" :clj 30]
+       ["jolt-mona" "platformer" "event jump " "hold the remote sideways: d-pad moves, 2 jumps, 1 runs" :clj 45 "intro"]])
 
     (defn game-lines [nm r]
       (let [prefix (str nm ": ")]
@@ -118,11 +119,13 @@
       "The scripted remote joined (countdown), the round started, and player 1
        scored during it."
       [nm r]
-      (let [[_ _ score-line] (first (filter (fn [gm] (= nm (first gm))) games))
+      (let [row (first (filter (fn [gm] (= nm (first gm))) games))
+            score-line (nth row 2)
+            join-mode (nth row 6 "countdown")
             ls (game-lines nm r)
             play-mode (if (= nm "shakerace") "race" "play")]
         (and (not (:crashed? r))
-             (some (fn [l] (= l "mode countdown")) ls)
+             (some (fn [l] (= l (str "mode " join-mode))) ls)
              (some (fn [l] (= l (str "mode " play-mode))) ls)
              (some (fn [l] (and (str/starts-with? l score-line) (str/ends-with? l (str "mode=" play-mode)))) ls))))
 
@@ -204,15 +207,17 @@
            :file (let [f (str sd "/apps/" nm "/settings.txt")] (when (fs/exists? f) (str/trim (slurp f))))})))
 
     (defn play-game
-      "Open a game in Dolphin for a person to play with the Mac."
-      [nm]
+      "Open a game in Dolphin for a person to play with the Mac. The optional
+       profile (default \"play\") is a dolphin-auto-wiimote profile."
+      ([nm] (play-game nm "play"))
+      ([nm profile]
       (let [dol (str repo-root "/" (second (app nm)))]
         (when-not (fs/exists? dol) (run (symbol (str "build:" nm))))
         (fs/create-dirs (str repo-root "/.work/sd-play/apps/" nm))
         (apply shell {:dir repo-root} "/Applications/Dolphin.app/Contents/MacOS/Dolphin"
-               "-u" (auto-user "play") "-e" dol
+               "-u" (auto-user profile) "-e" dol
                "-C" "Dolphin.Core.MMU=True" "-C" "Dolphin.Analytics.PermissionAsked=True"
-               (sd-sync-opts (str repo-root "/.work/sd-play")))))
+               (sd-sync-opts (str repo-root "/.work/sd-play"))))))
 
 
     (def docs-engine-repo "https://github.com/jlt-commons/docs-engine")
@@ -450,8 +455,10 @@
   {:doc "Cross-build Super Mona in Clojure (mona.main)"
    :depends [gfx-pack]
    :task (do
+           ;; Without these the .dol is 17.5 MB and the boot runs out of memory.
            (sh! "env" (str "JOLT_WII_PACK=" repo-root "/.work/pack-tpb32b-gfx")
                 (str "JOLT_WII_CC=" repo-root "/scripts/wii-cc-sdl")
+                "JOLT_BUILD_FLAGS=--closed-world --boot small"
                 "scripts/jolt-wii-build" "jolt-mona" "mona.main" "jolt-mona"))}
 
   build:jolt-ffi-bench
@@ -584,6 +591,10 @@
   {:doc "Play Balloon Pop in Clojure in Dolphin: the mouse is the pointer, left click = A, Return = HOME"
    :task (play-game "jolt-balloons")}
 
+  play:jolt-mona
+  {:doc "Play Super Mona in Dolphin: arrows move, X jumps, Z runs, Return pauses, Escape = HOME"
+   :task (play-game "jolt-mona" "play-sideways")}
+
   play:starcatcher
   {:doc "Play Star Catcher in Dolphin: left click or 2 joins, arrow keys steer, Return = HOME"
    :task (play-game "starcatcher")}
@@ -605,10 +616,16 @@
    :task (let [r (run-in-dolphin "jolt-hello" 40)] (doseq [l (:lines r)] (println l)) (println (:shot r)))}
 
   run:jolt-mona
-  {:doc "Boot Super Mona in Dolphin for 20 s and print its log lines"
+  {:doc "Boot Super Mona in Dolphin, wait for the demo, print its log lines"
    :task (let [sd (str repo-root "/.work/sd-mona")
                _ (fs/create-dirs (str sd "/apps/jolt-mona"))
-               r (run-in-dolphin "jolt-mona" 20 :extra-env {"DOLPHIN_EXTRA" (str/join " " (sd-sync-opts sd))})] (doseq [l (:lines r)] (when (str/starts-with? l "jolt-mona: ") (println l))) (println (:shot r)) (when (:crashed? r) (println "CRASHED") (System/exit 1)))}
+               r (run-in-dolphin "jolt-mona" (demo-secs "jolt-mona") :extra-env {"DOLPHIN_EXTRA" (str/join " " (sd-sync-opts sd))})]
+           (print-game-run "jolt-mona" r)
+           (when (:crashed? r) (println "CRASHED") (System/exit 1)))}
+
+  run:jolt-mona-wiimote
+  {:doc "A game of Super Mona with a scripted Wiimote held sideways: 2 jumps, 1 runs, the d-pad runs right"
+   :task (print-game-run "jolt-mona" (run-scripted "jolt-mona"))}
 
   run:jolt-balloons
   {:doc "Boot Balloon Pop in Clojure in Dolphin, wait for the robot demo, print its events"

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Cross-build a jolt program for the Wii and package it for the Homebrew Channel.
-# Usage: scripts/jolt-wii-build <project-dir> <main-ns> <app-name>
+# Usage: [JOLT_BUILD_FLAGS=...] scripts/jolt-wii-build <project-dir> <main-ns> <app-name>
 #   e.g. scripts/jolt-wii-build jolt-hello hello.core jolt-hello
 # Prereqs: scripts/setup-chez, scripts/dkp make -C chez-wii runtime, scripts/make-pack.
 # Output: <project-dir>/build/<app-name>.dol and build/sd/apps/<app-name>/boot.dol
@@ -15,7 +15,7 @@ mkdir -p build
 # 32-bit target then compiles for the target's fixnum width by itself.
 JOLT_CHEZ="$ROOT/.work/ChezScheme/$(ls "$ROOT/.work/ChezScheme/" | grep -E '^t(arm64|a6)osx$' | head -1)/bin/$(ls "$ROOT/.work/ChezScheme/" | grep -E '^t(arm64|a6)osx$' | head -1)/scheme" \
 JOLT_TARGET_CC="${JOLT_WII_CC:-$ROOT/scripts/wii-cc}" \
-  jolt build -m "$NS" -o "build/$APP.elf" --target tpb32b --target-pack "$PACK"
+  jolt build ${JOLT_BUILD_FLAGS:-} -m "$NS" -o "build/$APP.elf" --target tpb32b --target-pack "$PACK"
 "$ROOT/scripts/dkp" elf2dol "${PROJ#$ROOT/}/build/$APP.elf" "${PROJ#$ROOT/}/build/$APP.dol"
 mkdir -p "build/sd/apps/$APP"
 cp "build/$APP.dol" "build/sd/apps/$APP/boot.dol"
