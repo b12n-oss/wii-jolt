@@ -74,6 +74,98 @@
     (is (= [[4] 8] head))
     (is (= 72.0 (:y p2)) "pushed back under the block: (ty+1)*8")))
 
+(def dt (/ 1.0 30))
+
+(defn- blank-level []
+  (-> (r/make-level "TEST" 60 :day 300 false)
+      (r/ground 0 59)
+      (assoc :start [4 12])))
+
+(defn- settle
+  ([w n] (settle w n r/no-controls))
+  ([w n controls] (reduce (fn [w _] (r/step w controls dt)) w (range n))))
+
+(deftest held-jump-goes-higher
+  (let [height (fn [hold?]
+                 (let [w (settle (r/new-world (blank-level) (r/new-session)) 10)
+                       ground (:y (:player w))
+                       w (r/step w (assoc r/no-controls :jump true :jump-pressed true) dt)
+                       c (assoc r/no-controls :jump hold?)
+                       peak (loop [w w i 0 peak ground]
+                              (if (= i 60) peak (let [w (r/step w c dt)] (recur w (inc i) (min peak (:y (:player w)))))))]
+                   (- ground peak)))]
+    (is (> (height true) (+ (height false) 8)))))
+
+(deftest question-block-releases-chip-that-grows
+  (let [lv (-> (blank-level) (r/block 5 9 :chip))
+        w (settle (r/new-world lv (r/new-session)) 10)
+        w (assoc-in w [:player :x] 41.0)
+        w (r/step w (assoc r/no-controls :jump true :jump-pressed true) dt)
+        w (settle w 30 (assoc r/no-controls :jump true))]
+    (is (= r/t-used (r/get-tile (:level w) 5 9)))
+    (is (some (fn [c] (= c [(r/index lv 5 9) r/t-used])) (:dirty w)) "the used block is in the dirty list")
+    (is (= 1 (count (:items w))))
+    (let [w (settle w 30)
+          item (first (:items w))
+          w (-> w (assoc-in [:player :x] (:x item)) (assoc-in [:player :y] (- (+ (:y item) (:h item)) 11)))
+          w (r/step w r/no-controls dt)]
+      (is (:big? (:player w)))
+      (is (:big? (:session w))))))
+
+(deftest brick-breaks-only-when-big
+  (doseq [big? [false true]]
+    (let [lv (-> (blank-level) (r/row 5 9 "B"))
+          w (settle (r/new-world lv (assoc (r/new-session) :big? big?)) 10)
+          w (assoc-in w [:player :x] 41.0)
+          w (r/step w (assoc r/no-controls :jump true :jump-pressed true) dt)
+          w (settle w 30 (assoc r/no-controls :jump true))]
+      (is (= (if big? r/t-empty r/t-brick) (r/get-tile (:level w) 5 9)) (str "big? " big?)))))
+
+(deftest inventory-and-character-switch
+  (let [lv (assoc (blank-level) :switch? true)
+        w (r/apply-item (r/new-world lv (assoc (r/new-session) :big? true)) :chip)
+        _ (is (= [:chip] (:inventory (:session w))))
+        [w used?] (r/use-item w 0)
+        _ (is (false? used?) "a chip is not used while big")
+        [w used?] (r/use-item (assoc-in w [:player :big?] false) 0)
+        _ (is (true? used?))
+        _ (is (:big? (:player w)))
+        [w switched?] (r/switch-character w)]
+    (is (true? switched?))
+    (is (= :ducky (:character (:session w))))
+    (is (false? (second (r/switch-character (assoc-in w [:level :switch?] false)))))))
+
+(deftest hundred-stars-gives-life
+  (let [[s _] (reduce (fn [[s _] _] (r/add-star s)) [(r/new-session) nil] (range 100))]
+    (is (= [0 4] [(:stars s) (:lives s)]))))
+
+(deftest camera-follows-right-only
+  (let [w (settle (r/new-world (blank-level) (r/new-session)) 120 (assoc r/no-controls :right true :run true))
+        ;; coast to a stop first: a skid out of run speed still carries the camera a few px
+        w (settle w 30)
+        cam (:cam-x w)]
+    (is (> cam 0.0))
+    (is (<= cam (:max-cam w)))
+    (let [w2 (settle w 60 (assoc r/no-controls :left true :run true))]
+      (is (= cam (:cam-x w2)) "walking back never scrolls back")
+      (is (>= (:x (:player w2)) cam) "the player cannot leave the camera's left edge"))))
+
+(deftest opposed-directions-cancel
+  (let [w (settle (r/new-world (blank-level) (r/new-session)) 30 (assoc r/no-controls :left true :right true))]
+    (is (= 0.0 (:vx (:player w))))))
+
+(deftest held-jump-does-not-repeat
+  (let [w (settle (r/new-world (blank-level) (r/new-session)) 10)
+        w (r/step w (assoc r/no-controls :jump true :jump-pressed true) dt)
+        w (settle (r/clear-events w) 120 (assoc r/no-controls :jump true))]
+    (is (= 0 (count (filter (fn [e] (= e :jump)) (:events w)))) "no second jump while the button stays held")))
+
+(deftest time-runs-out
+  (let [lv (assoc (blank-level) :time 1)
+        w (settle (r/new-world lv (r/new-session)) 30)]
+    (is (= :dying (:state w)))
+    (is (some (fn [e] (= e :die)) (:events w)))))
+
 (defn -main [& _]
   (let [res (run-tests 'mona.rules-test)]
     (System/exit (if (zero? (+ (:fail res 0) (:error res 0))) 0 1))))
