@@ -351,6 +351,11 @@ static void jg_stdio(void)
     // (see the fallback heap below), so a 16MB window runs it out of memory
     // before the first collection. Pin it small; jolt reads this at startup.
     setenv("JOLT_GC_TRIP_BYTES", "2097152", 0);
+#ifdef JG_GC_LOG
+    // Measurement build: jolt prints one line per collection on stderr.
+    // Build with: scripts/dkp make -C jolt-gfx EXTRA_CFLAGS=-DJG_GC_LOG
+    setenv("JOLT_GC_LOG", "1", 0);
+#endif
 }
 
 // --- registration ---------------------------------------------------------

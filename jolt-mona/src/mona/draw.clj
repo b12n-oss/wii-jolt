@@ -141,7 +141,7 @@
 (defn- draw-enemies [world cam t]
   (let [step (mod (long (* (double t) 6)) 2)]
     (doseq [e (:enemies world)]
-      (when (:active? e)
+      (when (and (:alive? e) (:active? e))
         (let [x (- (long (:x e)) 1 cam)]
           (when-not (or (< x (- r/tile)) (> x r/view-w))
             (let [y (- (long (+ (double (:y e)) (double (:h e)))) r/tile)
