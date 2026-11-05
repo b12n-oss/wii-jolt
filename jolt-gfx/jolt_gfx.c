@@ -199,6 +199,27 @@ U jg_tiles_load(U tiles_ptr, U decor_ptr, U width)
     return 0;
 }
 
+// The per-cell loading path: jg_tiles_begin clears both layers and sets the
+// width, then the caller sets only the non-empty cells with jg_tile_set and
+// jg_decor_set.
+U jg_tiles_begin(U width)
+{
+    calls++;
+    if (width == 0 || width > 190) return 1;
+    tile_width = (int)width;
+    memset(tile_layer, 0, sizeof tile_layer);
+    memset(decor_layer, 0, sizeof decor_layer);
+    return 0;
+}
+
+U jg_decor_set(U index, U id)
+{
+    calls++;
+    if ((int)index < 0 || (int)index >= tile_width * 15) return 1;
+    decor_layer[(int)index] = (unsigned char)id;
+    return 0;
+}
+
 U jg_tile_set(U index, U tile)
 {
     calls++;
@@ -372,7 +393,7 @@ static void register_all(void)
     R(jg_gradient_v); R(jg_rect); R(jg_rect_rounded); R(jg_circle); R(jg_ellipse);
     R(jg_triangle); R(jg_line); R(jg_line_thick); R(jg_ring); R(jg_poly);
     R(jg_scale); R(jg_sheet_load); R(jg_sprite);
-    R(jg_tiles_load); R(jg_tile_set); R(jg_tiles_draw); R(jg_tiles_map); R(jg_calls);
+    R(jg_tiles_load); R(jg_tiles_begin); R(jg_decor_set); R(jg_tile_set); R(jg_tiles_draw); R(jg_tiles_map); R(jg_calls);
     R(jg_text); R(jg_text_width);
     R(jg_setting_get); R(jg_setting_put);
     R(jg_connected); R(jg_held); R(jg_ir_valid); R(jg_ir_x); R(jg_ir_y);

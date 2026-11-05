@@ -24,6 +24,10 @@
     (with-redefs [gfx/sprite! (stub :sprite!)
                   gfx/tiles-draw! (stub :tiles-draw!)
                   gfx/tiles-map! (stub :tiles-map!)
+                  gfx/tiles-begin! (stub :tiles-begin!)
+                  gfx/tile-set! (stub :tile-set!)
+                  gfx/decor-set! (stub :decor-set!)
+                  gfx/time-us (fn [] 0)
                   gfx/rect! (stub :rect!)
                   gfx/text! (stub :text!)
                   gfx/text-width (fn [s _size] (* 16 (count s)))]
@@ -64,6 +68,16 @@
         p (first (filter (fn [c] (and (= :sprite! (first c)) (= gfx/sheet-players (second c)))) calls))]
     (is (= gfx/flip-x (last p)))
     (is (= (- (long (:x (:player (facing-left-world)))) 5) (nth p 4)) "x is not shifted by the width when flipping")))
+
+(deftest load-stage-goes-cell-by-cell
+  (let [lvl (-> (r/make-level "TEN" 10 :day 300 false)
+                (r/set-tile! 1 2 7) (r/set-tile! 4 5 9) (r/set-tile! 9 14 3)
+                (assoc :decor {12 4}))
+        calls (record (fn [] (draw/load-stage! lvl)))]
+    (is (= [[:tiles-begin! 10]
+            [:tile-set! 21 7] [:tile-set! 54 9] [:tile-set! 149 3]
+            [:decor-set! 12 4]]
+           calls))))
 
 (deftest tiles-window-uses-the-camera
   (let [w (assoc (fresh-world) :cam-x 37.9)

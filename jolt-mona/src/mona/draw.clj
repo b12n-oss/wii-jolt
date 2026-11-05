@@ -42,17 +42,21 @@
 ;; Stage
 
 (defn load-stage!
-  "Hand a level's tile layer and its decor layer to the shim. Returns
-   [decor-us copy-us], the probe's split of the time (decor build, shim copy)."
+  "Hand a level's tile layer and its decor layer to the shim cell by cell,
+   skipping empty cells (a block copy costs 245 ms on the Wii). Returns
+   the microseconds the hand-off took (two clock reads)."
   [level]
   (let [t0 (gfx/time-us)
-        width (long (:width level))
-        decor (byte-array (* 15 width))]
-    (doseq [[i id] (:decor level)]
-      (aset decor (long i) (unchecked-byte (long id))))
-    (let [t1 (gfx/time-us)]
-      (gfx/tiles-load! (:tiles level) decor width)
-      [(stats/elapsed-us t0 t1) (stats/elapsed-us t1 (gfx/time-us))])))
+        tiles ^bytes (:tiles level)
+        n (alength tiles)]
+    (gfx/tiles-begin! (:width level))
+    (loop [i 0]
+      (when (< i n)
+        (let [id (bit-and (aget tiles i) 0xFF)]
+          (when-not (zero? id) (gfx/tile-set! i id)))
+        (recur (inc i))))
+    (doseq [[i id] (:decor level)] (gfx/decor-set! i id))
+    (stats/elapsed-us t0 (gfx/time-us))))
 
 ;; Text
 

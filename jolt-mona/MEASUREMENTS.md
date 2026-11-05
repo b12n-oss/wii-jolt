@@ -138,3 +138,17 @@ A probe in `mona.main` timed the part of the frame after t2: `end-us` (`gfx/end!
 | scripted | title after game over | 1.5 | 73.0 | 1.6 | 4.1 | 244.7 | 0.3 | 330.6 |
 
 The shim copy dominates: `copy-us` is 213 to 245 ms of a load frame, about 75% of the roughly 325 ms the stall measured before the probe (tick 76 + decor 4 + copy 245). The second piece is the level build, about 73 ms (`level-us`, matching the `tick-us` of 76 ms on intro and demo loads, so it is real, not probe cost). `world-us`, `decor-us` and `print-us` are each under 5 ms. So the stall is mostly the call that hands the tile arrays to the shim: the two `ffi/write-bytes` block copies of up to 2,850 bytes each plus the C copy, which suggests copying through `jg_tile_set` only for non-empty cells (about 467 calls for 1-1) or finding why a 2.8 KB write costs 120 ms, and then the builders' 2,850 `set-tile!` calls and row/decor maps as the second target. That reading is inferred from the split; the cost inside `tiles-load!` is not itself broken down.
+
+## The stage load, fixed (2026-11-05)
+
+`draw/load-stage!` now calls `jg_tiles_begin` (width), scans the tile array and calls `jg_tile_set` for each non-zero cell, then `jg_decor_set` for each decor entry. The two `ffi/write-bytes` block copies are gone, as are the duplicate level and world builds of the probe. `stage-load` now prints `tick-us`, `hand-off-us` (`load-stage!`'s own time) and `print-us`. One 45 s demo run and one 40 s scripted run, Dolphin only. Hand-off in ms, before (the previous section's `decor + copy`) and after:
+
+| Load | hand-off before | hand-off after | tick (real, after) | stall interval before | stall interval after |
+|---|---|---|---|---|---|
+| title (start-up) | 248.9 | 32.2 | 1.1 | 847 (922 with probe) | 614 |
+| stage 1-1, demo | 248.8 | 32.2 | 75.8 | 332 | 115 |
+| stage 1-2, demo | 214.2 | 25.9 | 59.8 | 281 | 93.5 (work-worst; no stall line) |
+| stage 1-1 restarts, scripted (six) | 248.8 | 32.2 (42.8 on the first) | 76.3 to 77.2 | 330 to 341 | 113.8 to 124.6 |
+| title after game over, scripted | 248.8 | 32.2 | 1.5 | 256 | no stall line (work-worst 39 ms) |
+
+The cost of the hand-off fell by about 215 ms, not to the ~12 ms that was estimated: 32 ms for stage 1-1 (the 2,850-byte scan in Clojure plus about 590 shim calls, so roughly 50 us per call or cell, not 20). The remaining stall is the level build itself: `tick-us` of 76 ms on an intro or demo start (`levels/level-at` plus `rules/new-world`, 73 ms of it the builders' `set-tile!` calls and the row and decor maps) plus the 32 ms hand-off, about 108 ms, then 6 ms of drawing. Stall lines remain for the stage 1-1 loads (113.8 to 124.6 ms intervals, over the 100 ms threshold) and the start-up (614 ms, of which about 41 ms is the first frame's work and the rest lies before its t0, inferred). The title after game over and stage 1-2 no longer print one. The next target is the level build (73 ms), then the scan loop.

@@ -30,6 +30,8 @@
 (ffi/defcfn c-sheet-load "jg_sheet_load" [:uptr] :uptr)
 (ffi/defcfn c-sprite "jg_sprite" [:uptr :uptr :uptr :uptr :uptr :uptr] :uptr)
 (ffi/defcfn c-tiles-load "jg_tiles_load" [:uptr :uptr :uptr] :uptr)
+(ffi/defcfn c-tiles-begin "jg_tiles_begin" [:uptr] :uptr)
+(ffi/defcfn c-decor-set "jg_decor_set" [:uptr :uptr] :uptr)
 (ffi/defcfn c-tile-set "jg_tile_set" [:uptr :uptr] :uptr)
 (ffi/defcfn c-tiles-draw "jg_tiles_draw" [:uptr] :uptr)
 (ffi/defcfn c-tiles-map "jg_tiles_map" [:uptr :uptr :uptr :uptr :uptr :uptr] :uptr)
@@ -121,6 +123,11 @@
             (zero? (c-tiles-load tp dp (long width)))
             (finally (ffi/free dp))))
         (finally (ffi/free tp))))))
+(defn tiles-begin!
+  "Clear both layers and set the stage width (1..190); fill them with
+   tile-set! and decor-set!. Returns true when the shim accepted the width."
+  [width] (zero? (c-tiles-begin (long width))))
+(defn decor-set! [index id] (c-decor-set (long index) (long id)) nil)
 (defn tile-set! [index tile] (c-tile-set (long index) (long tile)) nil)
 (defn tiles-draw! [^double cam-x] (c-tiles-draw (unchecked-long cam-x)) nil)
 (defn tiles-map! [x y w h solid sky]
