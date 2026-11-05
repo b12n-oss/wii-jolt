@@ -74,6 +74,13 @@ Each piece answers something the first spike hit.
   what it returns, and the IR pointer comes back biased by 4096
   (`JG_IR_BIAS`) so a pointer slightly off screen is not a negative number.
 
+The shim has since grown for [Super Mona in jolt](super-mona-in-jolt.md):
+sprite sheets embedded as PNG bytes and `jg_sprite` (with in-place flips and a
+4x scale), tile layers (`jg_tiles_load`, `jg_tile_set`, `jg_tiles_draw`, and
+`jg_tiles_map` for a minimap), the call counter `jg_calls`, and a settings
+bridge (`jg_setting_get`, `jg_setting_put`) over `examples/common/settings.c`.
+That page shows how they are used.
+
 The graphics pack is the plain pack minus the text console, plus the shim,
 raylib and SDL: `bb gfx-pack`. Whether to keep this link-time registration or
 teach jolt's cross builds about `:jolt/native` is still open (see

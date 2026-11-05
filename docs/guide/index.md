@@ -13,6 +13,7 @@ a different way:
 - [Shake Race](shake-race.md): shake the remote to make your runner go.
 - [Balloon Pop in Clojure](balloon-pop-in-clojure.md): the same game written
   in Clojure on jolt, and measured against the C version.
+- [Super Mona in jolt](super-mona-in-jolt.md): a 32-stage platformer from the GitHub Universe badge, in Clojure on jolt, with the remote held sideways.
 - [Wiimote input](wiimote-input.md): the input module the games share, what
   Dolphin reports for tilt and shake, and how `bb verify` plays each game with
   a scripted remote.
