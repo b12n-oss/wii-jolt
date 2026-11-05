@@ -270,14 +270,15 @@ U jg_text_width(U s, U size)
 }
 
 // Wiimote channel ch. Each call probes the channel itself.
-U jg_connected(U ch)
+static bool connected(U ch)
 {
-    calls++;
     u32 t;
     return chan_ok(ch) && WPAD_Probe((int)ch, &t) == WPAD_ERR_NONE;
 }
-U jg_held(U ch) { calls++; return jg_connected(ch) ? (U)(WPAD_Data((int)ch)->btns_h & 0xFFFF) : 0; }
-U jg_ir_valid(U ch) { calls++; return jg_connected(ch) && WPAD_Data((int)ch)->ir.valid; }
+static bool ir_valid(U ch) { return connected(ch) && WPAD_Data((int)ch)->ir.valid; }
+U jg_connected(U ch) { calls++; return connected(ch); }
+U jg_held(U ch) { calls++; return connected(ch) ? (U)(WPAD_Data((int)ch)->btns_h & 0xFFFF) : 0; }
+U jg_ir_valid(U ch) { calls++; return ir_valid(ch); }
 
 // An IR coordinate as the biased, fixnum-safe value Clojure gets (see JG_IR_BIAS).
 static U ir_biased(float v)
@@ -287,8 +288,8 @@ static U ir_biased(float v)
     if (n > 0x0FFFFFFF) n = 0x0FFFFFFF;
     return (U)n;
 }
-U jg_ir_x(U ch) { calls++; return jg_ir_valid(ch) ? ir_biased(WPAD_Data((int)ch)->ir.x) : 0; }
-U jg_ir_y(U ch) { calls++; return jg_ir_valid(ch) ? ir_biased(WPAD_Data((int)ch)->ir.y) : 0; }
+U jg_ir_x(U ch) { calls++; return ir_valid(ch) ? ir_biased(WPAD_Data((int)ch)->ir.x) : 0; }
+U jg_ir_y(U ch) { calls++; return ir_valid(ch) ? ir_biased(WPAD_Data((int)ch)->ir.y) : 0; }
 
 // Like wiimote_rumble in examples/common: only talk to WPAD on a change.
 U jg_rumble(U ch, U on)
