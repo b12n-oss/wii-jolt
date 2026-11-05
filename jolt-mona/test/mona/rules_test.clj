@@ -48,6 +48,32 @@
     (is (= [:multi 6] (get (:contents lv) (r/index lv 3 5))))
     (is (= [[7 12 :shellbot] [8 12 :bug]] (:spawns lv)))))
 
+(deftest move-x-stops-at-a-wall
+  (let [lv (-> (r/make-level "T" 20 :day 300 false) (r/ground 0 19) (r/row 10 12 "H"))
+        p (assoc (r/new-player 70.0 93.0 :mona false) :vx 60.0)
+        [p2 hit?] (r/move-x p 11 lv 0.1)]
+    (is hit?)
+    (is (= 74.0 (:x p2)) "stops at tx*8 - w: 80 - 6"))
+  (let [lv (-> (r/make-level "T" 20 :day 300 false) (r/ground 0 19) (r/row 5 12 "H"))
+        p (assoc (r/new-player 50.0 93.0 :mona false) :vx -60.0)
+        [p2 hit?] (r/move-x p 11 lv 0.1)]
+    (is hit?)
+    (is (= 48.0 (:x p2)) "stops at (tx+1)*8")))
+
+(deftest move-y-lands-and-bumps
+  (let [lv (-> (r/make-level "T" 20 :day 300 false) (r/ground 0 19) (r/row 4 8 "B"))
+        p (assoc (r/new-player 33.0 80.0 :mona false) :vy 100.0)
+        [p2 head] (r/move-y p 11 lv 0.2)]
+    (is (nil? head))
+    (is (= 93.0 (:y p2)) "lands with feet on row 13: 104 - 11")
+    (is (:on-ground? p2))
+    (is (= 0.0 (:vy p2))))
+  (let [lv (-> (r/make-level "T" 20 :day 300 false) (r/ground 0 19) (r/row 4 8 "B"))
+        p (assoc (r/new-player 33.0 76.0 :mona false) :vy -100.0)
+        [p2 head] (r/move-y p 11 lv 0.1)]
+    (is (= [[4] 8] head))
+    (is (= 72.0 (:y p2)) "pushed back under the block: (ty+1)*8")))
+
 (defn -main [& _]
   (let [res (run-tests 'mona.rules-test)]
     (System/exit (if (zero? (+ (:fail res 0) (:error res 0))) 0 1))))

@@ -242,3 +242,87 @@
                       (:decor level)
                       (range 25))]
     (assoc level :flag-x x :decor decor :castle-door (+ (* castle-x tile) 18))))
+
+;; Bodies
+
+(defn tile-of
+  "The tile column or row holding game pixel `v` (floor, so negatives round down)."
+  [v]
+  (long (Math/floor (/ (double v) 8.0))))
+
+(defn overlap?
+  "True when the boxes (ax, ay, aw, ah) and (bx, by, bw, bh) overlap."
+  [ax ay aw ah bx by bw bh]
+  (and (< ax (+ bx bw)) (< bx (+ ax aw))
+       (< ay (+ by bh)) (< by (+ ay ah))))
+
+(defn player-h
+  "The player's height: big-h when big, else small-h."
+  [player]
+  (if (:big? player) big-h small-h))
+
+(defn new-player
+  "A player at (x, y) of `character`, small or `big?`."
+  [x y character big?]
+  (->Player (double x) (double y) 0.0 0.0 6 false character (boolean big?) 1 false
+            0.0 0.0 0.0 0.0 nil 0
+            0.0 false false))
+
+(defn new-enemy
+  "An enemy with id `id` at (x, y) of `kind`, walking left and not yet active."
+  [id x y kind]
+  (->Enemy id (double x) (double y) -18.0 0.0 6 7 kind :walk 0.0 false 0.0 true))
+
+(defn new-item
+  "An item at (x, y) of `kind`, about to rise one tile out of its block."
+  [x y kind]
+  (->Item (double x) (double y) 0.0 0.0 8 8 kind 0.5 (double (- y 8)) true))
+
+(defn move-x
+  "Move `body` (height `h`) along x by vx*dt and stop at a solid tile.
+   Returns [body hit?]."
+  [body h level dt]
+  (let [vx (double (:vx body))
+        w (long (:w body))
+        x (+ (double (:x body)) (* vx (double dt)))
+        y (double (:y body))
+        top (tile-of y)
+        bottom (tile-of (- (+ y h) 0.01))]
+    (cond
+      (> vx 0.0)
+      (let [tx (tile-of (- (+ x w) 0.01))]
+        (if (some (fn [ty] (solid? level tx ty)) (range top (inc bottom)))
+          [(assoc body :x (double (- (* tx tile) w))) true]
+          [(assoc body :x x) false]))
+
+      (< vx 0.0)
+      (let [tx (tile-of x)]
+        (if (some (fn [ty] (solid? level tx ty)) (range top (inc bottom)))
+          [(assoc body :x (double (* (inc tx) tile))) true]
+          [(assoc body :x x) false]))
+
+      :else [(assoc body :x x) false])))
+
+(defn move-y
+  "Move `body` (height `h`) along y by vy*dt, landing on or bumping into solid
+   tiles. Returns [body head] where head is nil or [hit-columns row]."
+  [body h level dt]
+  (let [vy (double (:vy body))
+        w (long (:w body))
+        dy (* vy (double dt))
+        y (+ (double (:y body)) dy)
+        x (double (:x body))
+        left (tile-of x)
+        right (tile-of (- (+ x w) 0.01))
+        moved (assoc body :y y :on-ground? false)]
+    (if (>= vy 0.0)
+      (let [ty (tile-of (- (+ y h) 0.01))
+            land? (<= (- (+ y h) dy) (+ (* ty tile) 0.5 (Math/abs dy)))]
+        (if (and land? (some (fn [tx] (solid? level tx ty)) (range left (inc right))))
+          [(assoc moved :y (double (- (* ty tile) h)) :vy 0.0 :on-ground? true) nil]
+          [moved nil]))
+      (let [ty (tile-of y)
+            hits (filterv (fn [tx] (solid? level tx ty)) (range left (inc right)))]
+        (if (seq hits)
+          [(assoc moved :y (double (* (inc ty) tile)) :vy 0.0) [hits ty]]
+          [moved nil])))))
