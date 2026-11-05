@@ -54,7 +54,7 @@ through `.incbin` in `boot_data.S`, and `main.c` hands them to Chez with
 
 ## The kernel patch
 
-`patches/chez-wii.patch` adds 84 lines to five files, all under `#if
+`patches/chez-wii.patch` adds about 130 lines to seven files, all under `#if
 defined(__wii__)`:
 
 - **`version.h`** gets a `__wii__` OS branch modelled on the existing
@@ -72,6 +72,15 @@ defined(__wii__)`:
   terminal. It's compiled out, but `scheme.boot` still binds its C entry points
   when it loads, so the patch registers all thirty names against one stub that
   answers "not a terminal".
+- **`pb.h` and `pb.c`**: the bytecode interpreter's double loads and stores
+  (`ld double`, `st double` and the foreign-call arena moves) are plain
+  `*(double *)` accesses. The Wii's 750 raises an alignment exception on a
+  floating-point load or store whose address is not word-aligned, where
+  Dolphin and the Mac accept it, and the first run on a console found Scheme
+  code reading a double from a byte buffer at an odd offset during boot. On
+  the Wii those accesses take the direct path when the address is
+  word-aligned and go through two word copies otherwise; the runtime prints
+  how often that happened at exit (`pb: unaligned double loads N stores M`).
 
 ## Thread-local storage
 
