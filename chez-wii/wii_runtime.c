@@ -39,9 +39,15 @@ static ssize_t tee_write(struct _reent *r, void *fd, const char *ptr, size_t len
 
 static devoptab_t tee_dev;
 
+// How often the bytecode interpreter took its unaligned double path (pb.h);
+// a non-zero count on the console is a double read at an odd address that
+// the 750 would otherwise have thrown an alignment exception on.
+extern unsigned pb_unaligned_fp_loads, pb_unaligned_fp_stores;
+
 static void wait_for_home(void)
 {
     fflush(stdout);
+    printf("pb: unaligned double loads %u stores %u\n", pb_unaligned_fp_loads, pb_unaligned_fp_stores);
     printf("\n [program finished: press HOME or START to leave]\n");
     fflush(stdout);
     for (;;) {

@@ -56,8 +56,114 @@ index 4c015106..c5fffc9b 100644
 +}
 +#endif
 +
+diff --git a/c/pb.c b/c/pb.c
+index d588d4bb..ab1cd11d 100644
+--- a/c/pb.c
++++ b/c/pb.c
+@@ -8,6 +8,10 @@
+    instruction implementations are mostly in "pb.h" */
+ #include "pb.h"
+ 
++#ifdef __wii__
++unsigned pb_unaligned_fp_loads = 0, pb_unaligned_fp_stores = 0;
++#endif
++
+ typedef uptr (*chunk_t)(machine_state *ms, uptr, int);
+ 
+ static chunk_t *chunks;
+diff --git a/c/pb.h b/c/pb.h
+index eb6806f8..5a13ad7d 100644
+--- a/c/pb.h
++++ b/c/pb.h
+@@ -888,15 +888,51 @@ enum {
+ #define do_pb_ld_op_pb_int64_pb_immediate(dest, reg, imm) \
+   regs[dest] = *(uptr *)TO_VOIDP(regs[reg] + imm)
+ 
++#ifdef __wii__
++/* The Wii's 750CL raises an alignment exception on a floating-point load or
++   store whose address is not word-aligned (lfd/stfd), where every other host
++   and Dolphin accept it. Scheme code reads doubles from bytevectors at any
++   offset, so a double load or store goes through word copies unless its
++   address is word-aligned. The counters say how often that path ran; the
++   Wii runtime prints them at exit. */
++extern unsigned pb_unaligned_fp_loads, pb_unaligned_fp_stores;
++static inline double pb_ld_double(uptr a) {
++  if ((a & 3) == 0) return *(double *)TO_VOIDP(a);
++  pb_unaligned_fp_loads++;
++  {
++    const uint32_t *s = (const uint32_t *)TO_VOIDP(a);
++    uint32_t w[2]; double d;
++    w[0] = s[0]; w[1] = s[1];
++    memcpy(&d, w, sizeof d);
++    return d;
++  }
++}
++static inline void pb_st_double(uptr a, double d) {
++  if ((a & 3) == 0) { *(double *)TO_VOIDP(a) = d; return; }
++  pb_unaligned_fp_stores++;
++  {
++    uint32_t *t = (uint32_t *)TO_VOIDP(a);
++    uint32_t w[2];
++    memcpy(w, &d, sizeof d);
++    t[0] = w[0]; t[1] = w[1];
++  }
++}
++# define PB_LD_DOUBLE(a) pb_ld_double((uptr)(a))
++# define PB_ST_DOUBLE(a, d) pb_st_double((uptr)(a), (d))
++#else
++# define PB_LD_DOUBLE(a) (*(double *)TO_VOIDP(a))
++# define PB_ST_DOUBLE(a, d) (*(double *)TO_VOIDP(a) = (d))
++#endif
++
+ #define doi_pb_ld_op_pb_double_pb_register(instr) \
+   do_pb_ld_op_pb_double_pb_register(INSTR_drr_dest(instr), INSTR_drr_reg1(instr), INSTR_drr_reg2(instr))
+ #define do_pb_ld_op_pb_double_pb_register(dest, reg1, reg2) \
+-  fpregs[dest] = *(double *)TO_VOIDP(regs[reg1] + regs[reg2])
++  fpregs[dest] = PB_LD_DOUBLE(regs[reg1] + regs[reg2])
+ 
+ #define doi_pb_ld_op_pb_double_pb_immediate(instr) \
+   do_pb_ld_op_pb_double_pb_immediate(INSTR_dri_dest(instr), INSTR_dri_reg(instr), INSTR_dri_imm(instr))
+ #define do_pb_ld_op_pb_double_pb_immediate(dest, reg, imm) \
+-  fpregs[dest] = *(double *)TO_VOIDP(regs[reg] + imm)
++  fpregs[dest] = PB_LD_DOUBLE(regs[reg] + imm)
+ 
+ #define doi_pb_ld_op_pb_single_pb_register(instr) \
+   do_pb_ld_op_pb_single_pb_register(INSTR_drr_dest(instr), INSTR_drr_reg1(instr), INSTR_drr_reg2(instr))
+@@ -951,12 +987,12 @@ enum {
+ #define doi_pb_st_op_pb_double_pb_register(instr) \
+   do_pb_st_op_pb_double_pb_register(INSTR_drr_dest(instr), INSTR_drr_reg1(instr), INSTR_drr_reg2(instr))
+ #define do_pb_st_op_pb_double_pb_register(dest, reg1, reg2) \
+-  *(double *)TO_VOIDP(regs[reg1] + regs[reg2]) = fpregs[dest]
++  PB_ST_DOUBLE(regs[reg1] + regs[reg2], fpregs[dest])
+ 
+ #define doi_pb_st_op_pb_double_pb_immediate(instr) \
+   do_pb_st_op_pb_double_pb_immediate(INSTR_dri_dest(instr), INSTR_dri_reg(instr), INSTR_dri_imm(instr))
+ #define do_pb_st_op_pb_double_pb_immediate(dest, reg, imm) \
+-  *(double *)TO_VOIDP(regs[reg] + imm) = fpregs[dest]
++  PB_ST_DOUBLE(regs[reg] + imm, fpregs[dest])
+ 
+ #define doi_pb_st_op_pb_single_pb_register(instr) \
+   do_pb_st_op_pb_single_pb_register(INSTR_drr_dest(instr), INSTR_drr_reg1(instr), INSTR_drr_reg2(instr))
+@@ -1077,7 +1113,7 @@ enum {
+ #define doi_pb_fp_call_arena_in(instr) \
+   do_pb_fp_call_arena_in(INSTR_di_dest(instr), INSTR_di_imm(instr))
+ #define do_pb_fp_call_arena_in(dest, imm) \
+-  *(double *)TO_VOIDP(((uptr)TO_PTR(call_arena) + imm)) = fpregs[dest]
++  PB_ST_DOUBLE((uptr)TO_PTR(call_arena) + imm, fpregs[dest])
+ 
+ #define doi_pb_call_arena_out(instr) \
+   do_pb_call_arena_out(INSTR_di_dest(instr), INSTR_di_imm(instr))
+@@ -1087,7 +1123,7 @@ enum {
+ #define doi_pb_fp_call_arena_out(instr) \
+   do_pb_fp_call_arena_out(INSTR_di_dest(instr), INSTR_di_imm(instr))
+ #define do_pb_fp_call_arena_out(dest, imm) \
+-  fpregs[dest] = *(double *)TO_VOIDP((uptr)TO_PTR(call_arena) + imm)
++  fpregs[dest] = PB_LD_DOUBLE((uptr)TO_PTR(call_arena) + imm)
+ 
+ #define doi_pb_stack_call(instr) \
+   do_pb_stack_call(INSTR_dr_dest(instr), INSTR_dr_reg(instr))
 diff --git a/c/schsig.c b/c/schsig.c
-index 7eb29752..85376cf0 100644
+index e3442e67..ae98ac00 100644
 --- a/c/schsig.c
 +++ b/c/schsig.c
 @@ -835,6 +835,12 @@ static void no_op_register(UNUSED int sigid) {
@@ -103,7 +209,7 @@ index 1686142c..579e5d12 100644
      tz_name = Sstring_utf8(tzname[tmxp->tm_isdst], -1);
  # else
 diff --git a/c/types.h b/c/types.h
-index 3532876b..c96245cd 100644
+index 440bd68c..997c8418 100644
 --- a/c/types.h
 +++ b/c/types.h
 @@ -528,7 +528,7 @@ typedef struct thread_gc {
@@ -116,7 +222,7 @@ index 3532876b..c96245cd 100644
  #  define SETJMP(jb) setjmp(jb)
  #  define LONGJMP(jb,n) longjmp(jb, n)
 diff --git a/c/version.h b/c/version.h
-index 4e39cb59..616f1daa 100644
+index 08a3b587..abc3cb84 100644
 --- a/c/version.h
 +++ b/c/version.h
 @@ -44,7 +44,7 @@
@@ -128,7 +234,7 @@ index 4e39cb59..616f1daa 100644
  # if !(defined(__LITTLE_ENDIAN__) || defined(_LITTLE_ENDIAN))
  #  define PORTABLE_BYTECODE_BIGENDIAN
  #  define BIG_ENDIAN_IEEE_DOUBLE
-@@ -453,6 +453,34 @@ typedef char tputsputcchar;
+@@ -443,6 +443,34 @@ typedef char tputsputcchar;
  #define ICONV_INBUF_TYPE const char **
  #endif
  
