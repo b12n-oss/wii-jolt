@@ -398,12 +398,190 @@
       (r/stairs 138 6)
       (r/flag 152)))
 
+;; Worlds 3 to 8
+;;
+;; Built from small segments, as the badge does. The generator is pure: its
+;; state is a vector [s], and every segment takes and returns it, drawing in
+;; exactly the order levels.py calls r(...).
+
+(def ^:private items [:chip :sparkle :chip :1up [:multi 6]])
+
+(defn lcg
+  "A generator state seeded with `seed`: the vector [s]."
+  [seed]
+  [seed])
+
+(defn rand-next
+  "Draw from [0, n): returns [value state']."
+  [[s] n]
+  (let [s' (bit-and (+ (* s 1103515245) 12345) 0x7FFFFFFF)]
+    [(mod (bit-shift-right s' 16) n) [s']]))
+
+(defn- flat [lv x k rng]
+  (let [[d rng] (rand-next rng 3)
+        lv (-> lv
+               (r/ground x (+ x 9))
+               (r/star-line (+ x 2) 9 3)
+               (r/enemy (+ x 4 d)))]
+    [(if (> k 2) (r/enemy lv (+ x 8)) lv) (+ x 10) rng]))
+
+(defn- pipes [lv x k rng]
+  (let [lv (-> lv (r/ground x (+ x 15)))
+        [a rng] (rand-next rng 2)
+        lv (-> lv (r/pipe (+ x 2) (+ 2 a)) (r/enemy (+ x 6)))
+        [b rng] (rand-next rng 2)
+        lv (r/pipe lv (+ x 9) (+ 3 b))]
+    [(if (> k 1) (r/enemy lv (+ x 13) :shellbot) lv) (+ x 16) rng]))
+
+(defn- blocks [lv x _k rng]
+  (let [[i rng] (rand-next rng (count items))
+        lv (-> lv
+               (r/ground x (+ x 13))
+               (r/row (+ x 2) 9 "BQBBB")
+               (r/block (+ x 5) 9 (nth items i)))
+        [c rng] (rand-next rng 2)
+        lv (if (zero? c)
+             (r/star-line lv (+ x 3) 5 3)
+             (r/block lv (+ x 4) 5 [:multi 6] true))]
+    [(-> lv (r/enemy (+ x 9)) (r/enemy (+ x 11))) (+ x 14) rng]))
+
+(defn- pit [lv x k rng]
+  (let [[d rng] (rand-next rng 2)
+        w (+ 2 (min 2 (quot (+ k d) 2)))
+        lv (-> lv (r/star-line x 9 w) (r/ground (+ x w) (+ x w 3)))]
+    [lv (+ x w 4) rng]))
+
+(defn- stairs-seg [lv x k rng]
+  (let [h (+ 3 (min 1 (quot k 2)))
+        lv (-> lv (r/ground x (+ x h)) (r/stairs (+ x 1) h))
+        x2 (+ x h 1 (if (>= k 2) 2 0))
+        lv (-> lv
+               (r/ground x2 (+ x2 h 2))
+               (r/stairs x2 h false 13)
+               (r/enemy (+ x2 h 1)))]
+    [lv (+ x2 h 3) rng]))
+
+(defn- swarm [lv x k rng]
+  (let [[d rng] (rand-next rng 4)
+        lv (-> lv
+               (r/ground x (+ x 13))
+               (r/row (+ x 4) 8 "Q" (if (zero? d) :1up :chip))
+               (r/enemy (+ x 3))
+               (r/enemy (+ x 5))
+               (r/enemy (+ x 8) :shellbot))]
+    [(if (>= k 2) (r/enemy lv (+ x 11)) lv) (+ x 14) rng]))
+
+(defn- towers [lv x _k rng]
+  (let [lv (r/ground lv x (+ x 15))
+        lv (reduce (fn [l [i y]] (r/row l (+ x 1 (* i 3)) y "B"))
+                   lv
+                   (for [i (range 4) y (range (- 12 i) 13)] [i y]))]
+    [(-> lv (r/star-line (+ x 1) 7 10) (r/enemy (+ x 14))) (+ x 16) rng]))
+
+(defn- corridor [lv x _k rng]
+  (let [lv (-> lv
+               (r/ground x (+ x 11))
+               (r/row (+ x 1) 9 "BBBBBBBB")
+               (r/row (+ x 1) 5 "BBBBBBBB"))
+        [d rng] (rand-next rng 4)
+        [i rng] (rand-next rng (count items))
+        lv (r/block lv (+ x 3 d) 9 (nth items i) true)]
+    [(-> lv (r/star-line (+ x 2) 7 6) (r/enemy (+ x 10))) (+ x 12) rng]))
+
+(defn- hops [lv x _k rng]
+  [(-> lv
+       (r/row (+ x 2) 11 "=========")
+       (r/row (+ x 14) 10 "========")
+       (r/star-line (+ x 15) 9 6)
+       (r/enemy (+ x 18) :bug 9)
+       (r/row (+ x 25) 11 "======"))
+   (+ x 34) rng])
+
+(defn- bridge [lv x _k rng]
+  [(-> lv
+       (r/row (+ x 1) 11 "===")
+       (r/star-line (+ x 1) 8 3)
+       (r/ground (+ x 5) (+ x 10))
+       (r/enemy (+ x 8)))
+   (+ x 11) rng])
+
+(defn- roof [lv x _k rng]
+  (let [lv (-> lv
+               (r/ground x (+ x 15))
+               (r/row (+ x 2) 6 "HHHHHHHHHH")
+               (r/row (+ x 4) 9 "BBBB"))
+        [c rng] (rand-next rng 2)
+        lv (r/block lv (+ x 5) 9 (if (zero? c) :sparkle [:multi 8]) true)]
+    [(-> lv (r/enemy (+ x 8) :shellbot) (r/enemy (+ x 12))) (+ x 16) rng]))
+
+(def ^:private segments
+  {\f flat \p pipes \b blocks \g pit \s stairs-seg \w swarm \t towers
+   \c corridor \h hops \x bridge \r roof})
+
+(defn- build
+  "A stage from its segment `plan` at `width` columns: [level end]."
+  [name theme plan k seed width]
+  (let [[lv x rng] (reduce (fn [[lv x rng] code] ((segments code) lv x k rng))
+                           [(-> (r/make-level name width theme 300 true)
+                                (r/ground 0 9)
+                                (r/row 5 9 "Q" :chip))
+                            10 (lcg seed)]
+                           plan)
+        lv (-> lv (r/ground x (+ x 23)) (r/stairs (+ x 2) 6) (r/flag (+ x 14)))
+        end (+ x 24)
+        lv (case theme
+             :cave (r/ceiling lv 0 (+ x 13))
+             :castle (r/ceiling lv 0 (+ x 13) [1 2])
+             (as-> lv lv
+               (reduce (fn [l hx] (if (and (r/solid? l hx 13) (r/solid? l (+ hx 2) 13))
+                                    (r/hill l hx)
+                                    l))
+                       lv (range 0 (- end 3) 37))
+               (reduce (fn [l bx] (if (and (r/solid? l bx 13) (r/solid? l (+ bx 2) 13)
+                                           (not (r/solid? l (+ bx 1) 12)))
+                                    (r/bush l bx)
+                                    l))
+                       lv (range 9 (- end 3) 23))
+               (reduce (fn [l [i cx]] (r/cloud l cx (+ 2 (mod i 3))))
+                       lv (map-indexed vector (range 6 (- end 3) 21)))))]
+    [lv end]))
+
+(defn- stage
+  "A thunk for a generated stage. Builds once at width 200 to learn the end,
+   then again at exactly that width."
+  [name theme plan k seed]
+  (fn []
+    (let [[_ width] (build name theme plan k seed 200)]
+      (first (build name theme plan k seed width)))))
+
+(def ^:private worlds
+  [[["CLONE" "FORK" "PUSH" "PULL"]
+    [:day :cave :cloud :castle]
+    ["bpgwsbgp" "cgtwcgs" "bhwh" "rxwrxs"]]
+   [["ACTION" "TRIGGER" "PRE-PROD" "PROD"]
+    [:day :cave :dusk :castle]
+    ["pgpbwgsp" "tcgwtcs" "fhbhw" "xrwxrs"]]
+   [["BUG BASH" "STACK TRACE" "BREAKPOINT" "SEGFAULT"]
+    [:dusk :cave :cloud :castle]
+    ["wbgpswgb" "ctgwcts" "hwbh" "rxwxrws"]]
+   [["CONTAINER" "KERNEL PANIC" "EDGE CACHE" "DEADLOCK"]
+    [:day :cave :dusk :castle]
+    ["pbgwpgsw" "tcwgtcgs" "bhwhf" "xrxwrxs"]]
+   [["CLONE" "STASH" "PR" "MERGE"]
+    [:day :cave :cloud :castle]
+    ["bgpwgsbpg" "cgtwcgts" "hbhw" "rxwrxws"]]
+   [["PLAN" "BUILD" "TEST" "SHIP-IT"]
+    [:dusk :cave :dusk :castle]
+    ["wpgbsgwpg" "tcgwctgs" "hwhbh" "xrwxrwxs"]]])
+
 (def levels
-  "The 32 stages in play order, each a thunk returning a fresh Level. Entries
-   8 to 31 are nil until the generated worlds land."
+  "The 32 stages in play order, each a thunk returning a fresh Level."
   (into [hello-world server-room sky-bridge firewall
          pull-request stack-overflow cloud-deploy merge-conflict]
-        (repeat 24 nil)))
+        (for [[w [names themes plans]] (map-indexed vector worlds)
+              s (range 4)]
+          (stage (str (+ w 3) "-" (inc s) " " (nth names s))
+                 (nth themes s) (nth plans s) w (+ (* w 4) s 7)))))
 
 (defn level-at
   "A fresh Level for stage index n."

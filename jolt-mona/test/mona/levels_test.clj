@@ -22,15 +22,39 @@
      :stars (:stars level)
      :spawns (:spawns level)}))
 
-(deftest hand-built-stages-match-the-golden
+(def ^:private dt (/ 1.0 30))
+
+(defn- first-diff
+  "Index of the first tile where two tile vectors differ, or nil."
+  [a b]
+  (first (keep-indexed (fn [i [x y]] (when (not= x y) i)) (map vector a b))))
+
+(deftest lcg-matches-the-badge
+  (let [[vals _] (reduce (fn [[vs st] _] (let [[v st] (lv/rand-next st 10)] [(conj vs v) st]))
+                         [[] (lv/lcg 7)] (range 6))]
+    (is (= [4 6 8 4 1 5] vals))))
+
+(deftest every-stage-matches-the-golden
   (let [golden (edn/read-string (slurp "test/mona/golden_levels.edn"))]
-    (is (= 32 (count golden)))
-    (doseq [n (range 8)]
+    (is (= 32 (count (remove nil? lv/levels))))
+    (doseq [n (range 32)]
       (let [g (nth golden n)
-            level ((nth lv/levels n))]
+            got (level->golden ((nth lv/levels n)))]
         (testing (:name g)
-          (is (= (dissoc g :tiles) (dissoc (level->golden level) :tiles)))
-          (is (= (:tiles g) (:tiles (level->golden level)))))))))
+          (is (= (dissoc g :tiles) (dissoc got :tiles)))
+          (is (= (:tiles g) (:tiles got))
+              (str "first differing tile index " (first-diff (:tiles g) (:tiles got)))))))))
+
+(deftest every-stage-can-be-finished-by-the-autopilot
+  (doseq [n (range 32)]
+    (let [w0 (assoc (r/new-world ((nth lv/levels n)) (r/new-session)) :demo? true)
+          w (loop [w w0 c r/no-controls i 0]
+              (if (or (= :clear (:state w)) (>= i 3600))
+                w
+                (let [c (r/autopilot w c)] (recur (r/step (r/clear-events w) c dt) c (inc i)))))]
+      (testing (:name (:level w0))
+        (is (= :clear (:state w)))
+        (is (pos? (:score (:session w))))))))
 
 (deftest levels-have-unique-names-and-known-themes
   (let [built (keep (fn [f] (when f (f))) lv/levels)]
