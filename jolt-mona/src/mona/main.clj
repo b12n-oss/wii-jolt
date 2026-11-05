@@ -117,7 +117,9 @@
            stage-key nil
            rumble-ch nil
            rumble-left 0.0
-           last-rumble [false false false false]]
+           last-rumble [false false false false]
+           prev-end-us 0
+           prev-post-us 0]
       (let [t0 (gfx/time-us)
             fus (gfx/frame-us)
             dt (if (zero? fus) (/ 1.0 60) (min 0.05 (/ fus 1000000.0)))
@@ -156,17 +158,25 @@
             (draw/draw-app a t)
             (let [t2 (gfx/time-us)]
               (gfx/end!)
-              (let [calls-total (+ calls-total (long (gfx/calls)))
+              (let [t3 (gfx/time-us)
+                    calls-total (+ calls-total (long (gfx/calls)))
                     sample {:update-us (stats/elapsed-us t0 t1)
                             :draw-us (stats/elapsed-us t1 t2)
                             :frame-us fus}
                     samples (conj samples sample)
-                    done? (= (count samples) summary-every)]
+                    done? (= (count samples) summary-every)
+                    t4 (gfx/time-us)
+                    end-us (stats/elapsed-us t2 t3)
+                    post-us (stats/elapsed-us t3 t4)]
                 (when (> fus stall-us)
                   (println (str name* ": stall frame-us=" fus
-                                " work-us=" (+ (:update-us sample) (:draw-us sample)))))
+                                " work-us=" (+ (:update-us sample) (:draw-us sample))
+                                " prev-end-us=" prev-end-us " prev-post-us=" prev-post-us)))
+                (when (> end-us stall-us)
+                  (println (str name* ": slow-end end-us=" end-us)))
                 (when done?
                   (println (str (stats/summary-line name* (stats/summary samples))
                                 " calls=" (quot calls-total summary-every))))
                 (recur a t held (if done? [] samples) (if done? 0 calls-total)
-                       written state stage-key rumble-ch rumble-left want-rumble)))))))))
+                       written state stage-key rumble-ch rumble-left want-rumble
+                       end-us post-us)))))))))

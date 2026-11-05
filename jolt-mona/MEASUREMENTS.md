@@ -112,3 +112,13 @@ What this suggests for rung 0b, as options for the user and not decisions:
 - Static boot data, less per-frame allocation and a forced collection during the 2 s intro panel would all target the collector, which costs 29 ms in 45 s here. None of them would remove a stall of the size seen.
 - If the stalls matter, the next measurement is the stage load: time `build-stage` and the first draw of a stage with `jg_time_us` around them, and see whether doing that work during the intro panel (or spreading it over frames) removes the 280 to 330 ms. The 846.7 ms first frame wants the same split between runtime start-up and the first draw.
 - The recurring "every few seconds" in the earlier sections matches the three stalls in this run only as "once per stage load, plus the first frame". A longer run that crosses more stages would show whether more appear.
+
+## The stage-change stall, located (2026-11-05)
+
+A probe in `mona.main` timed the part of the frame after t2: `end-us` (`gfx/end!`, raylib's EndDrawing) and `post-us` (the `calls` read, the sample `conj`), and the stall line now carries the previous frame's two values (`prev-end-us`, `prev-post-us`). One 45 s demo run (idle profile, Dolphin's VIDEO and HOST_GPU logs on) and one 40 s scripted run. Dolphin only, no console.
+
+- The stall is not in the tail. `prev-end-us` was 96 to 510 us and `prev-post-us` 25 to 44 us at every stall, and no frame had an `end-us` over 100 ms (no `slow-end` line).
+- It is in the previous frame's update-plus-draw window. Each window's `work-worst-us` is within 100 us of its `frame-worst-us`: stage 1-1 load 331499 vs 331578, stage 2 load 280614 vs 280691, scripted restarts 330800 vs 330876 and its siblings. The `work-us` printed on the stall line belongs to the frame after the long one, so it reads 5 to 16 ms. The earlier note that work never passed 28 ms compared the wrong frame.
+- Sizes: stage 1-1 load 330 to 341 ms, stage 2 load 281 ms, title after game over 256 ms, start-up interval 847 ms of which about 257 ms is the first frame's work (the rest lies before its t0, inferred).
+- It recurs: all six restarts of stage 1-1 in the scripted run stalled 330 to 341 ms, so it is not a one-time compilation. Dolphin logged no shader, pipeline, texture or swap activity near any stall (the only such line is a startup read of 3 pipeline UIDs, six seconds before the title).
+- Not split yet: update half (`app/tick`, `sync-world`) against draw half. The log order (the `stage` line, printed after the tick, comes about 20 ms of host time before the stall line) points at the update half. That is an inference.
