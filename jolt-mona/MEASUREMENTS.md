@@ -49,3 +49,21 @@ The spec asks for a work median of at most 12 ms and no frame's work over 16.7 m
 ## Reading
 
 The update dominates the heavy demo frames: 12.9 ms at the worst against 5.3 ms of drawing, and it falls to 2.9 ms where fewer things are live. The drawing is a flat 4.2 to 5.3 ms in every window, including the title screen, and 27 to 33 shim crossings per frame cannot account for it, so it is likely the shim's tile window (the stub-draw pack would split it; a 23 by 15 cell window, up to two quads per non-empty cell, on OpenGX) rather than crossings. The demo's busiest frames need the update to fall by about a third to fit 12 ms of work, and the stalls of 280 to 330 ms need their own look.
+
+## Rung 0: the enemy update by index (2026-11-05)
+
+The enemy update now works by index: an enemy's `:id` is its slot in `:enemies`, dead enemies keep their slot with `:alive? false` instead of being pruned each frame, `find-enemy` and `update-enemy` are `nth` and `assoc-in`, and `walkers-bounce` and `shell-hits` are index loops. The main loop also reads `connected?` once per channel per frame, calls `rumble!` only when a channel's state changes, and prints `stall` lines for frames over 100 ms. Build: `bb build:jolt-mona`, same jolt as above. Two `bb run:jolt-mona` runs agreed on every median, worst-case work and dropped count; frame-worst differed by up to 3.5 ms. The table is the first run.
+
+| Window (frames) | Update median (ms) | Draw median (ms) | Work median (ms) | Work worst (ms) | Frame worst (ms) | Dropped | Calls |
+|---|---|---|---|---|---|---|---|
+| 1-300 | 1.2 | 5.2 | 6.5 | 257.5 | 846.7 | 1 | 19 |
+| 301-600 | 1.2 | 5.2 | 6.5 | 331.5 | 331.6 | 2 | 19 |
+| 601-900 | 9.2 | 5.8 | 15.0 | 17.9 | 73.1 | 1 | 24 |
+| 901-1200 | 9.3 | 4.9 | 14.1 | 18.1 | 76.9 | 1 | 25 |
+| 1201-1500 | 7.9 | 4.8 | 12.8 | 24.2 | 77.4 | 2 | 23 |
+| 1501-1800 | 7.2 | 4.5 | 11.9 | 17.9 | 74.9 | 1 | 21 |
+| 1801-2100 | 6.8 | 4.7 | 11.0 | 280.6 | 280.7 | 2 | 22 |
+
+Against the first section's demo run: the busiest window (601-900) went from update 12.9 ms, work 18.2 ms and 53 dropped frames to update 9.2 ms, work 15.0 ms and 1 dropped. Window 901-1200 went from 11.8 / 16.5 ms and 34 dropped to 9.3 / 14.1 ms and 1 dropped. Calls per frame fell by 8 on the title (27 to 19) and by 8 in play (32 to 24, 33 to 25), which is the saved `connected?` reads (4 of the 8 per frame, read twice before) plus the `rumble!` calls (4 per frame, now only on a change). The windows do not line up one to one after 900, because the faster frames let the bot reach the flag earlier: stage 1-2 now starts in window 1501-1800 (before, in 1801-2100). Draw is unchanged at 4.5 to 5.8 ms. The `stall` lines (frame-us 846,680, 331,556 and 280,684) match the old worst frames: they are the frame before the printing one, the title and stage loads, and the printing frame's own work is 5.5, 13.2 and 15.7 ms. The stall at the 1-2 load is not an enemy cost.
+
+The bar (work median at most 12 ms, no frame's work over 16.7 ms after the first two seconds) is not met yet. Work medians from window 3 are 15.0, 14.1, 12.8, 11.9 and 11.0 ms, so three windows are above 12 ms. The work worst is 17.9, 18.1, 24.2, 17.9 and 280.6 ms, so every window has a frame over 16.7 ms. What moved: the update fell by about 3 ms (a quarter) where enemies are many, and the dropped frames nearly vanished, because the frames are now mostly inside the 20 ms budget. What did not: draw, the load stalls, and an update of 7 to 9 ms that remains while enemies are live.

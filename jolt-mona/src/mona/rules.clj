@@ -399,12 +399,15 @@
     (set-tile! level tx ty tile-id)
     (update world :dirty conj [(index level tx ty) tile-id])))
 
-(defn- update-enemy [world id f]
-  (update world :enemies (fn [es] (mapv (fn [e] (if (= (:id e) id) (f e) e)) es))))
+(defn- update-enemy
+  "Apply `f` to enemy `id`. An enemy's id is its index in :enemies for the
+   stage's life (dead ones keep their slot, with :alive? false)."
+  [world id f]
+  (assoc-in world [:enemies id] (f (nth (:enemies world) id))))
 
 (defn- find-enemy [world id]
   (when id
-    (first (filter (fn [e] (= (:id e) id)) (:enemies world)))))
+    (nth (:enemies world) id nil)))
 
 ;; Particles and camera
 
@@ -818,23 +821,24 @@
   "A moving or carried shell defeats the enemies it overlaps. A carried shell
    dies with the first one and is dropped."
   [world shell-id]
-  (loop [world world
-         ids (mapv :id (:enemies world))]
-    (if-let [id (first ids)]
-      (let [shell (find-enemy world shell-id)
-            other (find-enemy world id)]
-        (if (or (= id shell-id) (not (:alive? other)) (not (:active? other))
-                (contains? #{:dead :squashed} (:state other))
-                (not (overlap? (:x shell) (:y shell) (:w shell) (:h shell)
-                               (:x other) (:y other) (:w other) (:h other))))
-          (recur world (rest ids))
-          (let [world (defeat-enemy world id 200)]
-            (if (= :carried (:state shell))
-              (-> world
-                  (defeat-enemy shell-id 200)
-                  (assoc-in [:player :carrying] nil))
-              (recur world (rest ids))))))
-      world)))
+  (let [n (count (:enemies world))]
+    (loop [world world
+           id 0]
+      (if (< id n)
+        (let [shell (find-enemy world shell-id)
+              other (find-enemy world id)]
+          (if (or (= id shell-id) (not (:alive? other)) (not (:active? other))
+                  (contains? #{:dead :squashed} (:state other))
+                  (not (overlap? (:x shell) (:y shell) (:w shell) (:h shell)
+                                 (:x other) (:y other) (:w other) (:h other))))
+            (recur world (inc id))
+            (let [world (defeat-enemy world id 200)]
+              (if (= :carried (:state shell))
+                (-> world
+                    (defeat-enemy shell-id 200)
+                    (assoc-in [:player :carrying] nil))
+                (recur world (inc id))))))
+        world))))
 
 (defn- touch-player
   "What happens when enemy `id` meets the player: defeat, pick up, kick,
@@ -888,26 +892,34 @@
 
             :else (hurt-player world)))))))
 
+(defn- walker?
+  "A live, active enemy that is walking (the ones that bounce off each other)."
+  [e]
+  (and (:alive? e) (:active? e) (= :walk (:state e))))
+
 (defn- walkers-bounce
-  "Two overlapping walkers turn away from each other."
+  "Two overlapping walkers turn away from each other. Pairs go in slot order
+   (i < j), each read from the vector as earlier pairs left it."
   [world]
-  (let [walkers (filterv (fn [e] (and (:alive? e) (:active? e) (= :walk (:state e)))) (:enemies world))
-        n (count walkers)
-        walkers (reduce
-                 (fn [ws [i j]]
-                   (let [a (nth ws i) b (nth ws j)]
-                     (if (overlap? (:x a) (:y a) (:w a) (:h a) (:x b) (:y b) (:w b) (:h b))
-                       (let [av (Math/abs (double (:vx a))) bv (Math/abs (double (:vx b)))
-                             left? (< (double (:x a)) (double (:x b)))]
-                         (assoc ws
+  (let [n (count (:enemies world))]
+    (loop [es (:enemies world) i 0 j 1]
+      (cond
+        (>= i n) (assoc world :enemies es)
+        (>= j n) (recur es (inc i) (+ i 2))
+        :else
+        (let [a (nth es i)]
+          (if-not (walker? a)
+            (recur es (inc i) (+ i 2))
+            (let [b (nth es j)]
+              (if (and (walker? b)
+                       (overlap? (:x a) (:y a) (:w a) (:h a) (:x b) (:y b) (:w b) (:h b)))
+                (let [av (Math/abs (double (:vx a))) bv (Math/abs (double (:vx b)))
+                      left? (< (double (:x a)) (double (:x b)))]
+                  (recur (assoc es
                                 i (assoc a :vx (if left? (- av) av))
-                                j (assoc b :vx (if left? bv (- bv)))))
-                       ws)))
-                 walkers
-                 (for [i (range n) j (range (inc i) n)] [i j]))
-        vxs (into {} (map (fn [e] [(:id e) (:vx e)])) walkers)]
-    (update world :enemies
-            (fn [es] (mapv (fn [e] (if (contains? vxs (:id e)) (assoc e :vx (get vxs (:id e))) e)) es)))))
+                                j (assoc b :vx (if left? bv (- bv))))
+                         i (inc j)))
+                (recur es i (inc j))))))))))
 
 (defn- move-enemy
   "Gravity, the walls and the floor for one live enemy. Returns the enemy;
@@ -927,8 +939,8 @@
   "One enemy's frame: the state timers and motion, then its contact effects.
    The enemy is re-read from the world after each effect, as the Python does."
   [world id dt]
-  (let [dt (double dt)
-        e (find-enemy world id)
+  (let [e (find-enemy world id)
+        dt (double dt)
         px (double (:x (:player world)))
         activate (+ (double (:cam-x world)) view-w 16.0)]
     (cond
@@ -968,12 +980,17 @@
 
 (defn update-enemies
   "Activate, move and resolve every enemy in order, bounce overlapping
-   walkers off each other and drop the dead."
+   walkers off each other. Dead enemies keep their slot."
   [world dt]
   (let [dt (double dt)
-        world (reduce (fn [w id] (update-enemy-at w id dt)) world (mapv :id (:enemies world)))
-        world (if (> (count (:enemies world)) 1) (walkers-bounce world) world)]
-    (update world :enemies (fn [es] (filterv :alive? es)))))
+        n (count (:enemies world))
+        world (loop [w world i 0]
+                (if (< i n) (recur (update-enemy-at w i dt) (inc i)) w))
+        walkers (loop [i 0 k 0]
+                  (if (< i n)
+                    (recur (inc i) (if (walker? (nth (:enemies world) i)) (inc k) k))
+                    k))]
+    (if (> walkers 1) (walkers-bounce world) world)))
 
 ;; The step
 

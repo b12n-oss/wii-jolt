@@ -13,6 +13,7 @@
 (def ^:private name* "jolt-mona")
 (def ^:private summary-every 300)
 (def ^:private channels (range 4))
+(def ^:private stall-us 100000)
 ;; estimate: a short pulse, as the C games use
 (def ^:private rumble-secs 0.1)
 (def ^:private rumble-events #{"stomp" "kick" "die" "break"})
@@ -32,10 +33,15 @@
   [mask]
   (set (keep (fn [[bit k]] (when (pos? (bit-and mask bit)) k)) pad-buttons)))
 
+(defn- connected-now
+  "Whether each of the four remotes is connected, read once per frame."
+  []
+  (mapv (fn [ch] (boolean (gfx/connected? ch))) channels))
+
 (defn- held-now
   "The held-button mask of each of the four remotes (0 when not connected)."
-  []
-  (mapv (fn [ch] (if (gfx/connected? ch) (gfx/held ch) 0)) channels))
+  [connected]
+  (mapv (fn [ch] (if (nth connected ch) (gfx/held ch) 0)) channels))
 
 (defn- pressed-mask [now before]
   (bit-and now (bit-not before)))
@@ -43,8 +49,8 @@
 (defn- channel-input
   "The app's input map from this frame's masks, last frame's masks and the app
    (see app/choose-channel for how the reading channel is picked)."
-  [a now before]
-  (let [connected (set (filter (fn [ch] (gfx/connected? ch)) channels))
+  [a now before connected-v]
+  (let [connected (set (filter (fn [ch] (nth connected-v ch)) channels))
         ch (app/choose-channel (:player-ch a) now before)]
     {:connected connected
      :any-pressed? (boolean (some (fn [c] (pos? (pressed-mask (nth now c) (nth before c)))) channels))
@@ -110,11 +116,13 @@
            last-state nil
            stage-key nil
            rumble-ch nil
-           rumble-left 0.0]
+           rumble-left 0.0
+           last-rumble [false false false false]]
       (let [t0 (gfx/time-us)
             fus (gfx/frame-us)
             dt (if (zero? fus) (/ 1.0 60) (min 0.05 (/ fus 1000000.0)))
-            held (held-now)]
+            conn (connected-now)
+            held (held-now conn)]
         (if (or (gfx/should-close?)
                 (some (fn [h] (pos? (bit-and h gfx/button-home))) held))
           (do (gfx/rumble-all-off!)
@@ -122,7 +130,7 @@
                 (gfx/setting-put! "mona_high" (:high a)))
               (println (str name* ": exit"))
               (gfx/close!))
-          (let [a (app/tick a (channel-input a held last-held) dt)
+          (let [a (app/tick a (channel-input a held last-held conn) dt)
                 [a stage-key] (sync-world a last-state stage-key)
                 log-lines (:log a)
                 _ (print-log a)
@@ -138,8 +146,10 @@
                                           pulse? [ch rumble-secs]
                                           (and rumble-ch (pos? rumble-left)) [rumble-ch (- rumble-left dt)]
                                           :else [nil 0.0])
+                want-rumble (mapv (fn [c] (boolean (and (= c rumble-ch) (pos? rumble-left)))) channels)
                 _ (doseq [c channels]
-                    (gfx/rumble! c (boolean (and (= c rumble-ch) (pos? rumble-left)))))
+                    (when (not= (nth want-rumble c) (nth last-rumble c))
+                      (gfx/rumble! c (nth want-rumble c))))
                 t (+ t dt)
                 t1 (gfx/time-us)]
             (gfx/begin! (active-sky a))
@@ -147,12 +157,16 @@
             (let [t2 (gfx/time-us)]
               (gfx/end!)
               (let [calls-total (+ calls-total (long (gfx/calls)))
-                    samples (conj samples {:update-us (stats/elapsed-us t0 t1)
-                                           :draw-us (stats/elapsed-us t1 t2)
-                                           :frame-us fus})
+                    sample {:update-us (stats/elapsed-us t0 t1)
+                            :draw-us (stats/elapsed-us t1 t2)
+                            :frame-us fus}
+                    samples (conj samples sample)
                     done? (= (count samples) summary-every)]
+                (when (> fus stall-us)
+                  (println (str name* ": stall frame-us=" fus
+                                " work-us=" (+ (:update-us sample) (:draw-us sample)))))
                 (when done?
                   (println (str (stats/summary-line name* (stats/summary samples))
                                 " calls=" (quot calls-total summary-every))))
                 (recur a t held (if done? [] samples) (if done? 0 calls-total)
-                       written state stage-key rumble-ch rumble-left)))))))))
+                       written state stage-key rumble-ch rumble-left want-rumble)))))))))
