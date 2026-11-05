@@ -6,6 +6,7 @@
    any connected remote ends the game."
   (:require [mona.app :as app]
             [mona.draw :as draw]
+            [mona.levels :as levels]
             [mona.rules :as rules]
             [wii.frame-stats :as stats]
             [wii.gfx :as gfx]))
@@ -69,20 +70,22 @@
 (defn- sync-world
   "Hand a new stage to the shim when the title, intro or demo began (or its
    level changed), forward the world's tile changes and clear them. Returns
-   [app stage-name], the level name to remember."
+   [app stage-name load-times], the level name to remember and, on a load,
+   draw/load-stage!'s [decor-us copy-us] (else nil)."
   [a last-state last-name]
   (let [state (:state a)
         k (world-key state)
         world (get a k)]
     (if-not world
-      [a last-name]
+      [a last-name nil]
       (let [lvl (:level world)
             load? (and (#{:title :intro :demo} state)
                        (or (not= state last-state) (not= (:name lvl) last-name)))]
-        (when load? (draw/load-stage! lvl))
+        (let [times (when load? (draw/load-stage! lvl))]
         (doseq [[i tile] (:dirty world)] (gfx/tile-set! i tile))
         [(assoc a k (rules/clear-events world))
-         (if (#{:title :intro :demo} state) (:name lvl) last-name)]))))
+         (if (#{:title :intro :demo} state) (:name lvl) last-name)
+         times])))))
 
 (defn- rumble-event?
   "True when a log line is a play-mode event worth a pulse."
@@ -91,6 +94,14 @@
        (.endsWith ^String line "mode=play")
        (let [kw (subs line 6 (- (count line) 10))]
          (contains? rumble-events kw))))
+
+(defn- stage-index
+  "Probe only: the stage index of the world on screen."
+  [a]
+  (case (:state a)
+    :title 0
+    :demo (mod (dec (long (:demo-next a))) (count levels/levels))
+    (long (:level (:session a)))))
 
 (defn- print-log [a]
   (doseq [l (:log a)] (println (str name* ": " l))))
@@ -133,9 +144,26 @@
               (println (str name* ": exit"))
               (gfx/close!))
           (let [a (app/tick a (channel-input a held last-held conn) dt)
-                [a stage-key] (sync-world a last-state stage-key)
+                t-tick (gfx/time-us)
+                [a stage-key load-times] (sync-world a last-state stage-key)
                 log-lines (:log a)
+                t-pr0 (gfx/time-us)
                 _ (print-log a)
+                t-pr1 (gfx/time-us)
+                _ (when load-times
+                    (let [n (stage-index a)
+                          lt0 (gfx/time-us)
+                          lvl (levels/level-at n)
+                          lt1 (gfx/time-us)
+                          _ (rules/new-world lvl (rules/new-session))
+                          lt2 (gfx/time-us)]
+                      (println (str name* ": stage-load stage=" n
+                                    " tick-us=" (stats/elapsed-us t0 t-tick)
+                                    " level-us=" (stats/elapsed-us lt0 lt1)
+                                    " world-us=" (stats/elapsed-us lt1 lt2)
+                                    " decor-us=" (first load-times)
+                                    " copy-us=" (second load-times)
+                                    " print-us=" (stats/elapsed-us t-pr0 t-pr1)))))
                 ch (:player-ch a)
                 pulse? (and ch (boolean (some rumble-event? log-lines)))
                 a (app/clear-log a)

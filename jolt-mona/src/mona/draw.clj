@@ -5,6 +5,7 @@
    (the shim scales them 4x), while rect!, text! and tiles-map! take screen
    pixels, so a badge position becomes `(* 4 x)` for those."
   (:require [mona.rules :as r]
+            [wii.frame-stats :as stats]
             [wii.gfx :as gfx]))
 
 (def sky {:day 0x5C94FCFF :cave 0x000000FF :dusk 0x342C6EFF :cloud 0x96C8FFFF :castle 0x280814FF})
@@ -41,13 +42,17 @@
 ;; Stage
 
 (defn load-stage!
-  "Hand a level's tile layer and its decor layer to the shim."
+  "Hand a level's tile layer and its decor layer to the shim. Returns
+   [decor-us copy-us], the probe's split of the time (decor build, shim copy)."
   [level]
-  (let [width (long (:width level))
+  (let [t0 (gfx/time-us)
+        width (long (:width level))
         decor (byte-array (* 15 width))]
     (doseq [[i id] (:decor level)]
       (aset decor (long i) (unchecked-byte (long id))))
-    (gfx/tiles-load! (:tiles level) decor width)))
+    (let [t1 (gfx/time-us)]
+      (gfx/tiles-load! (:tiles level) decor width)
+      [(stats/elapsed-us t0 t1) (stats/elapsed-us t1 (gfx/time-us))])))
 
 ;; Text
 

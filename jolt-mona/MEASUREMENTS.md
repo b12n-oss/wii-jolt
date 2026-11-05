@@ -122,3 +122,19 @@ A probe in `mona.main` timed the part of the frame after t2: `end-us` (`gfx/end!
 - Sizes: stage 1-1 load 330 to 341 ms, stage 2 load 281 ms, title after game over 256 ms, start-up interval 847 ms of which about 257 ms is the first frame's work (the rest lies before its t0, inferred).
 - It recurs: all six restarts of stage 1-1 in the scripted run stalled 330 to 341 ms, so it is not a one-time compilation. Dolphin logged no shader, pipeline, texture or swap activity near any stall (the only such line is a startup read of 3 pipeline UIDs, six seconds before the title).
 - Not split yet: update half (`app/tick`, `sync-world`) against draw half. The log order (the `stage` line, printed after the tick, comes about 20 ms of host time before the stall line) points at the update half. That is an inference.
+
+## The stage load, split (2026-11-05)
+
+`mona.main` now prints one `stage-load` line per load frame, and `draw/load-stage!` returns `[decor-us copy-us]`. `level-us` and `world-us` are duplicate builds made only for the timing (the app already built the level inside `tick`), so they cost an extra ~75 ms on each load frame in this probe; `tick-us` is the real `app/tick` on that frame, and it contains one genuine `level-at` plus `new-world` on intro and demo starts. One 45 s demo run and one 40 s scripted run, Dolphin only, in ms. The stall rows are the following frame's `frame-us`, which includes the probe's duplicate builds.
+
+| Run | Load | tick | level | world | decor | copy | print | frame after |
+|---|---|---|---|---|---|---|---|---|
+| demo | title (start-up) | 1.1 | 73.0 | 1.6 | 4.1 | 244.8 | 0.3 | 921.9 |
+| demo | stage 1-1 | 75.8 | 73.6 | 1.6 | 4.1 | 244.7 | 0.6 | 407.4 |
+| demo | stage 1-2 | 59.8 | 56.2 | 1.3 | 0.9 | 213.3 | 0.3 | 339.5 |
+| scripted | title (start-up) | 1.1 | 73.0 | 1.6 | 4.1 | 244.8 | 0.3 | 921.9 |
+| scripted | stage 1-1, restart 1 | 76.3 | 73.0 | 1.6 | 4.1 | 244.7 | 0.6 | 405.4 |
+| scripted | stage 1-1, restarts 2 to 6 | 77.1 to 77.2 | 73.0 to 73.6 | 1.6 | 4.1 | 244.7 to 245.3 | 0.6 | 405.8 to 406.7 |
+| scripted | title after game over | 1.5 | 73.0 | 1.6 | 4.1 | 244.7 | 0.3 | 330.6 |
+
+The shim copy dominates: `copy-us` is 213 to 245 ms of a load frame, about 75% of the roughly 325 ms the stall measured before the probe (tick 76 + decor 4 + copy 245). The second piece is the level build, about 73 ms (`level-us`, matching the `tick-us` of 76 ms on intro and demo loads, so it is real, not probe cost). `world-us`, `decor-us` and `print-us` are each under 5 ms. So the stall is mostly the call that hands the tile arrays to the shim: the two `ffi/write-bytes` block copies of up to 2,850 bytes each plus the C copy, which suggests copying through `jg_tile_set` only for non-empty cells (about 467 calls for 1-1) or finding why a 2.8 KB write costs 120 ms, and then the builders' 2,850 `set-tile!` calls and row/decor maps as the second target. That reading is inferred from the split; the cost inside `tiles-load!` is not itself broken down.
