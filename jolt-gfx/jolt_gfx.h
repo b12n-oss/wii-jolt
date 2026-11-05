@@ -62,6 +62,13 @@ U jg_sprite(U sheet, U col, U row, U x, U y, U flags);
 // pixels. jg_calls returns the number of counted jg_* calls since the last
 // jg_calls and resets it.
 U jg_tiles_load(U tiles_ptr, U decor_ptr, U width);
+// The fast way to load a stage on this target is per cell: jg_tiles_begin
+// (width), then jg_tile_set / jg_decor_set for the non-empty cells only.
+// tiles-load! (two allocs, two ffi/write-bytes, this C call, two frees)
+// measured 245 ms for a 190-wide stage, the per-cell path 32 ms; the cost
+// looks per element on this target. See jolt-mona/MEASUREMENTS.md.
+U jg_tiles_begin(U width);
+U jg_decor_set(U index, U id);
 U jg_tile_set(U index, U tile);
 U jg_tiles_draw(U cam_x);
 U jg_tiles_map(U x, U y, U w, U h, U solid, U sky);

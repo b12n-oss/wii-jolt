@@ -112,3 +112,49 @@ What this suggests for rung 0b, as options for the user and not decisions:
 - Static boot data, less per-frame allocation and a forced collection during the 2 s intro panel would all target the collector, which costs 29 ms in 45 s here. None of them would remove a stall of the size seen.
 - If the stalls matter, the next measurement is the stage load: time `build-stage` and the first draw of a stage with `jg_time_us` around them, and see whether doing that work during the intro panel (or spreading it over frames) removes the 280 to 330 ms. The 846.7 ms first frame wants the same split between runtime start-up and the first draw.
 - The recurring "every few seconds" in the earlier sections matches the three stalls in this run only as "once per stage load, plus the first frame". A longer run that crosses more stages would show whether more appear.
+
+## The stage-change stall, located (2026-11-05)
+
+A probe in `mona.main` timed the part of the frame after t2: `end-us` (`gfx/end!`, raylib's EndDrawing) and `post-us` (the `calls` read, the sample `conj`), and the stall line now carries the previous frame's two values (`prev-end-us`, `prev-post-us`). One 45 s demo run (idle profile, Dolphin's VIDEO and HOST_GPU logs on) and one 40 s scripted run. Dolphin only, no console.
+
+- The stall is not in the tail. `prev-end-us` was 96 to 510 us and `prev-post-us` 25 to 44 us at every stall, and no frame had an `end-us` over 100 ms (no `slow-end` line).
+- It is in the previous frame's update-plus-draw window. Each stage-load window's `work-worst-us` is within 100 us of its `frame-worst-us` (not the start-up window, 257 ms vs 847 ms, nor the first scripted window, 340767 vs 846684 us): stage 1-1 load 331499 vs 331578, stage 2 load 280614 vs 280691, scripted restarts 330800 vs 330876 and its siblings. The `work-us` printed on the stall line belongs to the frame after the long one, so it reads 5 to 16 ms. The earlier note that work never passed 28 ms compared the wrong frame.
+- Sizes: stage 1-1 load 330 to 341 ms, stage 2 load 281 ms, title after game over 256 ms, start-up interval 847 ms of which about 257 ms is the first frame's work (the rest lies before its t0, inferred).
+- It recurs: all six loads of stage 1-1 in the scripted run (the initial one plus five restarts) stalled 330 to 341 ms, so it is not a one-time compilation. Dolphin logged no (non-OSREPORT) lines near any stall (raylib's own "Texture loaded" lines sit in the start-up interval; the one Dolphin pipeline line is a startup read of 3 pipeline UIDs, six seconds before the title).
+- Not split yet: update half (`app/tick`, `sync-world`) against draw half. The log order (the `stage` line, printed after the tick, comes about 20 ms of host time before the stall line) points at the update half. That is an inference.
+
+## The stage load, split (2026-11-05)
+
+`mona.main` now prints one `stage-load` line per load frame, and `draw/load-stage!` returns `[decor-us copy-us]`. `level-us` and `world-us` are duplicate builds made only for the timing (the app already built the level inside `tick`), so they cost an extra ~75 ms on each load frame in this probe; `tick-us` is the real `app/tick` on that frame, and it contains one genuine `level-at` plus `new-world` on intro and demo starts. One 45 s demo run and one 40 s scripted run, Dolphin only, in ms. The stall rows are the following frame's `frame-us`, which includes the probe's duplicate builds.
+
+| Run | Load | tick | level | world | decor | copy | print | frame after |
+|---|---|---|---|---|---|---|---|---|
+| demo | title (start-up) | 1.1 | 73.0 | 1.6 | 4.1 | 244.8 | 0.3 | 921.9 |
+| demo | stage 1-1 | 75.8 | 73.6 | 1.6 | 4.1 | 244.7 | 0.6 | 407.4 |
+| demo | stage 1-2 | 59.8 | 56.2 | 1.3 | 0.9 | 213.3 | 0.3 | 339.5 |
+| scripted | title (start-up) | 1.1 | 73.0 | 1.6 | 4.1 | 244.8 | 0.3 | 921.9 (the two runs' start-up rows agree to 0.1 ms; they are separate measurements, 921924 and 921902 us) |
+| scripted | stage 1-1, initial load | 76.3 | 73.0 | 1.6 | 4.1 | 244.7 | 0.6 | 405.4 |
+| scripted | stage 1-1, restarts 1 to 5 | 77.1 to 77.2 | 73.0 to 73.6 | 1.6 | 4.1 | 244.7 to 245.3 | 0.6 | 405.8 to 406.7 |
+| scripted | title after game over | 1.5 | 73.0 | 1.6 | 4.1 | 244.7 | 0.3 | 330.6 |
+
+The shim copy dominates: `copy-us` is 213 to 245 ms of a load frame, about 75% of the roughly 325 ms the stall measured before the probe (tick 76 + decor 4 + copy 245). The second piece is the level build, about 73 ms (`level-us`, matching the `tick-us` of 76 ms on intro and demo loads, so it is real, not probe cost). `world-us`, `decor-us` and `print-us` are each under 5 ms. So the stall is mostly the call that hands the tile arrays to the shim: the two `ffi/write-bytes` block copies of up to 2,850 bytes each plus the C copy, which suggests copying through `jg_tile_set` only for non-empty cells (measured later: 589 calls for 1-1) or finding why a 2.8 KB write costs 120 ms, and then the builders' 2,850 `set-tile!` calls and row/decor maps as the second target. That reading is inferred from the split; the cost inside `tiles-load!` is not itself broken down.
+
+## The stage load, fixed (2026-11-05)
+
+`draw/load-stage!` now calls `jg_tiles_begin` (width), scans the tile array and calls `jg_tile_set` for each non-zero cell, then `jg_decor_set` for each decor entry. The two `ffi/write-bytes` block copies are gone, as are the duplicate level and world builds of the probe. `stage-load` now prints `tick-us`, `hand-off-us` (`load-stage!`'s own time) and `print-us`. One 45 s demo run and one 40 s scripted run, Dolphin only. Hand-off in ms, before (the previous section's `decor + copy`) and after:
+
+| Load | hand-off before | hand-off after | tick (real, after) | stall interval before | stall interval after |
+|---|---|---|---|---|---|
+| title (start-up) | 248.9 | 32.2 | 1.1 | 847 (922 with probe) | 614 |
+| stage 1-1, demo | 248.8 | 32.2 | 75.8 | 332 | 115 |
+| stage 1-2, demo | 214.2 | 25.9 | 59.8 | 281 | 93.5 (work-worst; no stall line) |
+| stage 1-1 loads, scripted (initial plus five restarts) | 248.8 | 32.2 (42.8 on the first) | 76.3 to 77.2 | 330 to 341 | 113.8 to 124.6 |
+| title after game over, scripted | 248.8 | 32.2 | 1.5 | 256 | no stall line (work-worst 39 ms) |
+
+The cost of the hand-off fell by about 215 ms, not to the ~12 ms that was estimated: 32 ms for stage 1-1 (the 2,850-byte scan in Clojure plus 589 shim calls, measured, so roughly 54 us per call including the scan, not 20). The remaining stall is the level build itself: `tick-us` of 76 ms on an intro or demo start (`levels/level-at` plus `rules/new-world`, 73 ms of it the builders' `set-tile!` calls and the row and decor maps) plus the 32 ms hand-off, about 108 ms, then 6 ms of drawing. Stall lines remain for the stage 1-1 loads (113.8 to 124.6 ms intervals, over the 100 ms threshold) and the start-up (614 ms, of which about 41 ms is the first frame's work and the rest lies before its t0, inferred). The title after game over and stage 1-2 no longer print one. The next target is the level build (73 ms), then the scan loop.
+
+### Fix round 1 (2026-11-05)
+
+`load-stage!` now throws when the shim refuses the width, and the probe reads are gone from the loop except one after `app/tick`. The `stage-load` line is `tick-us hand-off-us calls`, with `calls` the shim call count read around `load-stage!`. Measured calls per stage load: 589 for stage 1-1 (title, demo and every scripted load), 584 for stage 1-2. Hand-off after the change: 31.6 to 31.7 ms for 1-1 (title and stage), 25.4 ms for 1-2. Stall intervals: 613 ms at start-up, 113 to 115 ms at each 1-1 load, none at 1-2 (work-worst 93 ms). The `tiles-load!` figure of 245 ms covers allocs, two `write-bytes`, the C call and the frees together, so the cost of the block copy alone is not established, and the per-cell path costs about 54 us per call; both look per-element on this target.
+
+Steady-state frames, same build flags as the Rung 0 section: the demo's windows 601 to 2100 read work medians 15.0, 14.0, 12.8, 11.8 and 10.9 ms and `calls` 24, 25, 23, 21, 24, against Rung 0's 15.0, 14.1, 12.8, 11.9 and 11.0 ms and 24, 25, 23, 21, 22, so the per-frame cost did not change.

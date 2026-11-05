@@ -69,20 +69,25 @@
 (defn- sync-world
   "Hand a new stage to the shim when the title, intro or demo began (or its
    level changed), forward the world's tile changes and clear them. Returns
-   [app stage-name], the level name to remember."
+   [app stage-name load], the level name to remember and, on a load,
+   [hand-off-us calls-before calls-after] (the shim call count read before and
+   after draw/load-stage!, else nil)."
   [a last-state last-name]
   (let [state (:state a)
         k (world-key state)
         world (get a k)]
     (if-not world
-      [a last-name]
+      [a last-name nil]
       (let [lvl (:level world)
             load? (and (#{:title :intro :demo} state)
                        (or (not= state last-state) (not= (:name lvl) last-name)))]
-        (when load? (draw/load-stage! lvl))
-        (doseq [[i tile] (:dirty world)] (gfx/tile-set! i tile))
-        [(assoc a k (rules/clear-events world))
-         (if (#{:title :intro :demo} state) (:name lvl) last-name)]))))
+        (let [c0 (when load? (long (gfx/calls)))
+              us (when load? (draw/load-stage! lvl))
+              load (when load? [us c0 (long (gfx/calls))])]
+          (doseq [[i tile] (:dirty world)] (gfx/tile-set! i tile))
+          [(assoc a k (rules/clear-events world))
+           (if (#{:title :intro :demo} state) (:name lvl) last-name)
+           load])))))
 
 (defn- rumble-event?
   "True when a log line is a play-mode event worth a pulse."
@@ -131,9 +136,14 @@
               (println (str name* ": exit"))
               (gfx/close!))
           (let [a (app/tick a (channel-input a held last-held conn) dt)
-                [a stage-key] (sync-world a last-state stage-key)
+                t-tick (gfx/time-us)
+                [a stage-key load] (sync-world a last-state stage-key)
+                calls-total (if load (+ calls-total (long (nth load 1)) (long (nth load 2))) calls-total)
                 log-lines (:log a)
                 _ (print-log a)
+                _ (when load
+                    (println (str name* ": stage-load tick-us=" (stats/elapsed-us t0 t-tick)
+                                  " hand-off-us=" (first load) " calls=" (nth load 2))))
                 ch (:player-ch a)
                 pulse? (and ch (boolean (some rumble-event? log-lines)))
                 a (app/clear-log a)

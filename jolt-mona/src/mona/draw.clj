@@ -5,6 +5,7 @@
    (the shim scales them 4x), while rect!, text! and tiles-map! take screen
    pixels, so a badge position becomes `(* 4 x)` for those."
   (:require [mona.rules :as r]
+            [wii.frame-stats :as stats]
             [wii.gfx :as gfx]))
 
 (def sky {:day 0x5C94FCFF :cave 0x000000FF :dusk 0x342C6EFF :cloud 0x96C8FFFF :castle 0x280814FF})
@@ -41,13 +42,22 @@
 ;; Stage
 
 (defn load-stage!
-  "Hand a level's tile layer and its decor layer to the shim."
+  "Hand a level's tile layer and its decor layer to the shim cell by cell,
+   skipping empty cells (a block copy costs 245 ms on the Wii). Returns
+   the microseconds the hand-off took (two clock reads)."
   [level]
-  (let [width (long (:width level))
-        decor (byte-array (* 15 width))]
-    (doseq [[i id] (:decor level)]
-      (aset decor (long i) (unchecked-byte (long id))))
-    (gfx/tiles-load! (:tiles level) decor width)))
+  (let [t0 (gfx/time-us)
+        tiles ^bytes (:tiles level)
+        n (long (alength tiles))]
+    (when-not (gfx/tiles-begin! (:width level))
+      (throw (ex-info "load-stage!: the shim refused the stage width" {:width (:width level)})))
+    (loop [i 0]
+      (when (< i n)
+        (let [id (bit-and (aget tiles i) 0xFF)]
+          (when-not (zero? id) (gfx/tile-set! i id)))
+        (recur (inc i))))
+    (doseq [[i id] (:decor level)] (gfx/decor-set! i id))
+    (stats/elapsed-us t0 (gfx/time-us))))
 
 ;; Text
 
