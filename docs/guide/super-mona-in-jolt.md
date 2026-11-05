@@ -173,8 +173,10 @@ scripted run passes the median and the demo misses it in four of its
 windows. Both fail the worst-frame limit, because every run shows stalls of
 280 to 850 ms. A run with jolt's collector log on (`scripts/dkp make -C jolt-gfx EXTRA_CFLAGS=-DJG_GC_LOG`)
 shows 28 collections in 45 s, none of them full, the longest 10 ms and 29 ms in
-total, so the stalls are not the collector. They fall on the first title frame
-and on the two stage loads (23.153 s and 46.193 s in that run).
+total (two of them before `jg_init`), so the stalls are not the collector. One
+6 ms collection sits inside the first stall, none inside the others. They fall
+on start-up and the first title frames and on the two stage loads (23.153 s and
+46.193 s, from that run's log and not kept in the extract).
 
 ### The fallback ladder
 
@@ -184,7 +186,7 @@ rung has been tried yet.
 | Rung | What | State |
 |---|---|---|
 | 0 | An algorithmic fix in Clojure for the enemy update, which scans linearly and rebuilds vectors per enemy, so it is O(N^2) | Not done |
-| 0b | The collector: confirm with `JOLT_GC_LOG=1`, then static boot data, less allocation per frame, or a forced major collection during the intro | Not done |
+| 0b | The collector: measured with `JOLT_GC_LOG`, 29 ms over a 45 s run and no stall inside it, so its options (static boot data, less allocation per frame, a forced collection in the intro) are moot for the stalls | Measured |
 | 1 | Batched sprite calls | Not done, buys little |
 | 2 | Enemy and item physics in C | Not done |
 | 3 | The renderer in C | Not done |
