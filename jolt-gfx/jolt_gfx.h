@@ -56,6 +56,16 @@ U jg_poly(U x, U y, U sides, U radius, U rot, U c);
 U jg_scale(U n);
 U jg_sheet_load(U id);
 U jg_sprite(U sheet, U col, U row, U x, U y, U flags);
+// Tile layers (15 rows, width at most 190): jg_tiles_load copies width*15
+// bytes from each pointer. jg_tiles_draw draws the columns around cam_x
+// (game pixels) from sheet 0. jg_tiles_map draws the stage as a box in screen
+// pixels. jg_calls returns the number of counted jg_* calls since the last
+// jg_calls and resets it.
+U jg_tiles_load(U tiles_ptr, U decor_ptr, U width);
+U jg_tile_set(U index, U tile);
+U jg_tiles_draw(U cam_x);
+U jg_tiles_map(U x, U y, U w, U h, U solid, U sky);
+U jg_calls(void);
 U jg_text(U s, U x, U y, U size, U c);
 U jg_text_width(U s, U size);
 

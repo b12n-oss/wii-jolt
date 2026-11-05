@@ -29,6 +29,11 @@
 (ffi/defcfn c-scale "jg_scale" [:uptr] :uptr)
 (ffi/defcfn c-sheet-load "jg_sheet_load" [:uptr] :uptr)
 (ffi/defcfn c-sprite "jg_sprite" [:uptr :uptr :uptr :uptr :uptr :uptr] :uptr)
+(ffi/defcfn c-tiles-load "jg_tiles_load" [:uptr :uptr :uptr] :uptr)
+(ffi/defcfn c-tile-set "jg_tile_set" [:uptr :uptr] :uptr)
+(ffi/defcfn c-tiles-draw "jg_tiles_draw" [:uptr] :uptr)
+(ffi/defcfn c-tiles-map "jg_tiles_map" [:uptr :uptr :uptr :uptr :uptr :uptr] :uptr)
+(ffi/defcfn c-calls "jg_calls" [] :uptr)
 (ffi/defcfn c-text "jg_text" [:uptr :uptr :uptr :uptr :uptr] :uptr)
 (ffi/defcfn c-text-width "jg_text_width" [:uptr :uptr] :uptr)
 (ffi/defcfn c-connected "jg_connected" [:uptr] :uptr)
@@ -95,6 +100,29 @@
 (defn sheet-load! [id] (zero? (c-sheet-load (long id))))
 (defn sprite! [sheet col row ^double x ^double y flags]
   (c-sprite sheet col row (unchecked-long x) (unchecked-long y) flags) nil)
+
+;; Tile layers: 15 rows, width columns (at most 190), ids as in sheet 0.
+(defn tiles-load!
+  "Copy the tile and decor byte arrays (width * 15 each) into the shim. Returns
+   true when the shim accepted them."
+  [^bytes tiles ^bytes decor width]
+  (let [n (alength tiles)
+        tp (ffi/alloc n)
+        dp (ffi/alloc n)]
+    (try
+      (ffi/write-bytes tp tiles)
+      (ffi/write-bytes dp decor)
+      (zero? (c-tiles-load tp dp (long width)))
+      (finally
+        (ffi/free tp)
+        (ffi/free dp)))))
+(defn tile-set! [index tile] (c-tile-set (long index) (long tile)) nil)
+(defn tiles-draw! [^double cam-x] (c-tiles-draw (unchecked-long cam-x)) nil)
+(defn tiles-map! [x y w h solid sky]
+  (c-tiles-map (long x) (long y) (long w) (long h) solid sky) nil)
+(defn calls
+  "The number of counted shim calls since the last call to this."
+  [] (c-calls))
 
 (defn text!
   "Draw s at (x, y). The string goes over as a C string's address, freed after."

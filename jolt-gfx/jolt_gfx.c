@@ -5,6 +5,7 @@
 #include "jolt_gfx.h"
 #include "raylib.h"
 #include <stdlib.h>
+#include <string.h>
 #include <gccore.h>
 #include <ogc/lwp_watchdog.h>
 #include <wiiuse/wpad.h>
@@ -28,12 +29,15 @@ static Color rgba(U c)
                     (unsigned char)(c >> 8), (unsigned char)c };
 }
 
+static unsigned calls;
+
 static bool chan_ok(U ch) { return (int)ch >= 0 && (int)ch < NCHAN; }
 
 static void heap_report(void);
 
 U jg_init(U w, U h)
 {
+    calls++;
     heap_report();
     InitWindow((int)w, (int)h, "jolt");
     SetTargetFPS(60);
@@ -42,27 +46,30 @@ U jg_init(U w, U h)
     return 0;
 }
 U jg_should_close(void) { return WindowShouldClose(); }
-U jg_close(void) { CloseWindow(); return 0; }
-U jg_begin(U clear) { BeginDrawing(); ClearBackground(rgba(clear)); return 0; }
-U jg_end(void) { EndDrawing(); return 0; }
+U jg_close(void) { calls++; CloseWindow(); return 0; }
+U jg_begin(U clear) { calls++; BeginDrawing(); ClearBackground(rgba(clear)); return 0; }
+U jg_end(void) { calls++; EndDrawing(); return 0; }
 U jg_frame_us(void) { return (U)(GetFrameTime() * 1000000.0f); }
 U jg_time_us(void) { return (U)(ticks_to_microsecs(gettime()) & 0x0FFFFFFF); }
-U jg_seed(void) { return (U)(gettime() & 0x0FFFFFFF); }
+U jg_seed(void) { calls++; return (U)(gettime() & 0x0FFFFFFF); }
 
 U jg_gradient_v(U x, U y, U w, U h, U top, U bottom)
 {
+    calls++;
     JG_STUB();
     DrawRectangleGradientV((int)x, (int)y, (int)w, (int)h, rgba(top), rgba(bottom));
     return 0;
 }
 U jg_rect(U x, U y, U w, U h, U c)
 {
+    calls++;
     JG_STUB();
     DrawRectangle((int)x, (int)y, (int)w, (int)h, rgba(c));
     return 0;
 }
 U jg_rect_rounded(U x, U y, U w, U h, U roundness, U c)
 {
+    calls++;
     JG_STUB();
     Rectangle r = { (float)(int)x, (float)(int)y, (float)(int)w, (float)(int)h };
     DrawRectangleRounded(r, (float)(int)roundness / 100.0f, 8, rgba(c));
@@ -70,18 +77,21 @@ U jg_rect_rounded(U x, U y, U w, U h, U roundness, U c)
 }
 U jg_circle(U x, U y, U r, U c)
 {
+    calls++;
     JG_STUB();
     DrawCircle((int)x, (int)y, (float)(int)r, rgba(c));
     return 0;
 }
 U jg_ellipse(U x, U y, U rx, U ry, U c)
 {
+    calls++;
     JG_STUB();
     DrawEllipse((int)x, (int)y, (float)(int)rx, (float)(int)ry, rgba(c));
     return 0;
 }
 U jg_triangle(U x1, U y1, U x2, U y2, U x3, U y3, U c)
 {
+    calls++;
     JG_STUB();
     DrawTriangle((Vector2){ (float)(int)x1, (float)(int)y1 },
                  (Vector2){ (float)(int)x2, (float)(int)y2 },
@@ -90,12 +100,14 @@ U jg_triangle(U x1, U y1, U x2, U y2, U x3, U y3, U c)
 }
 U jg_line(U x1, U y1, U x2, U y2, U c)
 {
+    calls++;
     JG_STUB();
     DrawLine((int)x1, (int)y1, (int)x2, (int)y2, rgba(c));
     return 0;
 }
 U jg_line_thick(U x1, U y1, U x2, U y2, U thick, U c)
 {
+    calls++;
     JG_STUB();
     DrawLineEx((Vector2){ (float)(int)x1, (float)(int)y1 },
                (Vector2){ (float)(int)x2, (float)(int)y2 }, (float)(int)thick, rgba(c));
@@ -103,6 +115,7 @@ U jg_line_thick(U x1, U y1, U x2, U y2, U thick, U c)
 }
 U jg_ring(U x, U y, U inner, U outer, U c)
 {
+    calls++;
     JG_STUB();
     DrawRing((Vector2){ (float)(int)x, (float)(int)y }, (float)(int)inner,
              (float)(int)outer, 0.0f, 360.0f, 24, rgba(c));
@@ -110,6 +123,7 @@ U jg_ring(U x, U y, U inner, U outer, U c)
 }
 U jg_poly(U x, U y, U sides, U radius, U rot, U c)
 {
+    calls++;
     JG_STUB();
     DrawPoly((Vector2){ (float)(int)x, (float)(int)y }, (int)sides,
              (float)(int)radius, (float)(int)rot, rgba(c));
@@ -124,6 +138,7 @@ static float scale = 1.0f;
 
 U jg_scale(U n)
 {
+    calls++;
     scale = (float)(int)n;
     return 0;
 }
@@ -132,6 +147,7 @@ U jg_scale(U n)
 // success, 1 when the image or texture failed to load.
 U jg_sheet_load(U id)
 {
+    calls++;
     static const unsigned char *const data[3] = { mona_tiles_png, mona_players_png, mona_mobs_png };
     static const unsigned int *const len[3] = { &mona_tiles_png_len, &mona_players_png_len, &mona_mobs_png_len };
     if (id > 2) return 1;
@@ -146,26 +162,109 @@ U jg_sheet_load(U id)
 
 // Draw cell (col, row) of a sheet at game pixel (x, y), scaled by jg_scale.
 // flags bit 0 flips x, bit 1 flips y, both in place.
+static void draw_cell(U sheet, int col, int row, int x, int y, U flags)
+{
+    float cw = (float)cell_w[sheet];
+    Rectangle src = { (float)col * cw, (float)row * cw,
+                      (flags & 1) ? -cw : cw, (flags & 2) ? -cw : cw };
+    Rectangle dst = { (float)x * scale, (float)y * scale, cw * scale, cw * scale };
+    DrawTexturePro(sheets[sheet], src, dst, (Vector2){ 0, 0 }, 0.0f, WHITE);
+}
+
 U jg_sprite(U sheet, U col, U row, U x, U y, U flags)
 {
+    calls++;
     JG_STUB();
     if (sheet > 2) return 1;
-    float cw = (float)cell_w[sheet];
-    Rectangle src = { (float)(int)col * cw, (float)(int)row * cw,
-                      (flags & 1) ? -cw : cw, (flags & 2) ? -cw : cw };
-    Rectangle dst = { (float)(int)x * scale, (float)(int)y * scale, cw * scale, cw * scale };
-    DrawTexturePro(sheets[sheet], src, dst, (Vector2){ 0, 0 }, 0.0f, WHITE);
+    draw_cell(sheet, (int)col, (int)row, (int)x, (int)y, flags);
     return 0;
+}
+
+// --- tile layers ---
+// Two 15-row layers, column-major per row: index = ty * tile_width + tx. The
+// decor layer draws first, then the tile layer. Ids are cells of sheet 0 at
+// (id % 16, id / 16); 0 is empty and 11 is the flagpole, which the minimap
+// does not treat as solid.
+static unsigned char tile_layer[190 * 15], decor_layer[190 * 15];
+static int tile_width;
+
+U jg_tiles_load(U tiles_ptr, U decor_ptr, U width)
+{
+    calls++;
+    if (width > 190) return 1;
+    tile_width = (int)width;
+    memcpy(tile_layer, (const void *)tiles_ptr, (size_t)width * 15);
+    memcpy(decor_layer, (const void *)decor_ptr, (size_t)width * 15);
+    return 0;
+}
+
+U jg_tile_set(U index, U tile)
+{
+    calls++;
+    if ((int)index >= tile_width * 15) return 1;
+    tile_layer[(int)index] = (unsigned char)tile;
+    return 0;
+}
+
+U jg_tiles_draw(U cam_x)
+{
+    calls++;
+    JG_STUB();
+    int cx = (int)cam_x;
+    int first = (cx >= 0 ? cx / 8 : -((-cx + 7) / 8)) - 1;
+    int last = first + 22;
+    if (first < 0) first = 0;
+    if (last > tile_width - 1) last = tile_width - 1;
+    for (int ty = 0; ty < 15; ty++)
+        for (int tx = first; tx <= last; tx++) {
+            int i = ty * tile_width + tx;
+            int layers[2] = { decor_layer[i], tile_layer[i] };
+            for (int l = 0; l < 2; l++)
+                if (layers[l])
+                    draw_cell(0, layers[l] % 16, layers[l] / 16, tx * 8 - cx, ty * 8, 0);
+        }
+    return 0;
+}
+
+// The whole stage as a box in screen pixels: sky, then a rectangle per solid
+// cell (tile id non-zero and not 11).
+U jg_tiles_map(U x, U y, U w, U h, U solid, U sky)
+{
+    calls++;
+    JG_STUB();
+    int bx = (int)x, by = (int)y, bw = (int)w, bh = (int)h;
+    DrawRectangle(bx, by, bw, bh, rgba(sky));
+    if (tile_width == 0) return 0;
+    for (int ty = 0; ty < 15; ty++)
+        for (int tx = 0; tx < tile_width; tx++) {
+            int id = tile_layer[ty * tile_width + tx];
+            if (id == 0 || id == 11) continue;
+            int x0 = bx + tx * bw / tile_width, x1 = bx + (tx + 1) * bw / tile_width;
+            int y0 = by + ty * bh / 15, y1 = by + (ty + 1) * bh / 15;
+            DrawRectangle(x0, y0, x1 - x0 > 0 ? x1 - x0 : 1, y1 - y0 > 0 ? y1 - y0 : 1, rgba(solid));
+        }
+    return 0;
+}
+
+// Calls to counted jg_* functions since the last jg_calls (a function that
+// calls another counts both). Masked to stay a fixnum.
+U jg_calls(void)
+{
+    unsigned n = calls & 0x0FFFFFFF;
+    calls = 0;
+    return (U)n;
 }
 
 U jg_text(U s, U x, U y, U size, U c)
 {
+    calls++;
     JG_STUB();
     DrawText((const char *)s, (int)x, (int)y, (int)size, rgba(c));
     return 0;
 }
 U jg_text_width(U s, U size)
 {
+    calls++;
     JG_STUB();
     return (U)MeasureText((const char *)s, (int)size);
 }
@@ -173,11 +272,12 @@ U jg_text_width(U s, U size)
 // Wiimote channel ch. Each call probes the channel itself.
 U jg_connected(U ch)
 {
+    calls++;
     u32 t;
     return chan_ok(ch) && WPAD_Probe((int)ch, &t) == WPAD_ERR_NONE;
 }
-U jg_held(U ch) { return jg_connected(ch) ? (U)(WPAD_Data((int)ch)->btns_h & 0xFFFF) : 0; }
-U jg_ir_valid(U ch) { return jg_connected(ch) && WPAD_Data((int)ch)->ir.valid; }
+U jg_held(U ch) { calls++; return jg_connected(ch) ? (U)(WPAD_Data((int)ch)->btns_h & 0xFFFF) : 0; }
+U jg_ir_valid(U ch) { calls++; return jg_connected(ch) && WPAD_Data((int)ch)->ir.valid; }
 
 // An IR coordinate as the biased, fixnum-safe value Clojure gets (see JG_IR_BIAS).
 static U ir_biased(float v)
@@ -187,12 +287,13 @@ static U ir_biased(float v)
     if (n > 0x0FFFFFFF) n = 0x0FFFFFFF;
     return (U)n;
 }
-U jg_ir_x(U ch) { return jg_ir_valid(ch) ? ir_biased(WPAD_Data((int)ch)->ir.x) : 0; }
-U jg_ir_y(U ch) { return jg_ir_valid(ch) ? ir_biased(WPAD_Data((int)ch)->ir.y) : 0; }
+U jg_ir_x(U ch) { calls++; return jg_ir_valid(ch) ? ir_biased(WPAD_Data((int)ch)->ir.x) : 0; }
+U jg_ir_y(U ch) { calls++; return jg_ir_valid(ch) ? ir_biased(WPAD_Data((int)ch)->ir.y) : 0; }
 
 // Like wiimote_rumble in examples/common: only talk to WPAD on a change.
 U jg_rumble(U ch, U on)
 {
+    calls++;
     if (!chan_ok(ch) || rumbling[ch] == (on != 0)) return 0;
     WPAD_Rumble((int)ch, on != 0);
     rumbling[ch] = on != 0;
@@ -200,6 +301,7 @@ U jg_rumble(U ch, U on)
 }
 U jg_rumble_all_off(void)
 {
+    calls++;
     for (int c = 0; c < NCHAN; c++) { WPAD_Rumble(c, 0); rumbling[c] = false; }
     return 0;
 }
@@ -231,6 +333,7 @@ static void register_all(void)
     R(jg_gradient_v); R(jg_rect); R(jg_rect_rounded); R(jg_circle); R(jg_ellipse);
     R(jg_triangle); R(jg_line); R(jg_line_thick); R(jg_ring); R(jg_poly);
     R(jg_scale); R(jg_sheet_load); R(jg_sprite);
+    R(jg_tiles_load); R(jg_tile_set); R(jg_tiles_draw); R(jg_tiles_map); R(jg_calls);
     R(jg_text); R(jg_text_width);
     R(jg_connected); R(jg_held); R(jg_ir_valid); R(jg_ir_x); R(jg_ir_y);
     R(jg_rumble); R(jg_rumble_all_off);
