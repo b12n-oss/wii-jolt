@@ -67,3 +67,46 @@ The enemy update now works by index: an enemy's `:id` is its slot in `:enemies`,
 Against the first section's demo run: the busiest window (601-900) went from update 12.9 ms, work 18.2 ms and 53 dropped frames to update 9.2 ms, work 15.0 ms and 1 dropped. Window 901-1200 went from 11.8 / 16.5 ms and 34 dropped to 9.3 / 14.1 ms and 1 dropped. Calls per frame fell by 8 on the title (27 to 19) and by 8 in play (32 to 24, 33 to 25), which is the saved `connected?` reads (4 of the 8 per frame, read twice before) plus the `rumble!` calls (4 per frame, now only on a change). The windows do not line up one to one after 900, because the faster frames let the bot reach the flag earlier: stage 1-2 now starts in window 1501-1800 (before, in 1801-2100). Draw is unchanged at 4.5 to 5.8 ms. The `stall` lines (frame-us 846,680, 331,556 and 280,684) match the old worst frames: they are the frame before the printing one, the title and stage loads, and the printing frame's own work is 5.5, 13.2 and 15.7 ms. The stall at the 1-2 load is not an enemy cost.
 
 The bar (work median at most 12 ms, no frame's work over 16.7 ms after the first two seconds) is not met yet. Work medians from window 3 are 15.0, 14.1, 12.8, 11.9 and 11.0 ms, so three windows are above 12 ms. The work worst is 17.9, 18.1, 24.2, 17.9 and 280.6 ms, so every window has a frame over 16.7 ms. What moved: the update fell by about 3 ms (a quarter) where enemies are many, and the dropped frames nearly vanished, because the frames are now mostly inside the 20 ms budget. What did not: draw, the load stalls, and an update of 7 to 9 ms that remains while enemies are live.
+
+## The stalls and the collector (2026-11-05)
+
+The question: are the 280 to 850 ms stalls jolt's older-generation collections? Reproduce with the logging shim, which sets `JOLT_GC_LOG=1` at startup:
+
+```
+scripts/dkp make -C jolt-gfx EXTRA_CFLAGS=-DJG_GC_LOG
+bb gfx-pack && bb build:jolt-mona && bb run:jolt-mona
+grep -E 'gc:|jolt-mona: (stall|frames|mode|stage)|jolt_gfx: heap' .dolphin-auto/idle/Logs/dolphin.log
+```
+
+Rebuild without `EXTRA_CFLAGS` afterwards (`rm -rf jolt-gfx/build` first, since make does not see the flag change) to get the normal shim back. One 45 s demo run, Dolphin, MMU emulation on. The timestamps below are the log's `SS.mmm` within one minute.
+
+The run had three stalls. Each is listed with the nearest `gc:` line and with what the game was doing:
+
+| Stall logged at | Stall interval (ms) | Work of the next frame (ms) | Nearest gc line | gc ms | `full:` | What the game did |
+|---|---|---|---|---|---|---|
+| 12.911 | 846.7 | 5.5 | 13.559 (0.65 s after), 12.103 (0.81 s before) | 10, 6 | none | first frame of the title screen, 0.04 s after `mode title` |
+| 23.180 | 331.6 | 13.2 | 23.320 (0.14 s after) | 0 | none | `stage 1 1-1` and `mode demo` logged at 23.153/23.154 |
+| 46.218 | 280.7 | 15.6 | 46.407 (0.19 s after) | 0 | none | `stage 2 1-2 SERVER ROOM` logged at 46.193 |
+
+The first stall has no collection within 0.5 s. For the other two, the gc line comes after the stall, and it reports 0 ms. The stall line prints after the long frame ends, so the long frame began 0.28 to 0.33 s before its stall line, and the nearest collection in each case sits outside that span.
+
+Collections: 28 in the 45 s run, none of them full (no `full:` marker on any line), the longest 10 ms, the sum 29 ms. Every line reads `heap 36 or 37MB total 44MB peak 58MB live-after-full 36MB trip 2MB`, so the heap sits flat. On the title screen they are 3.4 to 3.5 s apart (17.104, 20.482), from 24.5 s on 1.0 to 1.5 s apart, and 2.2 s apart at 44.237 and 46.407 (`of 2217ms`, `of 2168ms`, around the stage 2 load). Per `frames` window (about 5.1 s each), the collections cost:
+
+| Window ends at (s) | Collections | Sum (ms) | Share of the window |
+|---|---|---|---|
+| 23.287 | 1 | 0 | 0.0% |
+| 28.366 | 5 | 0 | 0.0% |
+| 33.436 | 4 | 0 | 0.0% |
+| 38.556 | 5 | 9 | 0.18% |
+| 43.614 | 3 | 0 | 0.0% |
+| 48.929 | 4 | 0 | 0.0% |
+
+The title screen window (ends 17.922, started at `mode title`, 12.871) holds two collections, 10 and 4 ms, 14 ms of 5.05 s, 0.28%. The whole run: 29 ms of collection in 45 s.
+
+Conclusion: the stalls are not the collector. No full collection happened in the run, the collections that did happen took at most 10 ms, and none lies inside a stall. The two stalls in the demo coincide with a stage load (`stage 1 1-1` at 23.153, `stage 2 1-2` at 46.193), and the 846.7 ms stall is the first frame of the title screen, so they look like one-off work on first use or on a stage change (building the level, first sprite and tile uploads, first calls into code the runtime has not run yet). That is a reading of the timing, not something this run isolates. The hypothesis in the earlier sections (a periodic older-generation collection) is rejected. One caveat: the `ms` in the `gc:` line comes from jolt's own clock under Dolphin, so a collection that takes 0 ms there is a 0 ms collection on Dolphin's clock. The `of <elapsed>ms` figures agree with the log's wall time, which is why we trust it here.
+
+What this suggests for rung 0b, as options for the user and not decisions:
+
+- Static boot data, less per-frame allocation and a forced collection during the 2 s intro panel would all target the collector, which costs 29 ms in 45 s here. None of them would remove a stall of the size seen.
+- If the stalls matter, the next measurement is the stage load: time `build-stage` and the first draw of a stage with `jg_time_us` around them, and see whether doing that work during the intro panel (or spreading it over frames) removes the 280 to 330 ms. The 846.7 ms first frame wants the same split between runtime start-up and the first draw.
+- The recurring "every few seconds" in the earlier sections matches the three stalls in this run only as "once per stage load, plus the first frame". A longer run that crosses more stages would show whether more appear.

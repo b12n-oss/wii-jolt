@@ -170,9 +170,11 @@ pack would split the two.
 
 The spec's bar was a work median of 12 ms with no work frame over 16.7 ms. The
 scripted run passes the median and the demo misses it in four of its
-windows. Both fail the worst-frame limit, because every run shows a stall of
-280 to 340 ms every few seconds. We think it is the runtime's periodic
-collection of the older generation, but that is not confirmed.
+windows. Both fail the worst-frame limit, because every run shows stalls of
+280 to 850 ms. A run with jolt's collector log on (`scripts/dkp make -C jolt-gfx EXTRA_CFLAGS=-DJG_GC_LOG`)
+shows 28 collections in 45 s, none of them full, the longest 10 ms and 29 ms in
+total, so the stalls are not the collector. They fall on the first title frame
+and on the two stage loads (23.153 s and 46.193 s in that run).
 
 ### The fallback ladder
 
