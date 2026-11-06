@@ -200,13 +200,121 @@ static void volume_scales_the_sum(void)
     CHECK(peak_of(out, 0, 480) == 0);
 }
 
+// --- effects ------------------------------------------------------------------
+
+// fx_blip has a 5 ms attack so the steal test sees a measurable dip.
+static const snd_effect fx_table[3] = {
+    {SND_WAVE_PULSE, 2, 0, 5, 0, 1, {{880, 880, 50, 15}}},
+    {SND_WAVE_PULSE, 2, 1, 0, 20, 1, {{300, 900, 80, 15}}},
+    {SND_WAVE_NOISE, 0, 2, 0, 0, 2, {{2000, 2000, 30, 15}, {200, 200, 60, 10}}},
+};
+
+static void begin_fx(void)
+{
+    begin();
+    snd_tables(fx_table, 3, NULL, 0, NULL, 0);
+}
+
+static int sfx_of(uint32_t stats) { return (int)((stats >> 15) & 255); }
+
+static int crossings(int from, int to)
+{
+    int c = 0;
+    for (int i = from + 1; i < to; i++)
+        if ((out[2 * i] > 0) != (out[2 * (i - 1)] > 0)) c++;
+    return c;
+}
+
+static void effect_renders_and_ends(void)
+{
+    begin_fx();
+    snd_sfx(0);
+    render(1920);
+    CHECK(snd_sfx_active(0));
+    CHECK(peak_of(out, 0, 1920) > 1500);
+    render(3840);
+    CHECK(!snd_sfx_active(0));
+    render(480);
+    CHECK(peak_of(out, 0, 480) == 0);
+}
+
+static void sweep_rises(void)
+{
+    begin_fx();
+    snd_sfx(1);
+    render(3840);
+    CHECK(crossings(0, 960) < crossings(2880, 3840));
+}
+
+static void noise_effect_steps(void)
+{
+    begin_fx();
+    snd_sfx(2);
+    render(960);
+    CHECK(snd_sfx_active(2));
+    render(1920);
+    CHECK(snd_sfx_active(2));
+    render(4320);
+    CHECK(!snd_sfx_active(2));
+}
+
+static void trigger_steals_the_oldest_channel(void)
+{
+    begin_fx();
+    snd_sfx(0);
+    render(480);
+    snd_sfx(0);
+    CHECK(snd_sfx_active(0));
+    CHECK(snd_sfx_active(1));
+    render(480);
+    int steady = peak_of(out, 0, 480);
+    CHECK(steady > 1500);
+    snd_sfx(0);                  /* both busy: channel 0 is the oldest */
+    render(96);
+    CHECK(peak_of(out, 0, 96) < steady);
+    CHECK(snd_sfx_active(0));
+    CHECK(snd_sfx_active(1));
+    begin_fx();
+    snd_stats();
+    int finite = 1;
+    for (int i = 0; i < 16; i++) {
+        snd_sfx(i % 2);
+        render(800);
+        for (int k = 0; k < 800 * 2; k++)
+            if (out[k] > 32767 || out[k] < -32767) finite = 0;
+    }
+    CHECK(finite);
+    CHECK(sfx_of(snd_stats()) == 16);
+}
+
+static void out_of_range_effect_is_ignored(void)
+{
+    begin_fx();
+    snd_sfx(3);
+    snd_sfx(-1);
+    for (int c = 0; c < 3; c++) CHECK(!snd_sfx_active(c));
+    CHECK(sfx_of(snd_stats()) == 0);
+}
+
+static void calls_before_tables_are_noops(void)
+{
+    begin();
+    snd_sfx(0);
+    for (int c = 0; c < 3; c++) CHECK(!snd_sfx_active(c));
+    render(480);
+    CHECK(peak_of(out, 0, 480) == 0);
+    CHECK(snd_stats() == 0);
+}
+
 int main(void)
 {
     void (*tests[])(void) = {
         note_table_is_tuned, pulse_voice_renders_a_square, duty_changes_the_high_fraction,
         triangle_has_sixteen_levels, noise_is_not_periodic_short_term,
         envelope_attacks_decays_sustains_releases, mix_of_all_voices_does_not_wrap,
-        volume_scales_the_sum,
+        volume_scales_the_sum, effect_renders_and_ends, sweep_rises, noise_effect_steps,
+        trigger_steals_the_oldest_channel, out_of_range_effect_is_ignored,
+        calls_before_tables_are_noops,
     };
     int n = (int)(sizeof tests / sizeof tests[0]);
     for (int i = 0; i < n; i++) {

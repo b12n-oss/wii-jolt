@@ -3,6 +3,7 @@
 
 // --- core -------------------------------------------------------------------
 #include <math.h>
+#include <stddef.h>
 
 uint32_t snd_note_inc[128];
 
@@ -29,6 +30,12 @@ static int music_vol = 255;
 static int sfx_vol = 255;
 static int32_t test_left;      // samples left of the test tone, 0 when none
 
+// Effect channels 0..2 drive voices 4..6.
+static struct { const snd_effect *fx; int step; int32_t left; uint32_t age; } chans[3];
+static uint32_t age_counter;
+static const snd_effect *fx_tab;
+static int fx_n;
+
 static volatile int32_t peak;
 static volatile uint32_t sfx_count;
 static volatile uint32_t cb_count;
@@ -45,6 +52,15 @@ void snd_init(void)
     music_vol = 255;
     sfx_vol = 255;
     test_left = 0;
+    for (int c = 0; c < 3; c++) {
+        chans[c].fx = NULL;
+        chans[c].step = 0;
+        chans[c].left = 0;
+        chans[c].age = 0;
+    }
+    age_counter = 0;
+    fx_tab = NULL;
+    fx_n = 0;
     peak = 0;
     sfx_count = 0;
     cb_count = 0;
@@ -208,11 +224,96 @@ static int32_t voice_tick(struct voice *p)
     return s;
 }
 
+// --- effects ----------------------------------------------------------------
+// An effect is a voice instrument built at trigger time (attack_ms, no decay,
+// sustain at full envelope, release_ms) whose volume field carries the current
+// step's vol, so a step change is a plain vol write and vol 0 is a silent gap.
+
+static uint32_t hz_to_inc(int hz)
+{
+    if (hz < 20) hz = 20;
+    if (hz > 20000) hz = 20000;
+    return (uint32_t)(((uint64_t)hz << 32) / SND_RATE);
+}
+
+void snd_tables(const snd_effect *fx, int nfx, const snd_instrument *inst, int ninst, const void *songs, int nsongs)
+{
+    (void)inst; (void)ninst; (void)songs; (void)nsongs;
+    fx_tab = fx;
+    fx_n = fx ? nfx : 0;
+}
+
+// Start step k of channel c; the voice is already on.
+static void chan_step(int c, int k)
+{
+    const snd_step *st = &chans[c].fx->steps[k];
+    struct voice *p = &voices[4 + c];
+    p->vol = st->vol > 15 ? 15 : st->vol;
+    p->inc = hz_to_inc(st->f0);
+    p->target_inc = p->inc;
+    p->slide_left = 0;
+    if (st->f1 != st->f0) snd_voice_slide(4 + c, hz_to_inc(st->f1), st->ms);
+    chans[c].step = k;
+    chans[c].left = (int32_t)((int64_t)st->ms * SND_RATE / 1000);
+}
+
+static int nsteps_of(const snd_effect *fx)
+{
+    return fx->nsteps > SND_STEPS ? SND_STEPS : fx->nsteps;
+}
+
+void snd_sfx(int id)
+{
+    if (!fx_tab || id < 0 || id >= fx_n) return;
+    const snd_effect *fx = &fx_tab[id];
+    if (nsteps_of(fx) < 1) return;
+    int c;
+    if (fx->wave == SND_WAVE_NOISE) {
+        c = 2;
+    } else {
+        int pref = fx->chan == 1 ? 1 : 0;
+        if (!snd_voice_active(4 + pref)) c = pref;
+        else if (!snd_voice_active(4 + (1 - pref))) c = 1 - pref;
+        else c = chans[0].age <= chans[1].age ? 0 : 1;
+    }
+    snd_instrument inst = {fx->wave, fx->duty, fx->attack_ms, 0, 15, 15, fx->release_ms};
+    voices[4 + c].phase = 0;      // a trigger restarts the voice, a stolen one included
+    voices[4 + c].env = 0;
+    snd_voice_on(4 + c, &inst, hz_to_inc(fx->steps[0].f0));
+    chans[c].fx = fx;
+    chans[c].age = ++age_counter;
+    chan_step(c, 0);
+    if (sfx_count < 255) sfx_count++;
+}
+
+int snd_sfx_active(int chan)
+{
+    return chan >= 0 && chan < 3 && snd_voice_active(4 + chan);
+}
+
+// Once per frame, before the voices render it: count the step down and advance.
+static void chans_tick(void)
+{
+    for (int c = 0; c < 3; c++) {
+        if (!chans[c].fx) continue;
+        if (--chans[c].left > 0) continue;
+        int k = chans[c].step + 1;
+        while (k < nsteps_of(chans[c].fx) && chans[c].fx->steps[k].ms == 0) k++;
+        if (k < nsteps_of(chans[c].fx)) {
+            chan_step(c, k);
+        } else {
+            snd_voice_off(4 + c);
+            chans[c].fx = NULL;
+        }
+    }
+}
+
 void snd_render(int16_t *out, int frames)
 {
     int32_t pk = 0;
     for (int i = 0; i < frames; i++) {
         int32_t music = 0, sfx = 0;
+        chans_tick();
         for (int v = 0; v < 4; v++) music += voice_tick(&voices[v]);
         for (int v = 4; v < SND_VOICES; v++) sfx += voice_tick(&voices[v]);
         if (test_left > 0 && --test_left == 0) snd_voice_off(4);

@@ -29,7 +29,7 @@ typedef struct { uint8_t wave, duty, a_ms, d_ms, s_vol, vol; uint16_t r_ms; } sn
 
 // Phase increment per sample for MIDI notes 0..127, built by snd_init and
 // rounded to nearest. The 20..20000 Hz clamp applies to runtime Hz inputs only;
-// the note table is exempt (notes 0..18 are below 20 Hz).
+// the note table is exempt (notes 0..15 are below 20 Hz).
 extern uint32_t snd_note_inc[128];
 
 // Voice API. Callers clamp a frequency in Hz to 20..20000 before turning it
@@ -40,6 +40,16 @@ void snd_voice_slide(int v, uint32_t target_inc, int ms);             // linear 
 int snd_voice_active(int v);                                          // 1 until the release has ended
 // Music (voices 0..3) and effects (4..6) levels, 0..255 each, default 255.
 void snd_volume(int music, int sfx);
+
+// Effects: recipes of frequency slides on voices 4, 5 (pulse) and 6 (noise).
+#define SND_STEPS 6
+typedef struct { uint16_t f0, f1, ms; uint8_t vol; } snd_step;   // slide f0 -> f1 Hz over ms at volume 0..15 (0 = a gap)
+typedef struct { uint8_t wave, duty, chan, attack_ms, release_ms, nsteps; snd_step steps[SND_STEPS]; } snd_effect;
+// chan: the preferred effect channel, 0 or 1 for a pulse effect, 2 for noise.
+// The tables are borrowed, not copied; snd_init clears them. songs is typed in P1.T4.
+void snd_tables(const snd_effect *fx, int nfx, const snd_instrument *inst, int ninst, const void *songs, int nsongs);
+void snd_sfx(int id);              // trigger; out-of-range ids are ignored
+int snd_sfx_active(int chan);      // 1 while effect channel chan (0..2) plays, release included
 
 // Core.
 void snd_init(void);
