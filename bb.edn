@@ -372,6 +372,9 @@
           (sh! "cc" "-std=c99" "-Wall" "-Wextra" "-Werror" "-Iexamples/common" "examples/common/settings.c"
                "examples/common/test/test_settings.c" "-lm" "-o" (str repo-root "/.work/test_settings"))
           (sh! (str repo-root "/.work/test_settings") (str repo-root "/.work/test_settings.tmp"))
+          (sh! "cc" "-std=c99" "-Wall" "-Wextra" "-Werror" "-Ijolt-gfx" "jolt-gfx/jolt_snd.c"
+               "jolt-gfx/test/snd_test.c" "-lm" "-o" (str repo-root "/.work/snd_test"))
+          (sh! (str repo-root "/.work/snd_test"))
           (doseq [[nm _ _ _ lang] games :when (= lang :c)]
            (let [bin (str repo-root "/.work/test_" nm)]
              (fs/create-dirs (str repo-root "/.work"))
