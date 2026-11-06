@@ -13,9 +13,34 @@
 (def playing
   (reduce (fn [a _] (app/tick a no-input dt)) (app/tick (app/init 0) start dt) (range 70)))
 
+(def rule-events
+  "Every event the rules emit. Must match
+   `grep -o 'add-event [^)]*' jolt-mona/src/mona/rules.clj` plus :star from add-star."
+  [:jump :stomp :kick :bump :break :die :defeat :flag :pickup :item :grow :shrink :1up :sparkle :stored :switch :star])
+
 (deftest every-rule-event-has-an-effect
-  (is (= (range 16) (sound/sfx-for (map (fn [k] (str "event " (name k) " mode=play")) music/effect-ids))))
+  (is (= 17 (count rule-events)))
+  (doseq [k rule-events]
+    (is (some? (music/effect-id k)) (str k " has no effect id"))
+    (is (= [(music/effect-id k)] (sound/sfx-for [(str "event " (name k) " mode=play")])) (str k " is dropped by sfx-for")))
   (is (= [] (sound/sfx-for ["mode play" "stage 1 1-1 HELLO WORLD" "event nope mode=play"]))))
+
+(def world-states
+  "The states update-world in rules.clj has a case for."
+  [:play :dying :dead :flag :castle :tally :clear])
+
+(deftest every-world-state-has-its-cue
+  (let [cue (fn [st] (sound/music-for (assoc-in playing [:world :state] st)))
+        expected {:play {:song (music/song-id :day) :loop? true}
+                  :dying {:song (music/song-id :die) :loop? false}
+                  :flag {:song (music/song-id :clear) :loop? false}
+                  :castle {:song (music/song-id :clear) :loop? false}
+                  :tally {:song (music/song-id :clear) :loop? false}
+                  :dead nil
+                  :clear nil}]
+    (is (= (set world-states) (set (keys expected))))
+    (doseq [st world-states]
+      (is (= (get expected st) (cue st)) (str "world state " st)))))
 
 (deftest title-plays-the-title-tune-once
   (let [a (app/init 0)]

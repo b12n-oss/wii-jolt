@@ -44,7 +44,7 @@
   (case (:state world)
     :play (song (:theme (:level world)) true)
     :dying (song :die false)
-    (:flag :tally) (song :clear false)
+    (:flag :castle :tally) (song :clear false)
     nil))
 
 (defn music-for

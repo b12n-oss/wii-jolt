@@ -37,7 +37,7 @@
    {:wave :pulse :duty 1 :chan 1 :attack 0 :release 60
     :steps [[1200 300 600 12]]}                                 ; :flag, the slide down the pole
    {:wave :pulse :duty 2 :chan 0 :attack 0 :release 30
-    :steps [[1047 1047 40 12] [1568 1568 110 11]]}              ; :pickup, C6 up a fifth
+    :steps [[1047 1047 40 12]]}                                 ; :pickup, a short single-step grab
    {:wave :pulse :duty 1 :chan 0 :attack 0 :release 30
     :steps [[330 330 40 12] [440 440 40 12] [554 554 40 12]
             [659 659 40 12] [880 880 80 11]]}                   ; :item, an A major rise
@@ -55,7 +55,9 @@
    {:wave :pulse :duty 1 :chan 1 :attack 0 :release 20
     :steps [[1319 1319 40 12] [1047 1047 60 11]]}               ; :stored
    {:wave :pulse :duty 2 :chan 1 :attack 0 :release 15
-    :steps [[3000 2000 30 12]]}])                               ; :switch, a 30 ms click
+    :steps [[3000 2000 30 12]]}                                 ; :switch, a 30 ms click
+   {:wave :pulse :duty 2 :chan 0 :attack 0 :release 30
+    :steps [[1047 1047 50 13] [1568 1568 50 13]]}])             ; :star, C6 then G6, coin-like
 
 (def instruments
   "Melodic instruments by keyword. :a, :d and :r are milliseconds; :s is the

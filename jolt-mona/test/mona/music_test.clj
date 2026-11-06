@@ -25,7 +25,7 @@
 
 (deftest the-data-validates
   (is (nil? (music/validate)))
-  (is (= 16 (count music/effects)))
+  (is (= 17 (count music/effects)))
   (is (= (count music/effect-ids) (count music/effects)))
   (is (every? (set (keys music/songs)) [:title])))
 
@@ -37,7 +37,7 @@
     (doseq [[i k] (map-indexed vector music/song-ids)]
       (is (str/includes? h (str "#define SONG_" (str/upper-case (name k)) " " i))))
     (is (str/includes? h "static const snd_song mona_songs[MONA_SONGS]"))
-    (is (str/includes? h "#define MONA_EFFECTS 16"))
+    (is (str/includes? h "#define MONA_EFFECTS 17"))
     (is (str/includes? h "#define MONA_SONGS 10"))))
 
 (deftest header-is-stable

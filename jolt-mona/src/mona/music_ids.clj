@@ -7,7 +7,7 @@
   "The rule events that have a sound effect, in the order the C tables use.
    :die has an effect entry that is silent, because the die jingle is music."
   [:jump :stomp :kick :bump :break :die :defeat :flag :pickup :item :grow
-   :shrink :1up :sparkle :stored :switch])
+   :shrink :1up :sparkle :stored :switch :star])
 
 (def song-ids
   "Every song id, in the order the C tables use."
