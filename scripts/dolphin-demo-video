@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# Record a Dolphin run of a .dol as an MP4 with the game's own audio.
+# Dolphin dumps every rendered frame as a PNG (this build has no video
+# encoder) and the DSP's output as a WAV; ffmpeg joins them. The frames start
+# at the first rendered frame and the audio when the game's mixer starts, and
+# both stop when Dolphin is killed, so the two are aligned from their ends.
+# Usage: scripts/dolphin-demo-video path/to/app.dol out.mp4 [seconds]
+# Env: DOLPHIN_USER (a dolphin-auto-wiimote profile dir, default idle),
+#      DOLPHIN_EXTRA (more -C flags, e.g. the emulated SD card options).
+set -euo pipefail
+ROOT="$(cd "$(dirname "$0")/.." && pwd)"
+DOL="$1"; OUT="$2"; SECS="${3:-60}"
+USERDIR="${DOLPHIN_USER:-$("$ROOT/scripts/dolphin-auto-wiimote" idle)}"
+FRAMES="$USERDIR/Dump/Frames"; AUDIO="$USERDIR/Dump/Audio"
+rm -rf "$FRAMES" "$AUDIO"
+DOLPHIN_USER="$USERDIR" \
+DOLPHIN_EXTRA="-C Dolphin.Movie.DumpFrames=True -C Dolphin.Movie.DumpFramesSilent=True -C Dolphin.DSP.DumpAudio=True ${DOLPHIN_EXTRA:-}" \
+  "$ROOT/scripts/dolphin-shot" "$DOL" "$USERDIR/demo-video-last.png" "$SECS" >"$USERDIR/demo-video.log" 2>&1 || true
+n=$(ls "$FRAMES"/framedump_*.png 2>/dev/null | wc -l | tr -d ' ')
+[ "$n" -gt 0 ] || { echo "no frames dumped (see $USERDIR/demo-video.log)" >&2; exit 1; }
+# The 48 kHz voice lands in dspdump1.wav; the 32 kHz mixer file is silent.
+wav=$(ls "$AUDIO"/*dspdump1.wav 2>/dev/null | head -1)
+[ -n "$wav" ] || wav=$(ls "$AUDIO"/*dspdump.wav 2>/dev/null | head -1)
+[ -n "$wav" ] || { echo "no audio dumped" >&2; exit 1; }
+adur=$(ffprobe -v error -show_entries format=duration -of csv=p=0 "$wav")
+# Dolphin numbers the frames from 1 at 60 a second; the audio began earlier
+# than the first frame by (audio length - frames / 60).
+offset=$(python3 -c "print(max(0.0, $adur - $n / 60.0))")
+mkdir -p "$(dirname "$OUT")"
+ffmpeg -v error -y -itsoffset "$offset" -framerate 60 -i "$FRAMES/framedump_%d.png" -i "$wav" \
+  -map 0:v -map 1:a -vf "scale=640:480,setsar=1" -c:v libx264 -preset slow -crf 24 -pix_fmt yuv420p \
+  -c:a aac -b:a 160k -shortest -movflags +faststart "$OUT"
+echo "wrote $OUT: $n frames, audio ${adur}s, video offset ${offset}s"

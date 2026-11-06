@@ -333,6 +333,7 @@
      (row "doctor" "check Docker, the devkitPPC image, Dolphin, jolt, Chez")
      (row "test" "host-side unit tests: every game's rules, on the Mac")
      (row "run:jolt-mona-audio" "Super Mona in Dolphin with the audio dumped to a WAV for listening")
+     (row "demo:jolt-mona-video" "record Super Mona's demo in Dolphin as docs/demos/super-mona-sound.mp4 with its audio")
      (row "run:jolt-mona-mute" "press - on Super Mona's title: sound off, mona_sound=0 saved to the card")
      (row "verify" "build everything, boot each app in Dolphin (MMU on), check output")
      (hdr "Build")
@@ -738,6 +739,16 @@
   run:jolt-balloons
   {:doc "Boot Balloon Pop in Clojure in Dolphin, wait for the robot demo, print its events"
    :task (print-game-run "jolt-balloons" (run-in-dolphin "jolt-balloons" (demo-secs "jolt-balloons")))}
+
+  demo:jolt-mona-video
+  {:doc "Record Super Mona's demo (title tune, then stage 1-1 with music) as docs/demos/super-mona-sound.mp4, stamp hidden"
+   :depends [build:jolt-mona]
+   :task (let [sd (str repo-root "/.work/sd-demo")
+               app (str sd "/apps/jolt-mona")]
+           (fs/create-dirs app)
+           (spit (str app "/settings.txt") "debug_hud=0\n")
+           (sh! "env" (str "DOLPHIN_EXTRA=" (str/join " " (sd-sync-opts sd)))
+                "scripts/dolphin-demo-video" "jolt-mona/build/jolt-mona.dol" "docs/demos/super-mona-sound.mp4" "75"))}
 
   run:jolt-stress
   {:doc "Boot the Clojure drawing stress test in Dolphin and print its timing lines"
