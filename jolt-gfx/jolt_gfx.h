@@ -21,7 +21,8 @@
 // Buttons are btns_h & 0xFFFF, times are masked with 0x0FFFFFFF.
 //
 // Every prototype below is registered by register_all in jolt_gfx.c, and
-// nothing else is.
+// nothing else is. The sound exports (jolt_snd.h) are registered the same way
+// by jg_snd_register in jolt_snd.c.
 #ifndef JOLT_GFX_H
 #define JOLT_GFX_H
 #include <stdint.h>

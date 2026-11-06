@@ -125,6 +125,157 @@ no framebuffer objects, so that image does not exist here. The shim draws a
 badge's vector fonts became raylib's default font. The stages, the physics, the
 enemies, the items and the pause pages are the badge's.
 
+## Sound
+
+Super Mona has chip-style sound: seventeen effects and ten original tunes,
+synthesised in the C shim and played through libogc's AESND. The badge has no
+sound to port, so all of it is new. The recording is
+[a one-minute Dolphin capture with its audio](../demos/super-mona-sound.mp4),
+made by `bb demo:jolt-mona-video`, which writes `docs/demos/super-mona-sound.mp4`
+with the debug stamp hidden. Nothing here has run on the real console yet, so
+every claim below is Dolphin's.
+
+### The synthesiser
+
+`jolt-gfx/jolt_snd.c` has seven voices: two pulse and a triangle and a noise
+voice for the music, then two pulse voices and a noise voice for effects. Each
+voice has an ADSR envelope, and an effect is a short list of frequency slides.
+One AESND stream voice at 48 kHz carries the mix. Its callback renders a fixed
+288 frames per call from the audio interrupt, using integer maths on static
+state only: no allocation, no floats, no calls into Chez.
+
+A four-track sequencer plays the tunes (pulse 1, pulse 2, triangle, and drums
+on the noise voice). It can loop, pause on a row, and change tempo from the
+next row. The core is plain C99, so `bb test` builds and checks it with a host
+`cc`. The Wii glue sits behind `__wii__`, and `jg_snd_register` in
+`jolt_snd.c` registers its exports the same way `register_all` registers the
+graphics ones.
+
+### The note language
+
+The tunes are data in `jolt-mona/src/mona/music.clj`. Each pattern is two bars
+of 4/4 on 32 rows, and a track is a string of notes, each with an optional `:` and
+row count: `g4:2` is G in octave 4 held for two rows, `-` is a rest and a bare
+note is one row. Drums are `k`, `s` and `h`. This is the first pattern of the
+title tune:
+
+```clojure
+(pat [:brass "d4:2 g4:2 d5:4 b4:2 d5:2 g5:4 f#5:3 e5 d5:4 b4:2 e5:2 d5:4"]
+     [:harm "b3:8 d4:8 c4:8 a3:4 f#3:4"]
+     [:bass "g2:2 -:2 g2:2 d2:2 g2:2 -:2 g2:2 d2:2 d2:2 -:2 d2:2 a2:2 d2:2 -:2 d2:2 f#2:2"]
+     "k - - - s - h - k - k - s - h h k - - - s - h - k - k - s - h h")
+```
+
+A song names its patterns in `:order`, a tempo in rows per minute and the
+order index to loop back to. The ten songs are `title`, `day`, `dusk`, `cloud`,
+`cave`, `castle`, `clear`, `die`, `over` and `win`.
+
+### From note data to C
+
+`scripts/music-to-c` reads `mona.music` and writes `jolt-gfx/mona_music.h`, the
+tables the shim links. The header is committed. A `bb test` gate regenerates
+it and fails when the committed copy is stale, so editing a tune means running
+`scripts/music-to-c` and committing both files. The Makefile makes
+`jolt_snd.o` depend on the header, so a changed tune rebuilds the shim.
+
+### When things play
+
+`mona.sound` holds the cue rules as pure functions of the app map, and
+`mona.main` sends the result to the shim each frame.
+
+- **Title:** the title tune loops. **Intro:** silent. **Over:** the game-over
+  tune plays once. **Win:** the win tune loops.
+- **Play, pause and demo:** the stage theme's tune loops (`day`, `dusk`,
+  `cloud`, `cave` or `castle`). Pause holds the row and releases the voices,
+  and resuming picks up at the same row.
+- **Hurry-up:** when `time-left` drops under 100 the tempo goes to 125 percent.
+- **Death:** the `die` jingle plays once on the die event, and effects stay
+  silent while the hero is dying so the jingle owns the sound.
+- **Clear:** the `clear` fanfare starts at the flag and keeps going through the
+  castle walk and the tally, because the world has a `:castle` state between
+  the flag and the tally.
+- **Effects:** one per rule event that has a recipe. There are seventeen,
+  including `star`, which the first design table missed. The `die` effect is a
+  silent step, since the jingle is music.
+
+### The mute toggle
+
+`-` on the title turns the sound off and on, and the title shows `SOUND OFF`
+while it is off. The choice is saved as `mona_sound` in `settings.txt`
+(`mona_sound=0` is off) and survives a reboot. Muting sets both volumes to 0,
+so the synthesiser keeps running and the stats stay comparable.
+
+### The log
+
+The loop prints `sound init=<0|1>` at boot, `sound on` or `sound off` when the
+setting is applied, and `music <song|none>` whenever the tune changes. The
+300-frame `frames` line gains four fields:
+
+| Field | Meaning |
+|---|---|
+| `snd-peak` | the largest sample rendered since the last summary |
+| `sfx` | effects triggered, saturating at 255 |
+| `snd-cb` | stream callbacks run, saturating at 63 |
+| `snd-music` | the largest sum of the four music voices, effects excluded |
+
+### Listening
+
+`bb run:jolt-mona-audio` boots the game in Dolphin with
+`-C Dolphin.DSP.DumpAudio=True`, picks the loudest dump and prints its path and
+peak. The 48 kHz voice is `dspdump1.wav` under the profile's `Dump/Audio`
+(`.dolphin-auto/idle/Dump/Audio`). The plain `dspdump.wav` is Dolphin's silent
+32 kHz mixer. `-C Dolphin.Movie.DumpFrames=True` dumps PNG frames, which
+`bb demo:jolt-mona-video` joins with the audio, because this Dolphin build has
+no video encoder of its own. `bb run:jolt-mona-mute` presses `-` on the title
+and prints whether the game muted and saved.
+
+### What `bb verify` checks without a listener
+
+`bb verify` can't hear anything, so it reads the shim's stats. Three gates
+cover sound, and 18 checks pass with them:
+
+- **`jolt-mona-sound`:** in the demo run, `snd-music` is above 3000 in some
+  window (music rendered) and `sfx` above 0 (effects triggered).
+- **`jolt-mona-sound-wiimote`:** the same two conditions in the scripted-remote
+  run, so the rules' events reach the shim from real input.
+- **`jolt-mona-mute`:** a run with `-` pressed on the title logs `sound off`
+  and saves `mona_sound=0`, and a second boot reads it back and starts muted.
+
+A passing gate proves that samples were rendered, not that they sound good.
+The tunes and effects are tuned from the numbers and need an ear on the
+console.
+
+### The numbers
+
+Measured on this branch in Dolphin, single runs (`jolt-mona/MEASUREMENTS.md`
+has the setup).
+
+| Window | 601-900 | 901-1200 | 1201-1500 | 1501-1800 | 1801-2100 |
+|---|---|---|---|---|---|
+| Work median before sound (ms) | 15.0 | 14.0 | 12.8 | 11.8 | 10.9 |
+| Work median with sound (ms) | 14.8 | 14.8 | 13.2 | 12.2 | 11.3 |
+
+Sound cost between minus 0.2 and plus 0.8 ms a frame in the demo, within the
+run-to-run spread of a few tenths. Stage music renders at an `snd-music` of
+7304 to 7578 per window. The shim's static footprint is 3,344 bytes of data
+plus bss, and the audio dump's loudest peak was 7718 of 32767.
+
+The .dol grew from 11,872,224 to 12,040,896 bytes with sound. That is the
+heap's margin: requiring all of `mona.music` on the Wii path made it
+12,259,456 bytes and the boot died with "out of memory" before the first line.
+So `mona.music` (the note parser and the data) is host-only, and the Wii build
+may require only `mona.music-ids`. The margin is under about 240 KB of .dol and
+its lower bound is unknown. The shim's `jolt_gfx:` heap line can't show the
+headroom: its "fallback ... free 0 + 0" means the fallback heaps were not
+built, not that they are empty. A console boot is the real test.
+
+### A deviation from the design
+
+The design promised a per-call render under a budget counted in rendered
+frames, and no test checks that. It holds by structure, since each callback
+renders a fixed 288 frames, but it is a property of the code and not of a
+test.
+
 ## The tests
 
 `bb test` runs four namespaces for the game, all on the Mac under

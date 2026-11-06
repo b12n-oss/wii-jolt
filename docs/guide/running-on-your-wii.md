@@ -101,6 +101,20 @@ id, the heap report, a line every 300 frames and one at exit, each flushed to
 the card as it is written, so a crash keeps the last line. Nothing is written
 when there is no card to write to.
 
+**Several keys in settings.txt.** The shared settings writer keeps the keys it
+does not touch, so `debug_hud=0` and `mona_sound=0` can sit beside the high
+score (`mona_high`) in one file.
+
+**Clean captures.** For talk screenshots in Dolphin, write `debug_hud=0` into
+`.work/sd-mona/apps/jolt-mona/settings.txt` before `bb run:jolt-mona`, and the
+stamp stays off the picture. `bb demo:jolt-mona-video` does the same on its
+own card folder.
+
+**Sound evidence.** The 300-frame line in `run.log` does not carry the sound
+stats yet (`snd-peak`, `sfx`, `snd-cb`, `snd-music` appear only in the console
+output Dolphin shows), so a console run's evidence for sound is the ear until
+that is added.
+
 **Checking the card.** The card should carry the same files as `build/sd/apps`:
 
 ```sh

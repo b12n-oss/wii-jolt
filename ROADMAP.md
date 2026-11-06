@@ -120,8 +120,25 @@ the numbers.
   path are the unknowns. Also still open: keep the link-time glue, or teach
   `jolt build --target` about `:jolt/native` static archives.
 - **The next game** built with the kids: their ideas, their drawings.
-- **Sound.** raylib's `raudio` is left out today. Try miniaudio against libogc,
-  or use libogc's own ASND/AESND.
+- ~~**Sound.**~~ Done for Super Mona, 2026-11-07: a chip synthesiser in the
+  shim on libogc's AESND (seven voices, an effect player, a four-track
+  sequencer), seventeen effects and ten original tunes written as note data in
+  `jolt-mona/src/mona/music.clj`, cues from the app's state, and a `-` mute on
+  the title saved as `mona_sound`. `bb verify` checks it in Dolphin through the
+  shim's stats (three new gates). Dolphin only; see
+  [Super Mona in jolt](docs/guide/super-mona-in-jolt.md#sound).
+- **Sound for Balloon Pop (Clojure).** The user's next arc: recipes for pop,
+  miss and the round, cues from its events and a round tune, all on the same
+  synthesiser. After that the C games, through the C core without the shim.
+- **The first console run of the sound.** Nothing on the sound branch has run
+  on the real Wii. It must check: the `jolt_gfx:` heap line in `run.log` with
+  sound in (a console boot is the real heap test, since the .dol is within
+  about 240 KB of the size that ran out of heap); music audible through the
+  title, a stage, pause and resume, a death, and a full stage clear through the
+  castle walk and the tally; the star sound; that `-` mutes and the mute
+  survives a reboot; that HOME returns to the Homebrew Channel cleanly (the
+  AESND voice is never stopped at exit, so watch for a hang or a buzz); and no
+  new hitches with audio running.
 
 ## Upstream, when you say so
 
