@@ -3,8 +3,9 @@
 Balloon Pop is also written in Clojure, on jolt, and runs on the Wii through
 the same pipeline as `jolt-hello`. The game plays. It also misses the 60 fps
 budget on most frames, and this page records why, with numbers. Every number
-here comes from Dolphin 2609a with MMU emulation on. No jolt build has run on
-a physical console yet, so treat them as Dolphin's, not the Wii's.
+here comes from Dolphin 2609a with MMU emulation on. The game has since been
+played on the family Wii (2026-11-06), but nothing was measured there, so treat
+the numbers as Dolphin's, not the Wii's.
 
 | Title | Play (robot demo) | Results |
 |---|---|---|

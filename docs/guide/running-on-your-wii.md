@@ -1,13 +1,15 @@
 # Running on your Wii
 
-**Status: one console run so far (2026-11-06).** The C games boot from the
-Homebrew Channel and draw on the TV. The jolt builds died at boot with an
-alignment exception, the console's 750 trapping a double load at an odd
-address that Dolphin had always accepted (see [Chez Scheme on the
-Wii](chez-scheme-on-the-wii.md), the kernel patch); the fix is in, and the
-next card is its test. Everything else below is still only proven in Dolphin
-with MMU emulation on, so treat each first run on the console as a test and
-keep an eye on it.
+**Status: two console runs (2026-11-06).** The C games boot from the Homebrew
+Channel and draw on the TV. On the first card the jolt builds died at boot
+with an alignment exception, the console's 750 trapping a double load at an
+odd address that Dolphin had always accepted (see [Chez Scheme on the
+Wii](chez-scheme-on-the-wii.md), the kernel patch). On the second card, with
+the fix, jolt-hello printed all twelve lines and `pb: unaligned double loads 4
+stores 0`, the same count Dolphin reports, and Balloon Pop (Clojure) and Super
+Mona were played with a real Wiimote. The `chez` app, the couch settings and
+the questions at the end of this page are still unreported, so treat each
+first run of anything else as a test and keep an eye on it.
 
 ## The Homebrew Channel
 

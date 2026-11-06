@@ -71,7 +71,14 @@ the numbers.
 
 ## Next: the real console
 
-1. Copy `bb sd`'s output to an SD card and run every app on the family Wii.
+1. ~~Copy `bb sd`'s output to an SD card and run every app on the family Wii.~~
+   Done 2026-11-06, in two rounds. The first card ran the C games and Hello
+   raylib and stopped every jolt build at boot with an alignment exception
+   (the kernel patch fixed it, see the guide). The second card ran
+   jolt-hello (all twelve lines on the TV, `pb: unaligned double loads 4
+   stores 0`, the same count as Dolphin), Balloon Pop (Clojure) and Super Mona,
+   both played with a real Wiimote. `chez` and the couch settings are still
+   unreported.
 2. Play a round of Balloon Pop with real Wiimotes: does every remote get its own
    pointer, do A and B pop, does the rumble fire, and is aiming comfortable from
    the couch?

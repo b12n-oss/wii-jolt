@@ -17,11 +17,13 @@ portable bytecode running on the Wii's PowerPC, and a Clojure program compiled b
 jolt whose output matches the Mac build line for line. All three are Dolphin
 screenshots.*
 
-**On the real Wii:** the C games now boot from the Homebrew Channel on our
-family Wii and play on the TV. The jolt builds don't yet. On the first console
-run every one of them stopped at boot with an alignment exception, because the
-Wii's CPU traps a misaligned double load that Dolphin lets through. The fix is
-committed and waits on the next SD card. [Running on your
+**On the real Wii:** the C games and the jolt builds all run from the Homebrew
+Channel on our family Wii (2026-11-06). Clojure's hello program printed its
+twelve lines on the TV, and Balloon Pop (Clojure) and Super Mona were played
+with a real Wiimote. The first console run had stopped every jolt build at
+boot with an alignment exception, because the Wii's CPU traps a misaligned
+double load that Dolphin lets through; the kernel fix went on the next card
+and the console counted the same four unaligned reads Dolphin does. [Running on your
 Wii](docs/guide/running-on-your-wii.md) has the details.
 
 ## Games
