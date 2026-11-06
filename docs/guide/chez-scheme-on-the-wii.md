@@ -133,8 +133,9 @@ threads (mutex + condition variable)    => from-thread
 
 `16909060` is `#x01020304`, so bytes are read in big-endian order. The fixnum
 ceiling is 2^29 - 1, as on any 32-bit Chez. `fib 25` makes 242,785 calls, so
-139 ms is about 1.7 million calls a second on a 729 MHz CPU, assuming Dolphin's
-timing is close to the console's.
+139 ms is about 1.7 million calls a second on a 729 MHz CPU. The console
+itself took 109 ms for the same line (2026-11-06), about 2.2 million calls a
+second, so Dolphin runs this interpreter a little slower than the real thing.
 
 ## Output on the TV and in the log
 

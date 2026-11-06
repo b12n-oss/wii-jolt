@@ -77,8 +77,8 @@ the numbers.
    (the kernel patch fixed it, see the guide). The second card ran
    jolt-hello (all twelve lines on the TV, `pb: unaligned double loads 4
    stores 0`, the same count as Dolphin), Balloon Pop (Clojure) and Super Mona,
-   both played with a real Wiimote. `chez` and the couch settings are still
-   unreported.
+   both played with a real Wiimote, and `chez` through its whole list (`fib 25`
+   in 109 ms, Dolphin says 139). The couch settings are still unreported.
 2. Play a round of Balloon Pop with real Wiimotes: does every remote get its own
    pointer, do A and B pop, does the rumble fire, and is aiming comfortable from
    the couch?
@@ -93,8 +93,10 @@ the numbers.
    `examples/shakerace/game.h`).
 5. Answer the questions Dolphin can't (listed in
    [Running on your Wii](docs/guide/running-on-your-wii.md)): `KEYBOARD_Init`
-   without a keyboard, the Wiimote through SDL, real Chez speed, and whether the
-   10.9 MB jolt `.dol` loads.
+   without a keyboard, the Wiimote through SDL. Answered 2026-11-06: Chez's
+   speed (`fib 25` in 109 ms on the console, 139 in Dolphin) and the `.dol`
+   sizes (10.9 MB jolt-hello, 14.8 MB jolt-balloons, 11.9 MB jolt-mona all
+   load).
 6. Get `wiiload` working from the Docker image, so a build goes to the console
    without swapping SD cards.
 

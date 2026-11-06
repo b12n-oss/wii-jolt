@@ -7,9 +7,11 @@ odd address that Dolphin had always accepted (see [Chez Scheme on the
 Wii](chez-scheme-on-the-wii.md), the kernel patch). On the second card, with
 the fix, jolt-hello printed all twelve lines and `pb: unaligned double loads 4
 stores 0`, the same count Dolphin reports, and Balloon Pop (Clojure) and Super
-Mona were played with a real Wiimote. The `chez` app, the couch settings and
-the questions at the end of this page are still unreported, so treat each
-first run of anything else as a test and keep an eye on it.
+Mona were played with a real Wiimote. The `chez` app ran its whole list too,
+threads and runtime eval included, with `fib 25` in 109 ms against Dolphin's
+139. The couch settings and the rest of the questions at the end of this page
+are still unreported, so treat each first run of anything else as a test and
+keep an eye on it.
 
 ## The Homebrew Channel
 
@@ -127,7 +129,8 @@ These are the open questions that Dolphin can't answer:
 1. Does `KEYBOARD_Init` succeed on a real Wii with no USB keyboard? The shim in
    `raylib-wii/wii_shim.c` covers both cases, but it would be good to know.
 2. Does the Wiimote reach raylib's gamepad API through SDL?
-3. How fast is Chez really? Dolphin keeps the Wii's timing, so `fib 25` in
-   139 ms should be close, but only the console can confirm it.
-4. Does the 10.9 MB jolt-hello `.dol` load? It fits the Wii's 24 MB MEM1, but
-   loaders differ in what they accept.
+3. ~~How fast is Chez really?~~ Answered 2026-11-06: `fib 25` took 109 ms on
+   the console against 139 ms in Dolphin, so Dolphin's timing is a touch
+   pessimistic, and every Dolphin number in this repo is an upper bound.
+4. ~~Does the 10.9 MB jolt-hello `.dol` load?~~ Yes, and the 14.8 MB
+   jolt-balloons and 11.9 MB jolt-mona with it (2026-11-06).
