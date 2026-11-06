@@ -86,7 +86,7 @@
    :title
    {:rpm 480 :loop 0 :order [0 1 0 2]
     :patterns
-    [(pat [:brass "d4:2 g4:2 d5:4 b4:2 d5:2 g5:4 f#5:3 e5 d5:4 c5:2 e5:2 d5:4"]
+    [(pat [:brass "d4:2 g4:2 d5:4 b4:2 d5:2 g5:4 f#5:3 e5 d5:4 b4:2 e5:2 d5:4"]
           [:harm "b3:8 d4:8 c4:8 a3:4 f#3:4"]
           [:bass "g2:2 -:2 g2:2 d2:2 g2:2 -:2 g2:2 d2:2 d2:2 -:2 d2:2 a2:2 d2:2 -:2 d2:2 f#2:2"]
           "k - - - s - h - k - k - s - h h k - - - s - h - k - k - s - h h")
@@ -133,7 +133,7 @@
           [:bass "bb2:4 -:2 f2:2 a2:4 f2:4 g2:4 -:2 d2:2 a2:4 e2:4"]
           "k - - - s - - h - - k - s - - - k - - - s - - h - - k - s - h -")]}
 
-   ;; Cloud: F lydian, 112 bpm. A thin bell high up, a slow pad, hats only.
+   ;; Cloud: F lydian, 112 bpm. A thin bell high up, a slow pad, hats and one low drum.
    :cloud
    {:rpm 448 :loop 0 :order [0 1 0 2]
     :patterns
@@ -172,7 +172,7 @@
    :castle
    {:rpm 608 :loop 0 :order [0 1 0 2 1 2]
     :patterns
-    [(pat [:stab "g4:2 ab4:2 g4:2 -:2 eb5:3 d5 c5:2 b4:2 c5:2 -:2 g4:2 f#4:2 g4:4 -:4"]
+    [(pat [:stab "g4:2 ab4:2 g4:2 -:2 eb5:3 d5 c5:2 b4:2 g4:2 -:2 ab4:2 f#4:2 g4:4 -:4"]
           [:harm "c4:2 -:2 c4:2 -:2 eb4:2 -:2 d4:2 -:2 eb4:2 -:2 c4:2 -:2 b3:4 -:4"]
           [:bass "c2:2 c2:2 c2:2 db2:2 c2:2 c2:2 b1:2 c2:2 c2:2 c2:2 c2:2 db2:2 c2:2 c2:2 b1:2 c2:2"]
           "k h s h k h s h k h s h k k s h k h s h k h s h k h s h k k s h")
@@ -225,7 +225,7 @@
           [:harm "c4:2 -:2 f4:2 -:2 c4:2 -:2 f4:2 -:2 e4:2 -:2 g4:2 -:2 d4:2 -:2 b3:2 -:2"]
           [:bass "f2:2 -:2 c3:2 a2:2 f2:2 -:2 c3:2 -:2 c2:2 -:2 g2:2 e2:2 g2:2 -:2 d3:2 -:2"]
           "s - s s k - s - s - s s k - s s s - s s k - s - s - s s k - s s")
-     (pat [:brass "e5:2 g5:2 c6:4 b5:2 a5:2 g5:4 f5:2 d5:2 b4:2 d5:2 c5:8"]
+     (pat [:brass "e5:2 g5:2 c6:4 b5:2 a5:2 g5:4 e5:2 d5:2 b4:2 d5:2 c5:8"]
           [:harm "g4:8 e4:8 d4:8 e4:8"]
           [:bass "c2:2 -:2 g2:2 e2:2 a2:2 -:2 e2:2 -:2 g2:2 -:2 d3:2 b2:2 c2:2 -:2 g2:2 -:2"]
           "s - s s k - s - s - s s k - s s s - s s k - s - k - k - k:4")]}})
