@@ -36,7 +36,7 @@ static volatile uint32_t cb_count;
 void snd_init(void)
 {
     for (int n = 0; n < 128; n++)
-        snd_note_inc[n] = (uint32_t)(440.0 * pow(2.0, (n - 69) / 12.0) * 4294967296.0 / SND_RATE);
+        snd_note_inc[n] = (uint32_t)(440.0 * pow(2.0, (n - 69) / 12.0) * 4294967296.0 / SND_RATE + 0.5);
     for (int v = 0; v < SND_VOICES; v++) {
         struct voice zero = {0};
         zero.lfsr = 1;

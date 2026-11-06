@@ -47,7 +47,7 @@ static void begin(void)
 static void note_table_is_tuned(void)
 {
     begin();
-    uint32_t a4 = (uint32_t)(440.0 * 4294967296.0 / 48000.0);
+    uint32_t a4 = (uint32_t)(440.0 * 4294967296.0 / 48000.0 + 0.5);
     int64_t d1 = (int64_t)snd_note_inc[69] - (int64_t)a4;
     int64_t d2 = (int64_t)snd_note_inc[81] - (int64_t)(2 * (uint64_t)a4);
     CHECK(d1 >= -1 && d1 <= 1);

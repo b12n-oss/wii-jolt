@@ -27,7 +27,9 @@
 // sustain level 0..15 and vol the peak 0..15.
 typedef struct { uint8_t wave, duty, a_ms, d_ms, s_vol, vol; uint16_t r_ms; } snd_instrument;
 
-// Phase increment per sample for MIDI notes 0..127, built by snd_init.
+// Phase increment per sample for MIDI notes 0..127, built by snd_init and
+// rounded to nearest. The 20..20000 Hz clamp applies to runtime Hz inputs only;
+// the note table is exempt (notes 0..18 are below 20 Hz).
 extern uint32_t snd_note_inc[128];
 
 // Voice API. Callers clamp a frequency in Hz to 20..20000 before turning it
