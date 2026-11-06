@@ -49,6 +49,32 @@
   (is (= 7 (music/song-id :die)))
   (is (nil? (music/effect-id :nope))))
 
+(deftest every-song-is-present-and-sized
+  (doseq [k music/song-ids]
+    (is (contains? music/songs k) (str k)))
+  (doseq [k [:title :day :dusk :cloud :cave :castle :win]]
+    (let [rows (music/song-rows k)]
+      (is (<= 128 rows 256) (str k " rows " rows))
+      (is (some? (:loop (music/songs k))) (str k " loops"))))
+  (doseq [[k lo hi] [[:clear 16 32] [:die 4 20] [:over 16 48]]]
+    (let [rows (music/song-rows k)]
+      (is (<= lo rows hi) (str k " rows " rows))
+      (is (nil? (:loop (music/songs k))) (str k " plays once")))))
+
+(deftest the-die-jingle-fits-the-animation
+  (is (< (music/song-seconds :die) 2.4)))
+
+(deftest tunes-do-not-share-a-melody
+  (let [melodies (into {} (map (fn [k] [k (music/melody k)]) music/song-ids))]
+    (doseq [[a ma] melodies [b mb] melodies :when (not= a b)]
+      (is (not= ma mb) (str a " and " b)))))
+
+(deftest effects-are-bounded
+  (doseq [[k e] (map vector music/effect-ids music/effects)]
+    (is (<= 1 (count (:steps e)) 6) (str k))
+    (is (< (reduce + (map (fn [[_ _ ms _]] ms) (:steps e))) 1500) (str k)))
+  (is (every? zero? (map last (:steps (nth music/effects (music/effect-id :die))))) "die is silent"))
+
 (defn -main [& _]
   (let [res (run-tests 'mona.music-test)]
     (System/exit (if (zero? (+ (:fail res 0) (:error res 0))) 0 1))))

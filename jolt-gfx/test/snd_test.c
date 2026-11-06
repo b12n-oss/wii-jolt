@@ -435,14 +435,112 @@ static void music_before_tables_is_a_noop(void)
     CHECK(peak_of(out, 0, 480) == 0);
 }
 
-static void real_tables_install(void)
+// --- the real tables (mona_music.h) ------------------------------------------
+
+static void begin_real(void)
 {
     begin();
     snd_tables(mona_effects, MONA_EFFECTS, mona_instruments,
                (int)(sizeof mona_instruments / sizeof mona_instruments[0]), mona_songs, MONA_SONGS);
-    snd_sfx(SFX_JUMP);
-    render(SND_RATE / 10);
-    CHECK(peak_of(out, 0, SND_RATE / 10) > 500);
+}
+
+// Render `frames` frames in out[]-sized pieces, keeping only the last piece.
+static void render_long(int frames)
+{
+    while (frames > 0) {
+        int n = frames < MAX_FRAMES ? frames : MAX_FRAMES;
+        render(n);
+        frames -= n;
+    }
+}
+
+static void every_effect_sounds_and_ends(void)
+{
+    for (int id = 0; id < MONA_EFFECTS; id++) {
+        begin_real();
+        snd_sfx(id);
+        render(SND_RATE / 10);
+        int p = peak_of(out, 0, SND_RATE / 10);
+        if (id == SFX_DIE) CHECK(p == 0);
+        else CHECK(p > 500);
+        render_long(SND_RATE * 3 / 2 - SND_RATE / 10);
+        for (int c = 0; c < 3; c++) CHECK(!snd_sfx_active(c));
+    }
+}
+
+// The song's length once through its order, in frames.
+static int song_frames(int id)
+{
+    const snd_song *s = &mona_songs[id];
+    int rows = 0;
+    for (int i = 0; i < s->norder; i++) rows += s->patterns[s->order[i]].rows;
+    return (int)((int64_t)rows * 60 * SND_RATE / s->rpm);
+}
+
+// Render `frames` frames in SND_FRAMES pieces into out[] (wrapping when it
+// is full), counting each time the order index arrives at loop_at. *last is
+// the order index before the first piece, -1 before the song starts.
+static int arrivals_at(int frames, int loop_at, int *last)
+{
+    int n = 0, pos = 0;
+    for (int done = 0; done < frames;) {
+        int k = frames - done < SND_FRAMES ? frames - done : SND_FRAMES;
+        if (pos + k > MAX_FRAMES) pos = 0;
+        if (*last == -1 && snd_music_playing() && (snd_music_row() >> 8) == loop_at) n++;
+        if (*last == -1) *last = snd_music_row() >> 8;
+        snd_render(out + 2 * pos, k);
+        pos += k;
+        done += k;
+        int o = snd_music_playing() ? snd_music_row() >> 8 : -2;
+        if (o == loop_at && *last != loop_at) n++;
+        *last = o;
+    }
+    return n;
+}
+
+static void every_song_renders(void)
+{
+    for (int id = 0; id < MONA_SONGS; id++) {
+        const snd_song *s = &mona_songs[id];
+        begin_real();
+        snd_music(id, 1);
+        int frames = SND_RATE * 4;
+        int last = -1;
+        int seen = arrivals_at(frames, s->loop_at, &last);
+        CHECK(peak_of(out, 0, frames) > 1500);
+        CHECK(clipped_of(out, frames) * 200 < 2 * frames);
+        if (id == SONG_CLEAR || id == SONG_DIE || id == SONG_OVER) {
+            CHECK(s->loop_at < 0);
+            // Played again from the start and checked at its own bound.
+            int bound = id == SONG_DIE ? SND_RATE * 26 / 10 : SND_RATE * 6;
+            begin_real();
+            snd_music(id, 1);
+            render_long(bound);
+            CHECK(!snd_music_playing());
+            continue;
+        }
+        CHECK(s->loop_at >= 0);
+        // The start is the first arrival at loop_at. Playing at 12 s, then on
+        // past one pass of the order (16 to 22 s here) for the second arrival.
+        seen += arrivals_at(SND_RATE * 8, s->loop_at, &last);
+        CHECK(snd_music_playing());
+        int more = song_frames(id) + SND_RATE * 2 - SND_RATE * 12;
+        if (more > 0) seen += arrivals_at(more, s->loop_at, &last);
+        CHECK(snd_music_playing());
+        CHECK(seen >= 2);
+    }
+}
+
+static void hurry_tempo_renders(void)
+{
+    begin_real();
+    snd_music_tempo(125);
+    snd_music(SONG_DAY, 1);
+    int frames = SND_RATE * 4;
+    render(frames);
+    CHECK(peak_of(out, 0, frames) > 1500);
+    CHECK(clipped_of(out, frames) * 200 < 2 * frames);
+    snd_music_tempo(100);
 }
 
 int main(void)
@@ -456,7 +554,7 @@ int main(void)
         calls_before_tables_are_noops, song_advances_rows, song_loops_at_its_order_point,
         play_once_ends, pause_holds_the_row, tempo_changes_from_the_next_row, stop_silences,
         hold_does_not_retrigger, music_before_tables_is_a_noop,
-        real_tables_install,
+        every_effect_sounds_and_ends, every_song_renders, hurry_tempo_renders,
     };
     int n = (int)(sizeof tests / sizeof tests[0]);
     for (int i = 0; i < n; i++) {
