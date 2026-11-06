@@ -253,7 +253,9 @@
   (centre! "SUPER MONA" 22 gold title-size)
   (centre! (str "HIGH " (pad (:high app) 6 \0)) 44 white)
   (when (odd? (long (* (double t) 2)))
-    (centre! "PRESS 2" 84 white)))
+    (centre! "PRESS 2" 84 white))
+  (when (:sound-off? app)
+    (centre! "SOUND OFF" 100 white)))
 
 (defn- draw-intro [app t]
   (let [world (:world app)

@@ -45,6 +45,12 @@ a Clojure platformer played with the remote held sideways:
   storm clouds.
 - **[Shake Race](docs/guide/shake-race.md)**: shake the remote as hard as you
   can to make your runner go. Wrist straps on.
+- **Super Mona sound**: chip-style effects on every event and an original tune
+  for each screen and stage theme, synthesised in the C shim on libogc's AESND
+  and checked in Dolphin through the shim's own stats.
+
+Super Mona with sound: [a one-minute Dolphin recording](docs/demos/super-mona-sound.mp4)
+(made by `bb demo:jolt-mona-video`).
 
 Each one has a robot demo, rumble, and rules that are tested on the Mac. The
 two numbers we could only guess at in the emulator can be fixed from the
@@ -63,7 +69,7 @@ keyboard, and `bb verify` plays each one with a scripted remote.
 | `examples/hello` | 1.3 MB | raylib 6.0, unmodified, at 60 fps over SDL2 and OpenGX |
 | `chez-wii` | 4.5 MB | Chez Scheme booting from boot files baked into the program, with bignums, threads, runtime `eval` and a full collect |
 | `jolt-balloons` | 14.5 MB | Balloon Pop in Clojure on jolt: plays, but misses 60 fps (see the comparison page) |
-| `jolt-mona` | 11.9 MB | Super Mona in Clojure on jolt: a 32-stage platformer, remote held sideways (see its page) |
+| `jolt-mona` | 12.0 MB | Super Mona in Clojure on jolt: a 32-stage platformer, remote held sideways (see its page) |
 | `jolt-hello` | 10.9 MB | Clojure: maps, sets, lazy seqs, atoms, bignums and Java-compatible hashes |
 
 The interesting part is the bottom row. Chez has a big-endian 32-bit
@@ -156,10 +162,14 @@ chez-wii/       Chez kernel build, the chez test app, and the runtime objects
 jolt-hello/     a Clojure program, with its expected output
 jolt-balloons/  Balloon Pop in Clojure, its tests and MEASUREMENTS.md
 jolt-mona/      Super Mona in Clojure, its tests and MEASUREMENTS.md
-jolt-gfx/       the C shim and Clojure wrappers that give jolt raylib and Wiimotes
+jolt-gfx/       the C shim and Clojure wrappers that give jolt raylib and Wiimotes;
+                jolt_snd.c is its sound synthesiser and mona_music.h the tune
+                tables generated for it
 patches/        chez-wii.patch, applied to Chez v10.4.1 by scripts/setup-chez
 scripts/        dkp (run in the devkitPPC image), wii-cc, dolphin-shot,
-                dolphin-auto-wiimote, setup-chez, make-pack, jolt-wii-build
+                dolphin-auto-wiimote, dolphin-demo-video (records a demo with
+                its audio), music-to-c (writes mona_music.h from the note data),
+                setup-chez, make-pack, jolt-wii-build
 vendor/raylib/  raylib 6.0 source, unmodified
 ```
 

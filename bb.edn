@@ -36,7 +36,8 @@
        ["jolt-cast-bench" "jolt-balloons/build/jolt-cast-bench.dol" false "Clojure double-to-integer cast cost on the Wii" :measurement]
        ["jolt-stress-stub" "jolt-balloons/build/jolt-stress-stub.dol" false "Split measurement: the stress frame with every C draw function stubbed out" :measurement]
        ["jolt-const-draw" "jolt-balloons/build/jolt-const-draw.dol" false "Split measurement: the stress frame's 368 calls with constant arguments" :measurement]
-       ["jolt-draw-profile" "jolt-balloons/build/jolt-draw-profile.dol" false "Profile of balloons.draw: time per section and per operation (stub-draw pack)" :measurement]])
+       ["jolt-draw-profile" "jolt-balloons/build/jolt-draw-profile.dol" false "Profile of balloons.draw: time per section and per operation (stub-draw pack)" :measurement]
+       ["jolt-snd-spike" "jolt-balloons/build/jolt-snd-spike.dol" false "AESND stream voice spike: a 440 Hz square for two seconds, dumped" :measurement]])
 
     (defn app [nm] (first (filter (fn [a] (= nm (first a))) apps)))
 
@@ -64,6 +65,33 @@
       (->> (str/split-lines (if (fs/exists? log-file) (slurp log-file) ""))
            (filter (fn [l] (str/includes? l "N[OSREPORT]: ")))
            (map (fn [l] (str/replace (subs l (+ (str/index-of l "N[OSREPORT]: ") 13)) "\r" "")))))
+
+    (defn dump-best
+      "[path peak] of the dspdump*.wav under user dir `user` with the largest
+       |sample|, or nil when no dump was written."
+      [user]
+      (let [files (sort (map str (fs/glob (str user "/Dump/Audio") "*dspdump*.wav")))
+            peak-of (fn [f]
+                      (let [r (shell {:out :string :continue true} "python3" "-c"
+                                     "import sys,wave,struct\nw=wave.open(sys.argv[1]);d=w.readframes(w.getnframes())\ns=struct.unpack('<%dh'%(len(d)//2),d)\nprint(max(abs(x) for x in s) if s else 0)"
+                                     f)]
+                        (when (zero? (:exit r)) (Long/parseLong (str/trim (:out r))))))
+            scored (keep (fn [f] (when-let [pk (peak-of f)] [f pk])) files)]
+        (when (seq scored) (apply max-key second scored))))
+
+    (defn dump-peak
+      "The largest |sample| over Dolphin's DSP audio dumps under user dir `user`,
+       as an integer, or nil when no dump was written. Dolphin starts a new
+       file at each sample rate (dspdump.wav is its 32 kHz mixer output, the
+       AESND voice at 48 kHz lands in dspdump1.wav), so every dspdump*.wav
+       counts. Reads the WAVs with python3."
+      [user]
+      (let [files (sort (map str (fs/glob (str user "/Dump/Audio") "*dspdump*.wav")))]
+        (when (seq files)
+          (let [r (apply shell {:out :string :continue true} "python3" "-c"
+                         "import sys,wave,struct\nm=0\nfor f in sys.argv[1:]:\n w=wave.open(f);d=w.readframes(w.getnframes())\n s=struct.unpack('<%dh'%(len(d)//2),d)\n m=max(m,max(abs(x) for x in s) if s else 0)\nprint(m)"
+                         files)]
+            (when (zero? (:exit r)) (Long/parseLong (str/trim (:out r))))))))
 
     (defn run-in-dolphin
       "Boot an app in Dolphin (MMU emulation on), screenshot it, return the
@@ -160,6 +188,16 @@
            (drop 1)
            vec))
 
+    (defn sound-pass?
+      "True when some frames summary of the run shows the shim's mixer output
+       above 1000 and its music voices above 3000 (snd-music), and the effects
+       counter summed over the run is above 0."
+      [nm r]
+      (let [sums (frame-summaries nm r)]
+        (boolean (and (some (fn [m] (> (get m :snd-peak 0) 1000)) sums)
+                      (some (fn [m] (> (get m :snd-music 0) 3000)) sums)
+                      (pos? (reduce + (map (fn [m] (get m :sfx 0)) sums)))))))
+
     (defn lower-median
       "Lower middle of the sorted values, as everywhere else in this project."
       [xs]
@@ -213,6 +251,30 @@
           {:saved? (boolean (some (fn [l] (= l (str "setting " k "=" v " saved=1"))) first-run))
            :loaded? (boolean (some (fn [l] (and (str/starts-with? l "start ") (str/includes? l (str k "=" v " ")))) second-run))
            :file (let [f (str sd "/apps/" nm "/settings.txt")] (when (fs/exists? f) (str/trim (slurp f))))})))
+
+    (defn mute-check
+      "Press - once on Super Mona's title with an emulated SD card, then relaunch
+       with no presses. Data: whether the first run crashed, whether its log said
+       `sound off`, what settings.txt holds, and whether the second run said
+       `sound off` at start."
+      []
+      (let [sd (str repo-root "/.work/sd-mute")
+            f (str sd "/apps/jolt-mona/settings.txt")
+            _ (fs/delete-tree sd)
+            _ (fs/create-dirs (str sd "/apps/jolt-mona"))
+            r (run-in-dolphin "jolt-mona" 9 :user (auto-user "minus") :shot-name "jolt-mona-mute"
+                              :extra-env {"DOLPHIN_EXTRA" (str/join " " (sd-sync-opts sd))})
+            idle (auto-user "idle")
+            r2 (run-in-dolphin "jolt-mona" 6 :user idle :shot-name "jolt-mona-mute-reload"
+                               :extra-env {"DOLPHIN_EXTRA" (str/join " " (sd-sync-opts sd))})
+            ;; The idle user's card image keeps the synced settings.txt, so
+            ;; the next plain run of Super Mona would start muted. Drop it.
+            _ (fs/delete-if-exists (str idle "/Load/WiiSD.raw"))
+            _ (fs/delete-tree (str idle "/Load/WiiSDSync"))]
+        {:crashed? (boolean (:crashed? r))
+         :toggled? (boolean (some (fn [l] (= l "sound off")) (game-lines "jolt-mona" r)))
+         :saved (when (fs/exists? f) (str/trim (slurp f)))
+         :reloaded? (boolean (some (fn [l] (= l "sound off")) (game-lines "jolt-mona" r2)))}))
 
     (defn play-game
       "Open a game in Dolphin for a person to play with the Mac. The optional
@@ -270,6 +332,9 @@
      (hdr "Verify")
      (row "doctor" "check Docker, the devkitPPC image, Dolphin, jolt, Chez")
      (row "test" "host-side unit tests: every game's rules, on the Mac")
+     (row "run:jolt-mona-audio" "Super Mona in Dolphin with the audio dumped to a WAV for listening")
+     (row "demo:jolt-mona-video" "record Super Mona's demo in Dolphin as docs/demos/super-mona-sound.mp4 with its audio")
+     (row "run:jolt-mona-mute" "press - on Super Mona's title: sound off, mona_sound=0 saved to the card")
      (row "verify" "build everything, boot each app in Dolphin (MMU on), check output")
      (hdr "Build")
      (row "build" "every app below")
@@ -287,6 +352,7 @@
      (row "build:jolt-stress" "cross-build the Clojure drawing stress test")
      (row "build:jolt-ffi-bench" "cross-build the Clojure FFI cost benchmark")
      (row "build:jolt-cast-bench" "cross-build the cast cost benchmark")
+     (row "build:jolt-snd-spike" "cross-build the AESND sound spike (run: boots it with an audio dump)")
      (row "gfx-pack-stub" "the graphics pack with a shim whose draw functions return at once")
      (row "build:jolt-stress-stub" "cross-build the stress test against the stub-draw pack")
      (row "build:jolt-const-draw" "cross-build the constant-arguments draw test")
@@ -356,13 +422,20 @@
           (sh! "cc" "-std=c99" "-Wall" "-Wextra" "-Werror" "-Iexamples/common" "examples/common/settings.c"
                "examples/common/test/test_settings.c" "-lm" "-o" (str repo-root "/.work/test_settings"))
           (sh! (str repo-root "/.work/test_settings") (str repo-root "/.work/test_settings.tmp"))
+          (sh! "scripts/music-to-c" (str repo-root "/.work/mona_music.h"))
+          (when-not (zero? (:exit (shell {:continue true} "cmp" (str repo-root "/.work/mona_music.h") "jolt-gfx/mona_music.h")))
+            (binding [*out* *err*] (println "mona_music.h is stale: run scripts/music-to-c"))
+            (System/exit 1))
+          (sh! "cc" "-std=c99" "-Wall" "-Wextra" "-Werror" "-Ijolt-gfx" "jolt-gfx/jolt_snd.c"
+               "jolt-gfx/test/snd_test.c" "-lm" "-o" (str repo-root "/.work/snd_test"))
+          (sh! (str repo-root "/.work/snd_test"))
           (doseq [[nm _ _ _ lang] games :when (= lang :c)]
            (let [bin (str repo-root "/.work/test_" nm)]
              (fs/create-dirs (str repo-root "/.work"))
              (sh! "cc" "-std=c99" "-Wall" "-Wextra" "-Werror" (str "-Iexamples/" nm)
                   (str "examples/" nm "/game.c") (str "examples/" nm "/test/test_game.c") "-lm" "-o" bin)
              (sh! bin)))
-          (doseq [[dir ns-name] [["jolt-balloons" "balloons.rules-test"] ["jolt-balloons" "balloons.draw-test"] ["jolt-gfx" "wii.frame-stats-test"] ["jolt-mona" "mona.rules-test"] ["jolt-mona" "mona.levels-test"] ["jolt-mona" "mona.draw-test"] ["jolt-mona" "mona.app-test"]]]
+          (doseq [[dir ns-name] [["jolt-balloons" "balloons.rules-test"] ["jolt-balloons" "balloons.draw-test"] ["jolt-gfx" "wii.frame-stats-test"] ["jolt-mona" "mona.rules-test"] ["jolt-mona" "mona.levels-test"] ["jolt-mona" "mona.draw-test"] ["jolt-mona" "mona.app-test"] ["jolt-mona" "mona.music-test"] ["jolt-mona" "mona.sound-test"]]]
             (let [r (shell {:dir (str repo-root "/" dir) :continue true}
                            "jolt" "-A:test" "-m" ns-name)]
               (when-not (zero? (:exit r))
@@ -638,6 +711,27 @@
            (print-game-run "jolt-mona" r)
            (when (:crashed? r) (println "CRASHED") (System/exit 1)))}
 
+  run:jolt-mona-audio
+  {:doc "Boot Super Mona in Dolphin with the audio dumped to a WAV; print the game lines and the dump's path and peak"
+   :task (let [sd (str repo-root "/.work/sd-mona")
+               user (auto-user "idle")
+               _ (fs/create-dirs (str sd "/apps/jolt-mona"))
+               _ (fs/delete-tree (str user "/Dump/Audio"))
+               r (run-in-dolphin "jolt-mona" (demo-secs "jolt-mona") :user user
+                                 :extra-env {"DOLPHIN_EXTRA" (str/join " " (concat (sd-sync-opts sd) ["-C" "Dolphin.DSP.DumpAudio=True"]))})
+               best (dump-best user)]
+           (print-game-run "jolt-mona" r)
+           (if best
+             (println (str "dump: " (first best) " peak=" (second best)))
+             (println "dump: none"))
+           (when (or (:crashed? r) (nil? best)) (println (if (:crashed? r) "CRASHED" "NO DUMP")) (System/exit 1)))}
+
+  run:jolt-mona-mute
+  {:doc "Press - once on Super Mona's title with an emulated SD card; print whether it muted and what was saved"
+   :task (let [m (mute-check)]
+           (println m)
+           (when-not (and (not (:crashed? m)) (:toggled? m) (str/includes? (or (:saved m) "") "mona_sound=0") (:reloaded? m)) (System/exit 1)))}
+
   run:jolt-mona-wiimote
   {:doc "A game of Super Mona with a scripted Wiimote held sideways: 2 jumps, 1 runs, the d-pad runs right"
    :task (print-game-run "jolt-mona" (run-scripted "jolt-mona"))}
@@ -645,6 +739,16 @@
   run:jolt-balloons
   {:doc "Boot Balloon Pop in Clojure in Dolphin, wait for the robot demo, print its events"
    :task (print-game-run "jolt-balloons" (run-in-dolphin "jolt-balloons" (demo-secs "jolt-balloons")))}
+
+  demo:jolt-mona-video
+  {:doc "Record Super Mona's demo (title tune, then stage 1-1 with music) as docs/demos/super-mona-sound.mp4, stamp hidden"
+   :depends [build:jolt-mona]
+   :task (let [sd (str repo-root "/.work/sd-demo")
+               app (str sd "/apps/jolt-mona")]
+           (fs/create-dirs app)
+           (spit (str app "/settings.txt") "debug_hud=0\n")
+           (sh! "env" (str "DOLPHIN_EXTRA=" (str/join " " (sd-sync-opts sd)))
+                "scripts/dolphin-demo-video" "jolt-mona/build/jolt-mona.dol" "docs/demos/super-mona-sound.mp4" "75"))}
 
   run:jolt-stress
   {:doc "Boot the Clojure drawing stress test in Dolphin and print its timing lines"
@@ -682,6 +786,25 @@
                 (str "JOLT_WII_CC=" repo-root "/scripts/wii-cc-sdl")
                 "scripts/jolt-wii-build" "jolt-balloons" "balloons.cast-bench" "jolt-cast-bench"))}
 
+  build:jolt-snd-spike
+  {:doc "Cross-build the AESND sound spike"
+   :depends [gfx-pack]
+   :task (do
+           (sh! "env" "JOLT_WII_NO_META=1" (str "JOLT_WII_PACK=" repo-root "/.work/pack-tpb32b-gfx")
+                (str "JOLT_WII_CC=" repo-root "/scripts/wii-cc-sdl")
+                "scripts/jolt-wii-build" "jolt-balloons" "balloons.snd-spike" "jolt-snd-spike"))}
+
+  run:jolt-snd-spike
+  {:doc "Boot the sound spike in Dolphin with an audio dump and print its lines and the dump peak"
+   :task (let [user (auto-user "idle")
+               _ (fs/delete-tree (str user "/Dump/Audio"))
+               r (run-in-dolphin "jolt-snd-spike" 20 :user user
+                                 :extra-env {"DOLPHIN_EXTRA" "-C Dolphin.DSP.DumpAudio=True"})
+               peak (dump-peak user)]
+           (doseq [l (:lines r)] (when (str/starts-with? l "jolt-snd-spike: ") (println l)))
+           (println (str "jolt-snd-spike: dump peak=" (if peak peak "none")))
+           (when (:crashed? r) (println "CRASHED") (System/exit 1)))}
+
   run:jolt-cast-bench
   {:doc "Boot the cast cost benchmark in Dolphin and print its lines"
    :task (let [r (run-in-dolphin "jolt-cast-bench" 40)]
@@ -707,6 +830,7 @@
          _ (run 'test)
          game-runs (vec (for [[nm _ _ _ _ secs] games] [nm (run-in-dolphin nm secs) (run-scripted nm)]))
          couch-runs (vec (for [c couch-settings] [c (couch-check c)]))
+         mute (mute-check)
          h (run-in-dolphin "hello" 12)
          c (run-in-dolphin "chez" 25)
          j (run-in-dolphin "jolt-hello" 40)
@@ -718,10 +842,15 @@
      (doseq [[nm demo scripted] game-runs]
        (expect nm (demo-pass? nm demo) "title, then the robot demo scores at least 3 times, no crash")
        (expect (str nm "-wiimote") (scripted-pass? nm scripted)
-               "a scripted Wiimote presses A to join, the round starts, and player 1 scores in it"))
+               "a scripted Wiimote presses A to join, the round starts, and player 1 scores in it")
+       (when (= nm "jolt-mona")
+         (expect "jolt-mona-sound" (sound-pass? "jolt-mona" demo) "the shim rendered music (snd-music > 3000) and effects (sfx > 0) during the demo")
+         (expect "jolt-mona-sound-wiimote" (sound-pass? "jolt-mona" scripted) "the shim rendered music (snd-music > 3000) and effects (sfx > 0) during the scripted run")))
      (doseq [[[nm _ k v] r] couch-runs]
        (expect (str nm "-couch") (and (:saved? r) (:loaded? r) (= (:file r) (str k "=" v)))
                (str "one button press sets " k "=" v ", it's saved to the SD card, and the next launch loads it")))
+     (expect "jolt-mona-mute" (and (not (:crashed? mute)) (:toggled? mute) (str/includes? (or (:saved mute) "") "mona_sound=0") (:reloaded? mute))
+             "one press of - on the title mutes the sound, saves mona_sound=0 to the card, and the next launch starts muted")
      (expect "hello" (and (not (:crashed? h))
                           (some (fn [l] (str/includes? l "PLATFORM: DESKTOP (SDL2): Initialized successfully")) (:lines h)))
              "raylib initialised over SDL2/OpenGX, no crash")

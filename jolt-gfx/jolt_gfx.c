@@ -3,6 +3,7 @@
 // with Sforeign_symbol from inside Sbuild_heap's init callback (the pack links
 // with -Wl,--wrap=Sbuild_heap).
 #include "jolt_gfx.h"
+#include "jolt_snd.h"
 #include "settings.h"
 #include "raylib.h"
 #include <stdarg.h>
@@ -363,6 +364,9 @@ U jg_calls(void)
     return (U)n;
 }
 
+// Counts one call for the sound exports in jolt_snd.c, whose counter is this one.
+void jg_count(void) { calls++; }
+
 U jg_text(U s, U x, U y, U size, U c)
 {
     calls++;
@@ -484,6 +488,7 @@ static void register_all(void)
     R(jg_setting_get); R(jg_setting_put);
     R(jg_connected); R(jg_held); R(jg_ir_valid); R(jg_ir_x); R(jg_ir_y);
     R(jg_rumble); R(jg_rumble_all_off);
+    jg_snd_register();
 #undef R
 }
 

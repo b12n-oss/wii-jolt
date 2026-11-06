@@ -8,7 +8,11 @@ CFLAGS := -O2 -Wall $(MACHDEP) -I../vendor/raylib -I../.work/pack-tpb32b -I../ex
           -I$(PORTS)/wii/include -I$(PORTS)/ppc/include -I$(LIBOGC_INC)
 CFLAGS += $(EXTRA_CFLAGS)
 
-all: build/jolt_gfx.o build/settings.o
+all: build/jolt_gfx.o build/settings.o build/jolt_snd.o
+
+build/jolt_snd.o: jolt_snd.c jolt_snd.h jolt_gfx.h mona_music.h
+	mkdir -p build
+	$(CC) $(CFLAGS) -c $< -o $@
 
 build/settings.o: ../examples/common/settings.c ../examples/common/settings.h
 	mkdir -p build

@@ -21,7 +21,8 @@
 // Buttons are btns_h & 0xFFFF, times are masked with 0x0FFFFFFF.
 //
 // Every prototype below is registered by register_all in jolt_gfx.c, and
-// nothing else is.
+// nothing else is. The sound exports (jolt_snd.h) are registered the same way
+// by jg_snd_register in jolt_snd.c.
 #ifndef JOLT_GFX_H
 #define JOLT_GFX_H
 #include <stdint.h>
@@ -73,6 +74,7 @@ U jg_tile_set(U index, U tile);
 U jg_tiles_draw(U cam_x);
 U jg_tiles_map(U x, U y, U w, U h, U solid, U sky);
 U jg_calls(void);
+void jg_count(void);
 U jg_text(U s, U x, U y, U size, U c);
 U jg_text_width(U s, U size);
 

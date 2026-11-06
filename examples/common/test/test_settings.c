@@ -1,5 +1,7 @@
 // Host-side tests for settings.c (bb test). argv[1] is a scratch file path.
+#define _POSIX_C_SOURCE 200809L
 #include "settings.h"
+#include <sys/stat.h>
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -34,11 +36,39 @@ int main(int argc, char *argv[])
     CHECK(settings_save(file, "tilt_sign", 1), "saves");
     CHECK(settings_load(file, "tilt_sign", -1) == 1, "and reads it back");
     CHECK(settings_save(file, "shake_level", 0.5f) && fabsf(settings_load(file, "shake_level", 3) - 0.5f) < 1e-6f,
-          "a save replaces the file");
+          "a fractional value reads back");
     CHECK(settings_save(file, "mona_high", 1234567) && settings_load(file, "mona_high", 0) == 1234567,
           "a seven-digit integer round-trips exactly");
     remove(file);
+    CHECK(settings_save(file, "a", 1) && settings_save(file, "b", 2) && settings_save(file, "a", 3), "saves three times");
+    CHECK(settings_load(file, "a", 0) == 3, "a save replaces its own key's value");
+    CHECK(settings_load(file, "b", 0) == 2, "a save keeps the other keys");
+    {
+        char bytes[64];
+        size_t got = 0;
+        FILE *f = fopen(file, "r");
+        if (f) { got = fread(bytes, 1, sizeof bytes - 1, f); fclose(f); }
+        bytes[got] = '\0';
+        CHECK(strcmp(bytes, "a=3\nb=2\n") == 0, "the file is one line per key, replaced in place");
+    }
+    remove(file);
     CHECK(!settings_save("/no/such/dir/settings.txt", "k", 1), "an unwritable path reports failure");
+
+    // A file that cannot be read (but can be written) must survive a failed save.
+    remove(file);
+    CHECK(settings_save(file, "keep", 5), "saves the file to protect");
+    if (chmod(file, 0200) == 0) {
+        FILE *probe = fopen(file, "r");
+        if (probe) {
+            fclose(probe);   // root reads it anyway: the case cannot be built
+        } else {
+            CHECK(!settings_save(file, "other", 1), "a read that fails for another reason than ENOENT fails the save");
+            chmod(file, 0600);
+            CHECK(settings_load(file, "keep", 0) == 5, "and leaves the file as it was");
+        }
+        chmod(file, 0600);
+    }
+    remove(file);
 
     printf("settings: %d checks, %d failed\n", checks, failures);
     return failures ? 1 : 0;

@@ -176,3 +176,56 @@
   [ch] (- (c-ir-y ch) ir-bias))
 (defn rumble! [ch on?] (c-rumble ch (if on? 1 0)) nil)
 (defn rumble-all-off! [] (c-rumble-all-off) nil)
+
+;; Sound.
+(ffi/defcfn c-snd-init "jg_snd_init" [] :uptr)
+(ffi/defcfn c-sfx "jg_sfx" [:uptr] :uptr)
+(ffi/defcfn c-music "jg_music" [:uptr :uptr] :uptr)
+(ffi/defcfn c-music-stop "jg_music_stop" [] :uptr)
+(ffi/defcfn c-music-pause "jg_music_pause" [:uptr] :uptr)
+(ffi/defcfn c-music-tempo "jg_music_tempo" [:uptr] :uptr)
+(ffi/defcfn c-snd-volume "jg_snd_volume" [:uptr :uptr] :uptr)
+(ffi/defcfn c-snd-stats "jg_snd_stats" [] :uptr)
+(ffi/defcfn c-snd-music-peak "jg_snd_music_peak" [] :uptr)
+
+(defn sound-init!
+  "Start the audio voice. True when it runs, false when AESND refused."
+  [] (= 1 (c-snd-init)))
+
+(defn sfx!
+  "Trigger sound effect id (an index into the effect table)."
+  [id] (c-sfx (long id)) nil)
+
+(defn music!
+  "Start song from the first row, looping at its loop point when loop? is true."
+  [song loop?] (c-music (long song) (if loop? 1 0)) nil)
+
+(defn music-stop!
+  "Stop the song."
+  [] (c-music-stop) nil)
+
+(defn music-pause!
+  "Hold the song where it is when on? is true, resume it when false."
+  [on?] (c-music-pause (if on? 1 0)) nil)
+
+(defn music-tempo!
+  "Set the song's tempo in percent (100 is normal)."
+  [pct] (c-music-tempo (long pct)) nil)
+
+(defn sound-volume!
+  "Set the music and effect volumes, 0 to 255 each."
+  [music sfx] (c-snd-volume (long music) (long sfx)) nil)
+
+(defn sound-stats
+  "Counters since the last call: the largest sample rendered, effects
+   triggered, stream callbacks run."
+  []
+  (let [s (c-snd-stats)]
+    {:peak (bit-and s 0x7FFF)
+     :sfx (bit-and (bit-shift-right s 15) 0xFF)
+     :callbacks (bit-shift-right s 23)}))
+
+(defn sound-music-peak
+  "The largest |sum of the four music voices| rendered since the last call,
+   before the volume scaling, 0 to 32767. Effects do not count."
+  [] (bit-and (c-snd-music-peak) 0x7FFF))

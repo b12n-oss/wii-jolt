@@ -22,7 +22,9 @@ float settings_get(const char *text, const char *key, float fallback);
 // the file or the key is missing.
 float settings_load(const char *path, const char *key, float fallback);
 
-// Write `key=value` as the whole file. Returns false if it couldn't be
+// Set `key` in the file, keeping the other keys: the key's line is replaced in
+// place, or added at the end, and the file is created if it is missing. Lines
+// that aren't `key=value` are kept as they are. Returns false if it couldn't be
 // written (no SD card, read-only, or the folder isn't there).
 bool settings_save(const char *path, const char *key, float value);
 

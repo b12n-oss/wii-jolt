@@ -158,3 +158,26 @@ The cost of the hand-off fell by about 215 ms, not to the ~12 ms that was estima
 `load-stage!` now throws when the shim refuses the width, and the probe reads are gone from the loop except one after `app/tick`. The `stage-load` line is `tick-us hand-off-us calls`, with `calls` the shim call count read around `load-stage!`. Measured calls per stage load: 589 for stage 1-1 (title, demo and every scripted load), 584 for stage 1-2. Hand-off after the change: 31.6 to 31.7 ms for 1-1 (title and stage), 25.4 ms for 1-2. Stall intervals: 613 ms at start-up, 113 to 115 ms at each 1-1 load, none at 1-2 (work-worst 93 ms). The `tiles-load!` figure of 245 ms covers allocs, two `write-bytes`, the C call and the frees together, so the cost of the block copy alone is not established, and the per-cell path costs about 54 us per call; both look per-element on this target.
 
 Steady-state frames, same build flags as the Rung 0 section: the demo's windows 601 to 2100 read work medians 15.0, 14.0, 12.8, 11.8 and 10.9 ms and `calls` 24, 25, 23, 21, 24, against Rung 0's 15.0, 14.1, 12.8, 11.9 and 11.0 ms and 24, 25, 23, 21, 22, so the per-frame cost did not change.
+
+## Sound (2026-11-07)
+
+Super Mona now plays ten chip tunes and seventeen effects through the shim's synthesiser (`jolt-gfx/jolt_snd.c`). One 45 s demo run from `bb run:jolt-mona` on the sound build (branch `feat/mona-sound`, shim build `69c095a-dirty`), Dolphin only, the same build flags as the Rung 0 section. The `bb verify` run that gated the sound passed all 18 checks, but its demo log was overwritten by later runs, so these figures come from the separate `bb run:jolt-mona` made afterwards.
+
+Work medians of the windows 601 to 2100, against the previous section's:
+
+| Window | 601-900 | 901-1200 | 1201-1500 | 1501-1800 | 1801-2100 |
+|---|---|---|---|---|---|
+| before sound (ms) | 15.0 | 14.0 | 12.8 | 11.8 | 10.9 |
+| with sound (ms) | 14.8 | 14.8 | 13.2 | 12.2 | 11.3 |
+
+The per-frame cost grew by 0.4 to 0.8 ms in four of the five windows and fell by 0.2 ms in the first. The sound `calls` per window are 24, 25, 23, 21 and 24, the same as before. Different runs vary by a few tenths of a millisecond, so this is a single-run comparison, not an established cost. Every window printed `snd-cb=63`. The `snd-peak` and `sfx` values in that first run (1638 to 1774, 3 to 6) predate the `snd-music` counter and the star effect; the figures below come from a later run.
+
+Heap, from the same run's `jg_init` line: `malloc live 48330676, fallback used 0 + 0, free 0 + 0; chez bytes-allocated 40190608, collect-trip-bytes 2097152`. (The pre-sound heap line is not in this repo's records; estimate: about 0.2 MB less live malloc, from the .dol delta below. Not measured.)
+
+The shim's static footprint (`scripts/dkp powerpc-eabi-size jolt-gfx/build/jolt_snd.o`): text 10388, data 12, bss 3332 bytes, so 3,344 bytes of data plus bss.
+
+The .dol grew from 11,872,224 bytes without sound to 12,017,920 bytes with it (+145,696). Putting all of `mona.music` on the Wii path gave 12.26 MB and ran out of heap at boot; these two .dol figures and that one were measured in the previous task, not here.
+
+The audio dump (`bb run:jolt-mona-audio`, `-C Dolphin.DSP.DumpAudio=True`): the WAV with the highest peak was `dspdump1.wav` (the 48 kHz AESND voice), peak 7718 of 32767. The frame log's `snd-peak` is a running maximum of the rendered samples since the previous summary (`snd_render` keeps it), so it is not a sample taken at one moment. The dump's 7718 and the log's figures sit in the same range once the stage music plays.
+
+The log now also carries `snd-music`, the largest |sum of the four music voices| since the last summary, before the volume scaling (`jg_snd_music_peak`, effects excluded), and `bb verify` requires it above 3000 in some window. One `bb run:jolt-mona` on the build with the star effect (.dol 12,040,896 bytes) printed, for the five demo windows in order: `snd-music` 7470, 7357, 7479, 7485, 7304; `snd-peak` 7470, 9756, 8922, 9177, 7304; `sfx` 4, 10, 6, 9, 3. The two title windows before them read `snd-music` 7578 and 7546 with `sfx=0`. So the stage music does render in the demo (about 7300 to 7500 per window, where a song measured 6461 or more per window on the host), and the windows where `snd-peak` exceeds `snd-music` are the ones with several effects on top. An earlier run's 1638 to 1774 was not seen again; the cause was not investigated.
