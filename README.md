@@ -15,8 +15,14 @@ Dolphin emulator with its strict memory checking turned on.
 *Left to right: raylib's SDL backend drawing through OpenGX, Chez Scheme's
 portable bytecode running on the Wii's PowerPC, and a Clojure program compiled by
 jolt whose output matches the Mac build line for line. All three are Dolphin
-screenshots. None of this has run on the physical console yet, and that's the
-next step.*
+screenshots.*
+
+**On the real Wii:** the C games now boot from the Homebrew Channel on our
+family Wii and play on the TV. The jolt builds don't yet. On the first console
+run every one of them stopped at boot with an alignment exception, because the
+Wii's CPU traps a misaligned double load that Dolphin lets through. The fix is
+committed and waits on the next SD card. [Running on your
+Wii](docs/guide/running-on-your-wii.md) has the details.
 
 ## Games
 

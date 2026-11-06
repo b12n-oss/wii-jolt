@@ -53,6 +53,9 @@ system. On top of that:
    jolt assumed the machine compiling the code had the same fixnum width as the
    machine running it.
 
-Everything so far runs in Dolphin with its MMU emulation on, which makes bad
-memory accesses crash the way they would on hardware. The physical console is
-next, and `ROADMAP.md` at the repo root lists what comes after.
+Everything here is tested in Dolphin with its MMU emulation on, which makes bad
+memory accesses crash the way they would on hardware. On the physical console,
+the C games boot and play, while the jolt builds are waiting on a fix for an
+alignment trap Dolphin never raised. [Running on your
+Wii](running-on-your-wii.md) has the status, and `ROADMAP.md` at the repo root
+lists what comes after.

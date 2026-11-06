@@ -4,8 +4,8 @@ Super Mona is a 32-stage platformer that Martin Woodward wrote in MicroPython
 for the GitHub Universe 2026 badge. Here it runs on the Wii as a Clojure
 program on jolt, with the remote held sideways. It plays, and it misses the
 60 fps budget on busy frames. Every number on this page comes from Dolphin with
-MMU emulation on. Nothing has run on a physical console, so read them as
-Dolphin's, not the Wii's.
+MMU emulation on. No jolt build has run on a physical console yet, so read
+them as Dolphin's, not the Wii's.
 
 ![Super Mona's demo bot on stage 1-1](../images/jolt-mona-demo.gif)
 
