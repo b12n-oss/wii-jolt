@@ -64,7 +64,7 @@ int snd_sfx_active(int chan);      // 1 while effect channel chan (0..2) plays, 
 void snd_music(int song, int loop);   // from the first row; loop 0 forces play-once
 void snd_music_stop(void);            // release the four music voices, clear the song
 void snd_music_pause(int on);         // 1 holds the row and releases the voices, 0 resumes at that row
-void snd_music_tempo(int pct);        // 50..200, applied from the next row; 100 = rpm
+void snd_music_tempo(int pct);        // 50..200, applied from the next row; 100 = rpm. Persists across snd_music calls by design (the caller sends it only on change).
 int snd_music_playing(void);          // 1 while a song is set and has not ended
 int snd_music_row(void);              // order index * 256 + row, for tests
 

@@ -405,7 +405,7 @@ static void music_play_row(void)
             if (c.note > 2) continue;
             snd_voice_on(3, &drums[(int)c.note], snd_note_inc[drum_note[(int)c.note]]);
         } else {
-            if (!inst_tab || c.inst >= inst_n || c.note > 127) continue;
+            if (!inst_tab || c.inst >= inst_n) continue;
             snd_voice_on(t, &inst_tab[c.inst], snd_note_inc[(int)c.note]);
         }
     }
