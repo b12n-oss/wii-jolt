@@ -59,7 +59,9 @@
   [["fresh world t=0" (fn [] (draw/draw-world (fresh-world) 0.0))]
    ["facing left, big, sparkle t=0.1" (fn [] (draw/draw-world (facing-left-world) 0.1))]
    ["shellbot and squashed bug t=0" (fn [] (draw/draw-world (enemy-world) 0.0))]
-   ["pause MAP page" (fn [] (draw/draw-app (app :pause (enemy-world) :page 1) 0.0))]])
+   ["pause MAP page" (fn [] (draw/draw-app (app :pause (enemy-world) :page 1) 0.0))]
+   ["title" (fn [] (draw/draw-app (app :title (fresh-world)) 0.0))]
+   ["title, sound off" (fn [] (draw/draw-app (app :title (fresh-world) :sound-off? true) 0.0))]])
 
 (defn- all-calls [] (mapv (fn [[label f]] [label (record f)]) (scenes)))
 
@@ -83,6 +85,11 @@
   (let [w (assoc (fresh-world) :cam-x 37.9)
         calls (record (fn [] (draw/draw-world w 0.0)))]
     (is (= [:tiles-draw! 37] (first (filter (fn [c] (= :tiles-draw! (first c))) calls))))))
+
+(deftest title-shows-sound-off-only-when-muted
+  (let [text (fn [calls] (set (map second (filter (fn [c] (= :text! (first c))) calls))))]
+    (is (contains? (text (record (fn [] (draw/draw-app (app :title (fresh-world) :sound-off? true) 0.0)))) "SOUND OFF"))
+    (is (not (contains? (text (record (fn [] (draw/draw-app (app :title (fresh-world)) 0.0)))) "SOUND OFF")))))
 
 (deftest golden-draw-calls
   (let [golden (edn/read-string (slurp golden-file))

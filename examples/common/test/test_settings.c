@@ -34,9 +34,21 @@ int main(int argc, char *argv[])
     CHECK(settings_save(file, "tilt_sign", 1), "saves");
     CHECK(settings_load(file, "tilt_sign", -1) == 1, "and reads it back");
     CHECK(settings_save(file, "shake_level", 0.5f) && fabsf(settings_load(file, "shake_level", 3) - 0.5f) < 1e-6f,
-          "a save replaces the file");
+          "a fractional value reads back");
     CHECK(settings_save(file, "mona_high", 1234567) && settings_load(file, "mona_high", 0) == 1234567,
           "a seven-digit integer round-trips exactly");
+    remove(file);
+    CHECK(settings_save(file, "a", 1) && settings_save(file, "b", 2) && settings_save(file, "a", 3), "saves three times");
+    CHECK(settings_load(file, "a", 0) == 3, "a save replaces its own key's value");
+    CHECK(settings_load(file, "b", 0) == 2, "a save keeps the other keys");
+    {
+        char bytes[64];
+        size_t got = 0;
+        FILE *f = fopen(file, "r");
+        if (f) { got = fread(bytes, 1, sizeof bytes - 1, f); fclose(f); }
+        bytes[got] = '\0';
+        CHECK(strcmp(bytes, "a=3\nb=2\n") == 0, "the file is one line per key, replaced in place");
+    }
     remove(file);
     CHECK(!settings_save("/no/such/dir/settings.txt", "k", 1), "an unwritable path reports failure");
 

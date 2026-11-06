@@ -181,6 +181,10 @@
 (ffi/defcfn c-snd-init "jg_snd_init" [] :uptr)
 (ffi/defcfn c-sfx "jg_sfx" [:uptr] :uptr)
 (ffi/defcfn c-music "jg_music" [:uptr :uptr] :uptr)
+(ffi/defcfn c-music-stop "jg_music_stop" [] :uptr)
+(ffi/defcfn c-music-pause "jg_music_pause" [:uptr] :uptr)
+(ffi/defcfn c-music-tempo "jg_music_tempo" [:uptr] :uptr)
+(ffi/defcfn c-snd-volume "jg_snd_volume" [:uptr :uptr] :uptr)
 (ffi/defcfn c-snd-stats "jg_snd_stats" [] :uptr)
 
 (defn sound-init!
@@ -194,6 +198,22 @@
 (defn music!
   "Start song from the first row, looping at its loop point when loop? is true."
   [song loop?] (c-music (long song) (if loop? 1 0)) nil)
+
+(defn music-stop!
+  "Stop the song."
+  [] (c-music-stop) nil)
+
+(defn music-pause!
+  "Hold the song where it is when on? is true, resume it when false."
+  [on?] (c-music-pause (if on? 1 0)) nil)
+
+(defn music-tempo!
+  "Set the song's tempo in percent (100 is normal)."
+  [pct] (c-music-tempo (long pct)) nil)
+
+(defn sound-volume!
+  "Set the music and effect volumes, 0 to 255 each."
+  [music sfx] (c-snd-volume (long music) (long sfx)) nil)
 
 (defn sound-stats
   "Counters since the last call: the largest sample rendered, effects

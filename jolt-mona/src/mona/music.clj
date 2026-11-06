@@ -4,17 +4,16 @@
    Clojure with no FFI, so it loads under jolt and babashka alike. The C
    header that the Wii side reads is emitted from here by emit-header, which
    scripts/music-to-c writes to jolt-gfx/mona_music.h."
-  (:require [clojure.string :as str]))
+  (:require [clojure.string :as str]
+            [mona.music-ids :as ids]))
 
 (def effect-ids
-  "The rule events that have a sound effect, in the order the C tables use.
-   :die has an effect entry that is silent, because the die jingle is music."
-  [:jump :stomp :kick :bump :break :die :defeat :flag :pickup :item :grow
-   :shrink :1up :sparkle :stored :switch])
+  "The rule events that have a sound effect. Lives in mona.music-ids so the Wii build can take the ids without the data."
+  ids/effect-ids)
 
 (def song-ids
-  "Every song id, in the order the C tables use."
-  [:title :day :dusk :cloud :cave :castle :clear :die :over :win])
+  "Every song id, in the C table order. Lives in mona.music-ids so the Wii build can take the ids without the data."
+  ids/song-ids)
 
 (def effects
   "One entry per effect-ids id. A step is [f0 f1 ms vol]: the frequency slides
@@ -409,21 +408,13 @@
     (check-song id s))
   nil)
 
-(def ^:private effect-index
-  (zipmap effect-ids (range)))
+(def effect-id
+  "The C index of effect keyword k, or nil. Lives in mona.music-ids so the Wii build can take the ids without the data."
+  ids/effect-id)
 
-(def ^:private song-index
-  (zipmap song-ids (range)))
-
-(defn effect-id
-  "The C index of effect keyword k, or nil when k is not an effect id."
-  [k]
-  (get effect-index k))
-
-(defn song-id
-  "The C index of song keyword k, or nil when k is not a song id."
-  [k]
-  (get song-index k))
+(def song-id
+  "The C index of song keyword k, or nil. Lives in mona.music-ids so the Wii build can take the ids without the data."
+  ids/song-id)
 
 (def ^:private wave-values {:pulse 0 :tri 1 :noise 2})
 

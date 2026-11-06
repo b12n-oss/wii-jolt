@@ -2,7 +2,7 @@
   "Super Mona's sound cues. Pure functions from the app map and its log lines
    to what the main loop should play: effects, the song, the tempo and the
    pause flag. Nothing here touches the shim."
-  (:require [mona.music :as music]))
+  (:require [mona.music-ids :as ids]))
 
 (def hurry-threshold
   "The time left, in game seconds, below which the music speeds up."
@@ -32,11 +32,11 @@
    log-lines, in order. Event keywords without an effect, and lines of any
    other shape, are skipped. :die is included; its recipe is silent."
   [log-lines]
-  (into [] (keep (fn [line] (some-> (event-keyword line) music/effect-id))) log-lines))
+  (into [] (keep (fn [line] (some-> (event-keyword line) ids/effect-id))) log-lines))
 
 (defn- song
   [k loop?]
-  {:song (music/song-id k) :loop? loop?})
+  {:song (ids/song-id k) :loop? loop?})
 
 (defn- world-song
   "The song for a world on screen, by the world's state."
