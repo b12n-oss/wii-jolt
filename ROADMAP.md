@@ -127,7 +127,7 @@ the numbers.
   the title saved as `mona_sound`. `bb verify` checks it in Dolphin through the
   shim's stats (three new gates). Dolphin only; see
   [Super Mona in jolt](docs/guide/super-mona-in-jolt.md#sound).
-- **Sound for Balloon Pop (Clojure).** The user's next arc: recipes for pop,
+- **Sound for Balloon Pop (Clojure).** The next sound arc: recipes for pop,
   miss and the round, cues from its events and a round tune, all on the same
   synthesiser. After that the C games, through the C core without the shim.
 - **The first console run of the sound.** Nothing on the sound branch has run
