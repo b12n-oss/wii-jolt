@@ -36,7 +36,8 @@
        ["jolt-cast-bench" "jolt-balloons/build/jolt-cast-bench.dol" false "Clojure double-to-integer cast cost on the Wii" :measurement]
        ["jolt-stress-stub" "jolt-balloons/build/jolt-stress-stub.dol" false "Split measurement: the stress frame with every C draw function stubbed out" :measurement]
        ["jolt-const-draw" "jolt-balloons/build/jolt-const-draw.dol" false "Split measurement: the stress frame's 368 calls with constant arguments" :measurement]
-       ["jolt-draw-profile" "jolt-balloons/build/jolt-draw-profile.dol" false "Profile of balloons.draw: time per section and per operation (stub-draw pack)" :measurement]])
+       ["jolt-draw-profile" "jolt-balloons/build/jolt-draw-profile.dol" false "Profile of balloons.draw: time per section and per operation (stub-draw pack)" :measurement]
+       ["jolt-snd-spike" "jolt-balloons/build/jolt-snd-spike.dol" false "AESND stream voice spike: a 440 Hz square for two seconds, dumped" :measurement]])
 
     (defn app [nm] (first (filter (fn [a] (= nm (first a))) apps)))
 
@@ -64,6 +65,20 @@
       (->> (str/split-lines (if (fs/exists? log-file) (slurp log-file) ""))
            (filter (fn [l] (str/includes? l "N[OSREPORT]: ")))
            (map (fn [l] (str/replace (subs l (+ (str/index-of l "N[OSREPORT]: ") 13)) "\r" "")))))
+
+    (defn dump-peak
+      "The largest |sample| over Dolphin's DSP audio dumps under user dir `user`,
+       as an integer, or nil when no dump was written. Dolphin starts a new
+       file at each sample rate (dspdump.wav is its 32 kHz mixer output, the
+       AESND voice at 48 kHz lands in dspdump1.wav), so every dspdump*.wav
+       counts. Reads the WAVs with python3."
+      [user]
+      (let [files (sort (map str (fs/glob (str user "/Dump/Audio") "*dspdump*.wav")))]
+        (when (seq files)
+          (let [r (apply shell {:out :string :continue true} "python3" "-c"
+                         "import sys,wave,struct\nm=0\nfor f in sys.argv[1:]:\n w=wave.open(f);d=w.readframes(w.getnframes())\n s=struct.unpack('<%dh'%(len(d)//2),d)\n m=max(m,max(abs(x) for x in s) if s else 0)\nprint(m)"
+                         files)]
+            (when (zero? (:exit r)) (Long/parseLong (str/trim (:out r))))))))
 
     (defn run-in-dolphin
       "Boot an app in Dolphin (MMU emulation on), screenshot it, return the
@@ -287,6 +302,7 @@
      (row "build:jolt-stress" "cross-build the Clojure drawing stress test")
      (row "build:jolt-ffi-bench" "cross-build the Clojure FFI cost benchmark")
      (row "build:jolt-cast-bench" "cross-build the cast cost benchmark")
+     (row "build:jolt-snd-spike" "cross-build the AESND sound spike (run: boots it with an audio dump)")
      (row "gfx-pack-stub" "the graphics pack with a shim whose draw functions return at once")
      (row "build:jolt-stress-stub" "cross-build the stress test against the stub-draw pack")
      (row "build:jolt-const-draw" "cross-build the constant-arguments draw test")
@@ -681,6 +697,25 @@
            (sh! "env" "JOLT_WII_NO_META=1" (str "JOLT_WII_PACK=" repo-root "/.work/pack-tpb32b-gfx")
                 (str "JOLT_WII_CC=" repo-root "/scripts/wii-cc-sdl")
                 "scripts/jolt-wii-build" "jolt-balloons" "balloons.cast-bench" "jolt-cast-bench"))}
+
+  build:jolt-snd-spike
+  {:doc "Cross-build the AESND sound spike"
+   :depends [gfx-pack]
+   :task (do
+           (sh! "env" "JOLT_WII_NO_META=1" (str "JOLT_WII_PACK=" repo-root "/.work/pack-tpb32b-gfx")
+                (str "JOLT_WII_CC=" repo-root "/scripts/wii-cc-sdl")
+                "scripts/jolt-wii-build" "jolt-balloons" "balloons.snd-spike" "jolt-snd-spike"))}
+
+  run:jolt-snd-spike
+  {:doc "Boot the sound spike in Dolphin with an audio dump and print its lines and the dump peak"
+   :task (let [user (auto-user "idle")
+               _ (fs/delete-tree (str user "/Dump/Audio"))
+               r (run-in-dolphin "jolt-snd-spike" 20 :user user
+                                 :extra-env {"DOLPHIN_EXTRA" "-C Dolphin.DSP.DumpAudio=True"})
+               peak (dump-peak user)]
+           (doseq [l (:lines r)] (when (str/starts-with? l "jolt-snd-spike: ") (println l)))
+           (println (str "jolt-snd-spike: dump peak=" (if peak peak "none")))
+           (when (:crashed? r) (println "CRASHED") (System/exit 1)))}
 
   run:jolt-cast-bench
   {:doc "Boot the cast cost benchmark in Dolphin and print its lines"

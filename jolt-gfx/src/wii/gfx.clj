@@ -176,3 +176,25 @@
   [ch] (- (c-ir-y ch) ir-bias))
 (defn rumble! [ch on?] (c-rumble ch (if on? 1 0)) nil)
 (defn rumble-all-off! [] (c-rumble-all-off) nil)
+
+;; Sound.
+(ffi/defcfn c-snd-init "jg_snd_init" [] :uptr)
+(ffi/defcfn c-snd-test "jg_snd_test" [:uptr :uptr] :uptr)
+(ffi/defcfn c-snd-stats "jg_snd_stats" [] :uptr)
+
+(defn sound-init!
+  "Start the audio voice. True when it runs, false when AESND refused."
+  [] (= 1 (c-snd-init)))
+
+(defn sound-test!
+  "A square tone at hz for ms milliseconds."
+  [hz ms] (c-snd-test (long hz) (long ms)) nil)
+
+(defn sound-stats
+  "Counters since the last call: the largest sample rendered, effects
+   triggered, stream callbacks run."
+  []
+  (let [s (c-snd-stats)]
+    {:peak (bit-and s 0x7FFF)
+     :sfx (bit-and (bit-shift-right s 15) 0xFF)
+     :callbacks (bit-shift-right s 23)}))
