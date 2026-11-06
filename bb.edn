@@ -66,6 +66,19 @@
            (filter (fn [l] (str/includes? l "N[OSREPORT]: ")))
            (map (fn [l] (str/replace (subs l (+ (str/index-of l "N[OSREPORT]: ") 13)) "\r" "")))))
 
+    (defn dump-best
+      "[path peak] of the dspdump*.wav under user dir `user` with the largest
+       |sample|, or nil when no dump was written."
+      [user]
+      (let [files (sort (map str (fs/glob (str user "/Dump/Audio") "*dspdump*.wav")))
+            peak-of (fn [f]
+                      (let [r (shell {:out :string :continue true} "python3" "-c"
+                                     "import sys,wave,struct\nw=wave.open(sys.argv[1]);d=w.readframes(w.getnframes())\ns=struct.unpack('<%dh'%(len(d)//2),d)\nprint(max(abs(x) for x in s) if s else 0)"
+                                     f)]
+                        (when (zero? (:exit r)) (Long/parseLong (str/trim (:out r))))))
+            scored (keep (fn [f] (when-let [pk (peak-of f)] [f pk])) files)]
+        (when (seq scored) (apply max-key second scored))))
+
     (defn dump-peak
       "The largest |sample| over Dolphin's DSP audio dumps under user dir `user`,
        as an integer, or nil when no dump was written. Dolphin starts a new
@@ -175,6 +188,14 @@
            (drop 1)
            vec))
 
+    (defn sound-pass?
+      "True when some frames summary of the run shows the shim's mixer output
+       above 1000 and the effects counter summed over the run is above 0."
+      [nm r]
+      (let [sums (frame-summaries nm r)]
+        (boolean (and (some (fn [m] (> (get m :snd-peak 0) 1000)) sums)
+                      (pos? (reduce + (map (fn [m] (get m :sfx 0)) sums)))))))
+
     (defn lower-median
       "Lower middle of the sorted values, as everywhere else in this project."
       [xs]
@@ -228,6 +249,19 @@
           {:saved? (boolean (some (fn [l] (= l (str "setting " k "=" v " saved=1"))) first-run))
            :loaded? (boolean (some (fn [l] (and (str/starts-with? l "start ") (str/includes? l (str k "=" v " ")))) second-run))
            :file (let [f (str sd "/apps/" nm "/settings.txt")] (when (fs/exists? f) (str/trim (slurp f))))})))
+
+    (defn mute-check
+      "Press - once on Super Mona's title with an emulated SD card; passes
+       data: whether the log said `sound off` and what settings.txt holds."
+      []
+      (let [sd (str repo-root "/.work/sd-mute")
+            f (str sd "/apps/jolt-mona/settings.txt")
+            _ (fs/delete-tree sd)
+            _ (fs/create-dirs (str sd "/apps/jolt-mona"))
+            r (run-in-dolphin "jolt-mona" 9 :user (auto-user "minus") :shot-name "jolt-mona-mute"
+                              :extra-env {"DOLPHIN_EXTRA" (str/join " " (sd-sync-opts sd))})]
+        {:toggled? (boolean (some (fn [l] (= l "sound off")) (game-lines "jolt-mona" r)))
+         :saved (when (fs/exists? f) (str/trim (slurp f)))}))
 
     (defn play-game
       "Open a game in Dolphin for a person to play with the Mac. The optional
@@ -285,6 +319,8 @@
      (hdr "Verify")
      (row "doctor" "check Docker, the devkitPPC image, Dolphin, jolt, Chez")
      (row "test" "host-side unit tests: every game's rules, on the Mac")
+     (row "run:jolt-mona-audio" "Super Mona in Dolphin with the audio dumped to a WAV for listening")
+     (row "run:jolt-mona-mute" "press - on Super Mona's title: sound off, mona_sound=0 saved to the card")
      (row "verify" "build everything, boot each app in Dolphin (MMU on), check output")
      (hdr "Build")
      (row "build" "every app below")
@@ -661,6 +697,27 @@
            (print-game-run "jolt-mona" r)
            (when (:crashed? r) (println "CRASHED") (System/exit 1)))}
 
+  run:jolt-mona-audio
+  {:doc "Boot Super Mona in Dolphin with the audio dumped to a WAV; print the game lines and the dump's path and peak"
+   :task (let [sd (str repo-root "/.work/sd-mona")
+               user (auto-user "idle")
+               _ (fs/create-dirs (str sd "/apps/jolt-mona"))
+               _ (fs/delete-tree (str user "/Dump/Audio"))
+               r (run-in-dolphin "jolt-mona" (demo-secs "jolt-mona") :user user
+                                 :extra-env {"DOLPHIN_EXTRA" (str/join " " (concat (sd-sync-opts sd) ["-C" "Dolphin.DSP.DumpAudio=True"]))})
+               best (dump-best user)]
+           (print-game-run "jolt-mona" r)
+           (if best
+             (println (str "dump: " (first best) " peak=" (second best)))
+             (println "dump: none"))
+           (when (or (:crashed? r) (nil? best)) (println (if (:crashed? r) "CRASHED" "NO DUMP")) (System/exit 1)))}
+
+  run:jolt-mona-mute
+  {:doc "Press - once on Super Mona's title with an emulated SD card; print whether it muted and what was saved"
+   :task (let [m (mute-check)]
+           (println m)
+           (when-not (and (:toggled? m) (str/includes? (or (:saved m) "") "mona_sound=0")) (System/exit 1)))}
+
   run:jolt-mona-wiimote
   {:doc "A game of Super Mona with a scripted Wiimote held sideways: 2 jumps, 1 runs, the d-pad runs right"
    :task (print-game-run "jolt-mona" (run-scripted "jolt-mona"))}
@@ -749,6 +806,7 @@
          _ (run 'test)
          game-runs (vec (for [[nm _ _ _ _ secs] games] [nm (run-in-dolphin nm secs) (run-scripted nm)]))
          couch-runs (vec (for [c couch-settings] [c (couch-check c)]))
+         mute (mute-check)
          h (run-in-dolphin "hello" 12)
          c (run-in-dolphin "chez" 25)
          j (run-in-dolphin "jolt-hello" 40)
@@ -760,10 +818,15 @@
      (doseq [[nm demo scripted] game-runs]
        (expect nm (demo-pass? nm demo) "title, then the robot demo scores at least 3 times, no crash")
        (expect (str nm "-wiimote") (scripted-pass? nm scripted)
-               "a scripted Wiimote presses A to join, the round starts, and player 1 scores in it"))
+               "a scripted Wiimote presses A to join, the round starts, and player 1 scores in it")
+       (when (= nm "jolt-mona")
+         (expect "jolt-mona-sound" (sound-pass? "jolt-mona" demo) "the shim rendered music and effects during the demo (snd-peak > 1000, sfx > 0)")
+         (expect "jolt-mona-sound-wiimote" (sound-pass? "jolt-mona" scripted) "the shim rendered music and effects during the scripted run (snd-peak > 1000, sfx > 0)")))
      (doseq [[[nm _ k v] r] couch-runs]
        (expect (str nm "-couch") (and (:saved? r) (:loaded? r) (= (:file r) (str k "=" v)))
                (str "one button press sets " k "=" v ", it's saved to the SD card, and the next launch loads it")))
+     (expect "jolt-mona-mute" (and (:toggled? mute) (str/includes? (or (:saved mute) "") "mona_sound=0"))
+             "one press of - on the title mutes the sound and saves mona_sound=0 to the card")
      (expect "hello" (and (not (:crashed? h))
                           (some (fn [l] (str/includes? l "PLATFORM: DESKTOP (SDL2): Initialized successfully")) (:lines h)))
              "raylib initialised over SDL2/OpenGX, no crash")
