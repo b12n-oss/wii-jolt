@@ -36,6 +36,15 @@ static uint32_t age_counter;
 static const snd_effect *fx_tab;
 static int fx_n;
 
+// Sequencer state.
+static const snd_instrument *inst_tab;
+static int inst_n;
+static const snd_song *song_tab;
+static int song_n;
+static const snd_song *cur_song;     // NULL when no song is set
+static int mus_order, mus_row, mus_loop, mus_pct = 100, mus_paused;
+static int32_t mus_left;             // samples left in the row, 0 = trigger the row next frame
+
 static volatile int32_t peak;
 static volatile uint32_t sfx_count;
 static volatile uint32_t cb_count;
@@ -61,6 +70,14 @@ void snd_init(void)
     age_counter = 0;
     fx_tab = NULL;
     fx_n = 0;
+    inst_tab = NULL;
+    inst_n = 0;
+    song_tab = NULL;
+    song_n = 0;
+    cur_song = NULL;
+    mus_order = mus_row = mus_loop = mus_paused = 0;
+    mus_pct = 100;
+    mus_left = 0;
     peak = 0;
     sfx_count = 0;
     cb_count = 0;
@@ -236,11 +253,15 @@ static uint32_t hz_to_inc(int hz)
     return (uint32_t)(((uint64_t)hz << 32) / SND_RATE);
 }
 
-void snd_tables(const snd_effect *fx, int nfx, const snd_instrument *inst, int ninst, const void *songs, int nsongs)
+void snd_tables(const snd_effect *fx, int nfx, const snd_instrument *inst, int ninst, const snd_song *songs, int nsongs)
 {
-    (void)inst; (void)ninst; (void)songs; (void)nsongs;
     fx_tab = fx;
     fx_n = fx ? nfx : 0;
+    inst_tab = inst;
+    inst_n = inst ? ninst : 0;
+    song_tab = songs;
+    song_n = songs ? nsongs : 0;
+    cur_song = NULL;
 }
 
 // Start step k of channel c; the voice is already on.
@@ -308,11 +329,118 @@ static void chans_tick(void)
     }
 }
 
+// --- sequencer --------------------------------------------------------------
+// Music voices 0..3. The row counter advances when a row's samples run out and
+// the next row's notes trigger on the following frame.
+
+static const snd_instrument drums[3] = {
+    {SND_WAVE_NOISE, 0, 0, 80, 0, 15, 0},     // low noise
+    {SND_WAVE_NOISE, 0, 0, 120, 0, 15, 0},    // snare
+    {SND_WAVE_NOISE, 1, 0, 30, 0, 15, 0},     // hat
+};
+static const uint8_t drum_note[3] = {60, 84, 100};
+
+static void music_release(void)
+{
+    for (int v = 0; v < 4; v++) snd_voice_off(v);
+}
+
+static void music_end(void)
+{
+    music_release();
+    cur_song = NULL;
+}
+
+void snd_music(int song, int loop)
+{
+    if (!song_tab || song < 0 || song >= song_n) return;
+    music_release();
+    cur_song = &song_tab[song];
+    mus_order = mus_row = 0;
+    mus_loop = loop != 0;
+    mus_paused = 0;
+    mus_left = 0;
+}
+
+void snd_music_stop(void)
+{
+    music_end();
+    mus_paused = 0;
+}
+
+void snd_music_pause(int on)
+{
+    if (!cur_song) return;
+    if (on && !mus_paused) music_release();
+    mus_paused = on != 0;
+}
+
+void snd_music_tempo(int pct)
+{
+    mus_pct = pct < 50 ? 50 : pct > 200 ? 200 : pct;
+}
+
+int snd_music_playing(void)
+{
+    return cur_song != NULL;
+}
+
+int snd_music_row(void)
+{
+    return cur_song ? mus_order * 256 + mus_row : 0;
+}
+
+static void music_play_row(void)
+{
+    const snd_song *s = cur_song;
+    if (mus_order >= s->norder || s->order[mus_order] >= s->npatterns) return;
+    const snd_pattern *pat = &s->patterns[s->order[mus_order]];
+    if (mus_row >= pat->rows) return;
+    for (int t = 0; t < 4; t++) {
+        if (!pat->track[t]) continue;
+        snd_cell c = pat->track[t][mus_row];
+        if (c.note == -2) continue;
+        if (c.note < 0) { snd_voice_off(t); continue; }
+        if (t == 3) {
+            if (c.note > 2) continue;
+            snd_voice_on(3, &drums[(int)c.note], snd_note_inc[drum_note[(int)c.note]]);
+        } else {
+            if (!inst_tab || c.inst >= inst_n || c.note > 127) continue;
+            snd_voice_on(t, &inst_tab[c.inst], snd_note_inc[(int)c.note]);
+        }
+    }
+}
+
+static void music_advance(void)
+{
+    const snd_song *s = cur_song;
+    const snd_pattern *pat = (mus_order < s->norder && s->order[mus_order] < s->npatterns)
+                           ? &s->patterns[s->order[mus_order]] : NULL;
+    if (pat && ++mus_row < pat->rows) return;
+    mus_row = 0;
+    if (++mus_order < s->norder) return;
+    if (mus_loop && s->loop_at >= 0 && s->loop_at < s->norder) mus_order = s->loop_at;
+    else music_end();
+}
+
+static void music_tick(void)
+{
+    if (!cur_song || mus_paused) return;
+    if (mus_left <= 0) {
+        music_play_row();
+        int64_t rpm = cur_song->rpm ? cur_song->rpm : 1;
+        int64_t n = (int64_t)SND_RATE * 60 * 100 / (rpm * mus_pct);
+        mus_left = n < 1 ? 1 : (int32_t)n;
+    }
+    if (--mus_left <= 0) music_advance();
+}
+
 void snd_render(int16_t *out, int frames)
 {
     int32_t pk = 0;
     for (int i = 0; i < frames; i++) {
         int32_t music = 0, sfx = 0;
+        music_tick();
         chans_tick();
         for (int v = 0; v < 4; v++) music += voice_tick(&voices[v]);
         for (int v = 4; v < SND_VOICES; v++) sfx += voice_tick(&voices[v]);
@@ -371,11 +499,17 @@ static void stream_cb(AESNDPB *pb, u32 state)
     }
 }
 
+// Until the generated tables arrive: effect 0 is a 440 Hz pulse blip.
+static const snd_effect spike_fx[1] = {
+    {SND_WAVE_PULSE, 2, 0, 0, 10, 1, {{440, 440, 50, 15}}},
+};
+
 U jg_snd_init(void)
 {
     jg_count();
     if (ready) return 1;
     snd_init();
+    snd_tables(spike_fx, 1, NULL, 0, NULL, 0);
     AESND_Init();
     voice = AESND_AllocateVoice(stream_cb);
     if (!voice) return 0;
@@ -411,10 +545,77 @@ U jg_snd_stats(void)
     return word;
 }
 
+U jg_sfx(U id)
+{
+    jg_count();
+    if (!ready) return 0;
+    u32 level;
+    _CPU_ISR_Disable(level);
+    snd_sfx((int)id);
+    _CPU_ISR_Restore(level);
+    return 0;
+}
+
+U jg_music(U song, U loop)
+{
+    jg_count();
+    if (!ready) return 0;
+    u32 level;
+    _CPU_ISR_Disable(level);
+    snd_music((int)song, (int)loop);
+    _CPU_ISR_Restore(level);
+    return 0;
+}
+
+U jg_music_stop(void)
+{
+    jg_count();
+    if (!ready) return 0;
+    u32 level;
+    _CPU_ISR_Disable(level);
+    snd_music_stop();
+    _CPU_ISR_Restore(level);
+    return 0;
+}
+
+U jg_music_pause(U on)
+{
+    jg_count();
+    if (!ready) return 0;
+    u32 level;
+    _CPU_ISR_Disable(level);
+    snd_music_pause((int)on);
+    _CPU_ISR_Restore(level);
+    return 0;
+}
+
+U jg_music_tempo(U pct)
+{
+    jg_count();
+    if (!ready) return 0;
+    u32 level;
+    _CPU_ISR_Disable(level);
+    snd_music_tempo((int)pct);
+    _CPU_ISR_Restore(level);
+    return 0;
+}
+
+U jg_snd_volume(U music, U sfx)
+{
+    jg_count();
+    if (!ready) return 0;
+    u32 level;
+    _CPU_ISR_Disable(level);
+    snd_volume((int)music, (int)sfx);
+    _CPU_ISR_Restore(level);
+    return 0;
+}
+
 void jg_snd_register(void)
 {
 #define R(f) Sforeign_symbol(#f, (void *)f)
     R(jg_snd_init); R(jg_snd_test); R(jg_snd_stats);
+    R(jg_sfx); R(jg_music); R(jg_music_stop); R(jg_music_pause); R(jg_music_tempo); R(jg_snd_volume);
 #undef R
 }
 #endif

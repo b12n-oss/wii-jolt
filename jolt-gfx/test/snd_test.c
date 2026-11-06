@@ -8,7 +8,7 @@ static int fails;
 static int passes;
 #define CHECK(c) do { if (!(c)) { fails++; printf("FAIL %s:%d: %s\n", __FILE__, __LINE__, #c); } } while (0)
 
-#define MAX_FRAMES (SND_FRAMES * 64)
+#define MAX_FRAMES (SND_RATE * 4)
 static int16_t out[MAX_FRAMES * 2];
 
 // Render `frames` frames into out[] in SND_FRAMES-sized chunks.
@@ -306,6 +306,134 @@ static void calls_before_tables_are_noops(void)
     CHECK(snd_stats() == 0);
 }
 
+
+// --- sequencer ----------------------------------------------------------------
+
+#define R_ (-1)
+#define H_ (-2)
+#define CELL(n) {(n), 0}
+static const snd_cell t0a[8] = {CELL(60), CELL(H_), CELL(64), CELL(H_), CELL(67), CELL(R_), CELL(72), CELL(H_)};
+static const snd_cell t1a[8] = {CELL(R_), CELL(R_), CELL(R_), CELL(R_), CELL(R_), CELL(R_), CELL(R_), CELL(R_)};
+static const snd_cell t2a[8] = {CELL(36), CELL(H_), CELL(36), CELL(H_), CELL(36), CELL(H_), CELL(36), CELL(H_)};
+static const snd_cell t3a[8] = {CELL(0), CELL(2), CELL(1), CELL(2), CELL(0), CELL(2), CELL(1), CELL(2)};
+static const snd_pattern song_patterns[2] = {
+    {8, {t0a, t1a, t2a, t3a}},
+    {8, {t0a, t1a, t2a, t3a}},
+};
+static const uint8_t song_order[2] = {0, 1};
+static const snd_cell hold_t0[8] = {{60, 1}, CELL(H_), CELL(H_), CELL(H_), CELL(H_), CELL(H_), CELL(H_), CELL(H_)};
+static const snd_pattern hold_patterns[1] = {{8, {hold_t0, NULL, NULL, NULL}}};
+static const uint8_t hold_order[1] = {0};
+static const snd_song song_table[2] = {
+    {480, 2, 2, 0, song_patterns, song_order},
+    {480, 1, 1, 0, hold_patterns, hold_order},
+};
+static const snd_instrument song_inst[2] = {
+    {SND_WAVE_PULSE, 2, 0, 0, 15, 15, 5},
+    {SND_WAVE_PULSE, 2, 200, 0, 15, 15, 5},
+};
+
+static void begin_song(void)
+{
+    begin();
+    snd_tables(NULL, 0, song_inst, 2, song_table, 2);
+}
+
+static void song_advances_rows(void)
+{
+    begin_song();
+    snd_music(0, 1);
+    render(48000);
+    int r = snd_music_row();
+    CHECK((r >= 7 && r <= 8) || (r >= 256 && r <= 257));
+    render(48000);
+    CHECK(snd_music_row() <= 1);
+}
+
+static void song_loops_at_its_order_point(void)
+{
+    begin_song();
+    snd_music(0, 1);
+    render(48000 * 3 + 24000);
+    CHECK(snd_music_playing());
+    CHECK(snd_music_row() >= 256 && snd_music_row() < 256 + 8);
+}
+
+static void play_once_ends(void)
+{
+    begin_song();
+    snd_music(0, 0);
+    render(48000 * 2 + 24000);
+    CHECK(!snd_music_playing());
+    render(480);
+    CHECK(peak_of(out, 0, 480) == 0);
+}
+
+static void pause_holds_the_row(void)
+{
+    begin_song();
+    snd_music(0, 1);
+    render(28800);
+    int row = snd_music_row();
+    snd_music_pause(1);
+    render(48000);
+    CHECK(snd_music_row() == row);
+    CHECK(peak_of(out, 48000 - 240, 48000) == 0);
+    snd_music_pause(0);
+    render(6000);
+    CHECK(snd_music_row() == row + 1);
+}
+
+static void tempo_changes_from_the_next_row(void)
+{
+    begin_song();
+    snd_music_tempo(125);
+    snd_music(0, 1);
+    render(48000);
+    int r = snd_music_row();      /* 10 rows in: order 1, row 2 */
+    CHECK(r >= 256 + 1 && r <= 256 + 3);
+    begin_song();
+    snd_music_tempo(125);
+    snd_music_tempo(100);
+    snd_music(0, 1);
+    render(48000);
+    r = snd_music_row();
+    CHECK(r >= 255 && r <= 257);
+}
+
+static void stop_silences(void)
+{
+    begin_song();
+    snd_music(0, 1);
+    render(3000);
+    CHECK(peak_of(out, 0, 3000) > 0);
+    snd_music_stop();
+    render(480);
+    CHECK(peak_of(out, 240, 480) < 300);
+    CHECK(!snd_music_playing());
+}
+
+static void hold_does_not_retrigger(void)
+{
+    begin_song();
+    snd_music(1, 1);
+    render(12000);
+    int row0 = peak_of(out, 0, 6000);
+    int row1 = peak_of(out, 6000, 12000);
+    CHECK(row0 > 0);
+    CHECK(row1 > row0);
+}
+
+static void music_before_tables_is_a_noop(void)
+{
+    snd_init();
+    snd_tables(NULL, 0, NULL, 0, NULL, 0);
+    snd_music(0, 1);
+    CHECK(!snd_music_playing());
+    render(480);
+    CHECK(peak_of(out, 0, 480) == 0);
+}
+
 int main(void)
 {
     void (*tests[])(void) = {
@@ -314,7 +442,9 @@ int main(void)
         envelope_attacks_decays_sustains_releases, mix_of_all_voices_does_not_wrap,
         volume_scales_the_sum, effect_renders_and_ends, sweep_rises, noise_effect_steps,
         trigger_steals_the_oldest_channel, out_of_range_effect_is_ignored,
-        calls_before_tables_are_noops,
+        calls_before_tables_are_noops, song_advances_rows, song_loops_at_its_order_point,
+        play_once_ends, pause_holds_the_row, tempo_changes_from_the_next_row, stop_silences,
+        hold_does_not_retrigger, music_before_tables_is_a_noop,
     };
     int n = (int)(sizeof tests / sizeof tests[0]);
     for (int i = 0; i < n; i++) {

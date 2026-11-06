@@ -46,10 +46,27 @@ void snd_volume(int music, int sfx);
 typedef struct { uint16_t f0, f1, ms; uint8_t vol; } snd_step;   // slide f0 -> f1 Hz over ms at volume 0..15 (0 = a gap)
 typedef struct { uint8_t wave, duty, chan, attack_ms, release_ms, nsteps; snd_step steps[SND_STEPS]; } snd_effect;
 // chan: the preferred effect channel, 0 or 1 for a pulse effect, 2 for noise.
-// The tables are borrowed, not copied; snd_init clears them. songs is typed in P1.T4.
-void snd_tables(const snd_effect *fx, int nfx, const snd_instrument *inst, int ninst, const void *songs, int nsongs);
+
+// Songs: patterns of rows, four tracks (0 pulse 1, 1 pulse 2, 2 triangle, 3 noise
+// drums). note: MIDI 0..127 retriggers the voice with instrument `inst`, -1
+// releases, -2 holds; on track 3 the note is a drum id 0..2 and inst is ignored.
+// A NULL track is all rests. rpm is rows per minute; order indexes patterns;
+// loop_at is the order index to return to, -1 plays once.
+typedef struct { int8_t note; uint8_t inst; } snd_cell;
+typedef struct { uint8_t rows; const snd_cell *track[4]; } snd_pattern;
+typedef struct { uint16_t rpm; uint8_t npatterns, norder; int8_t loop_at; const snd_pattern *patterns; const uint8_t *order; } snd_song;
+// The tables are borrowed, not copied; snd_init clears them.
+void snd_tables(const snd_effect *fx, int nfx, const snd_instrument *inst, int ninst, const snd_song *songs, int nsongs);
 void snd_sfx(int id);              // trigger; out-of-range ids are ignored
 int snd_sfx_active(int chan);      // 1 while effect channel chan (0..2) plays, release included
+
+// Music on voices 0..3. Out-of-range songs are ignored.
+void snd_music(int song, int loop);   // from the first row; loop 0 forces play-once
+void snd_music_stop(void);            // release the four music voices, clear the song
+void snd_music_pause(int on);         // 1 holds the row and releases the voices, 0 resumes at that row
+void snd_music_tempo(int pct);        // 50..200, applied from the next row; 100 = rpm
+int snd_music_playing(void);          // 1 while a song is set and has not ended
+int snd_music_row(void);              // order index * 256 + row, for tests
 
 // Core.
 void snd_init(void);
@@ -67,6 +84,12 @@ void snd_count_callback(void);
 U jg_snd_init(void);
 U jg_snd_test(U hz, U ms);
 U jg_snd_stats(void);
+U jg_sfx(U id);
+U jg_music(U song, U loop);
+U jg_music_stop(void);
+U jg_music_pause(U on);
+U jg_music_tempo(U pct);
+U jg_snd_volume(U music, U sfx);
 void jg_snd_register(void);
 #endif
 
