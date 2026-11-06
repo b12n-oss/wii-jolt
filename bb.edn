@@ -264,8 +264,13 @@
             _ (fs/create-dirs (str sd "/apps/jolt-mona"))
             r (run-in-dolphin "jolt-mona" 9 :user (auto-user "minus") :shot-name "jolt-mona-mute"
                               :extra-env {"DOLPHIN_EXTRA" (str/join " " (sd-sync-opts sd))})
-            r2 (run-in-dolphin "jolt-mona" 6 :user (auto-user "idle") :shot-name "jolt-mona-mute-reload"
-                           :extra-env {"DOLPHIN_EXTRA" (str/join " " (sd-sync-opts sd))})]
+            idle (auto-user "idle")
+            r2 (run-in-dolphin "jolt-mona" 6 :user idle :shot-name "jolt-mona-mute-reload"
+                               :extra-env {"DOLPHIN_EXTRA" (str/join " " (sd-sync-opts sd))})
+            ;; The idle user's card image keeps the synced settings.txt, so
+            ;; the next plain run of Super Mona would start muted. Drop it.
+            _ (fs/delete-if-exists (str idle "/Load/WiiSD.raw"))
+            _ (fs/delete-tree (str idle "/Load/WiiSDSync"))]
         {:crashed? (boolean (:crashed? r))
          :toggled? (boolean (some (fn [l] (= l "sound off")) (game-lines "jolt-mona" r)))
          :saved (when (fs/exists? f) (str/trim (slurp f)))
