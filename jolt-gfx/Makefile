@@ -18,11 +18,15 @@ build/jolt_gfx_stub.o: jolt_gfx.c jolt_gfx.h
 	mkdir -p build
 	$(CC) $(CFLAGS) -DJG_STUB_DRAW -c $< -o $@
 
-build/jolt_gfx.o: jolt_gfx.c jolt_gfx.h
+# Always recompiled: the build id (-DJG_BUILD_ID, from bb build:jolt-gfx) is
+# in CFLAGS, not in a source file, and the compile takes a second.
+build/jolt_gfx.o: jolt_gfx.c jolt_gfx.h FORCE
 	mkdir -p build
 	$(CC) $(CFLAGS) -c $< -o $@
 
 clean:
 	rm -rf build
 
-.PHONY: all clean
+FORCE:
+
+.PHONY: all clean FORCE

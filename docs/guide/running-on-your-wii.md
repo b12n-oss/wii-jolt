@@ -68,12 +68,55 @@ container may need `--network host` if the plain command can't reach the Wii.
   one of the things to check.
 - **chez**: white text listing Scheme expressions and their results, ending with
   "done. Press HOME to exit."
-- **jolt-hello**: twelve lines of Clojure output, then "[program finished: press
-  HOME or START to leave]".
+- **jolt-hello**: twelve lines of Clojure output, then a line
+  `pb: unaligned double loads N stores M` (the interpreter's count of double
+  reads it had to do in two halves; 4 and 0 in Dolphin), then "[program
+  finished: press HOME or START to leave]".
+- **jolt-balloons** ("Balloon Pop (Clojure)" in the Homebrew Channel) and
+  **jolt-mona** ("Super Mona"): the games, with a small stamp along the bottom
+  edge, `jolt <sha> pb <loads>/<stores> f<frame>`. The C Balloon Pop has no
+  stamp, which is how the two are told apart on the TV.
 
 HOME on a Wiimote, or START on a GameCube pad, returns to the Homebrew Channel
 from the chez and jolt apps. The raylib app's exit path on hardware isn't
 checked yet.
+
+## Bringing evidence back from the console
+
+A real Wii has no debug port that Dolphin's log stands in for, so each run has
+to leave its evidence on the TV or on the card.
+
+**The stamp.** Every frame a jolt game draws carries the git sha the graphics
+shim was built from (`-dirty` when the tree had uncommitted changes), the
+interpreter's unaligned double load and store counts, and the frame number. A
+photo of the TV then says which build ran and how far it got. Writing
+`debug_hud=0` into the game's `settings.txt` hides it.
+
+**run.log.** The same games write `run.log` next to their `boot.dol`: the build
+id, the heap report, a line every 300 frames and one at exit, each flushed to
+the card as it is written, so a crash keeps the last line. Nothing is written
+when there is no card to write to.
+
+**Checking the card.** The card should carry the same files as `build/sd/apps`:
+
+```sh
+shasum -a 256 build/sd/apps/*/boot.dol /Volumes/<card>/apps/*/boot.dol
+```
+
+**Reading a crash.** The red screen names the exception and prints the
+registers, with the faulting address in `PC` (SRR0) and the return addresses
+in `STACK DUMP`. Each build keeps its `.elf` beside the `.dol`, and the
+toolchain image has `addr2line`, so the screen maps to functions in one
+command:
+
+```sh
+scripts/dkp powerpc-eabi-addr2line -f -e jolt-hello/build/jolt-hello.elf 0x800090c0 0x800a7914 0x80006860
+```
+
+On the first console run that gave `S_pb_interp`, `S_call_help`, `boot_call`:
+the bytecode interpreter, called while the kernel loaded its boot files. The
+elf has to be the one that produced the dol, which the hash check above
+settles.
 
 ## Things to check on the first hardware run
 

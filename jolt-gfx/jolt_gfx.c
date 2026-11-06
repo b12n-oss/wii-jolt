@@ -5,8 +5,11 @@
 #include "jolt_gfx.h"
 #include "settings.h"
 #include "raylib.h"
+#include <stdarg.h>
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <unistd.h>
 #include <gccore.h>
 #include <ogc/lwp_watchdog.h>
 #include <wiiuse/wpad.h>
@@ -35,11 +38,74 @@ static unsigned calls;
 static bool chan_ok(U ch) { return (int)ch >= 0 && (int)ch < NCHAN; }
 
 static void heap_report(void);
+static const char *settings_file_path(void);
+
+// --- console evidence ------------------------------------------------------
+// A real Wii has no OSREPORT, so a run has to bring its own evidence back:
+//  - a stamp drawn over every frame (build id, the interpreter's unaligned
+//    double load/store counts, the frame number), so a photo of the TV says
+//    which build ran and how far it got. settings.txt's `debug_hud=0` hides it.
+//  - run.log beside boot.dol on the card: the build id, the heap report, a
+//    line every 300 frames and one at exit, each fsynced so a crash keeps
+//    the last one. Nothing is written when there is no card to write to.
+// The build id comes from bb build:jolt-gfx (-DJG_BUILD_ID=<git sha>).
+#ifndef JG_BUILD_ID
+#define JG_BUILD_ID dev
+#endif
+#define JG_STR2(x) #x
+#define JG_STR(x) JG_STR2(x)
+static const char build_id[] = JG_STR(JG_BUILD_ID);
+
+extern unsigned pb_unaligned_fp_loads, pb_unaligned_fp_stores;   // the kernel's (c/pb.c)
+static unsigned frames;
+static bool hud = true;
+static FILE *run_log;
+
+// The card first, then stderr: libogc's UART write rewrites every '\n' to
+// '\r' in the buffer it is handed, and newlib's vfprintf hands it the format
+// string's own text, so a format written to stderr first reaches the log
+// with its newlines gone (seen: a run.log of one long line).
+static void jg_log(const char *fmt, ...)
+{
+    char line[256];
+    va_list ap;
+    va_start(ap, fmt); vsnprintf(line, sizeof line, fmt, ap); va_end(ap);
+    if (run_log) {
+        fputs(line, run_log);
+        fflush(run_log);
+        fsync(fileno(run_log));
+    }
+    fputs(line, stderr);
+}
+
+static void run_log_open(void)
+{
+    const char *settings = settings_file_path();
+    size_t n = strlen(settings), tail = strlen("settings.txt");
+    char path[256];
+    if (n < tail || n >= sizeof path) return;
+    memcpy(path, settings, n - tail);
+    strcpy(path + n - tail, "run.log");
+    run_log = fopen(path, "w");
+    jg_log("jolt_gfx: build %s, run log %s\n", build_id, run_log ? path : "(not writable)");
+}
+
+static void hud_draw(void)
+{
+    char s[96];
+    snprintf(s, sizeof s, "jolt %s  pb %u/%u  f%u", build_id,
+             pb_unaligned_fp_loads, pb_unaligned_fp_stores, frames);
+    int y = GetScreenHeight() - 36;   // above a TV's overscan crop
+    DrawText(s, 9, y + 1, 10, BLACK);
+    DrawText(s, 8, y, 10, RAYWHITE);
+}
 
 U jg_init(U w, U h)
 {
     calls++;
+    run_log_open();
     heap_report();
+    hud = settings_load(settings_file_path(), "debug_hud", 1.0f) != 0.0f;
     InitWindow((int)w, (int)h, "jolt");
     SetTargetFPS(60);
     WPAD_SetDataFormat(WPAD_CHAN_ALL, WPAD_FMT_BTNS_ACC_IR);
@@ -47,9 +113,29 @@ U jg_init(U w, U h)
     return 0;
 }
 U jg_should_close(void) { return WindowShouldClose(); }
-U jg_close(void) { calls++; CloseWindow(); return 0; }
+U jg_close(void)
+{
+    calls++;
+    jg_log("jolt_gfx: exit at frame %u, pb unaligned double loads %u stores %u\n",
+           frames, pb_unaligned_fp_loads, pb_unaligned_fp_stores);
+    if (run_log) { fclose(run_log); run_log = NULL; }
+    CloseWindow();
+    return 0;
+}
 U jg_begin(U clear) { calls++; BeginDrawing(); ClearBackground(rgba(clear)); return 0; }
-U jg_end(void) { calls++; EndDrawing(); return 0; }
+U jg_end(void)
+{
+    calls++;
+    frames++;
+#ifndef JG_STUB_DRAW
+    if (hud) hud_draw();
+#endif
+    if (run_log && frames % 300 == 0)
+        jg_log("jolt_gfx: frame %u, pb unaligned double loads %u stores %u\n",
+               frames, pb_unaligned_fp_loads, pb_unaligned_fp_stores);
+    EndDrawing();
+    return 0;
+}
 U jg_frame_us(void) { return (U)(GetFrameTime() * 1000000.0f); }
 U jg_time_us(void) { return (U)(ticks_to_microsecs(gettime()) & 0x0FFFFFFF); }
 U jg_seed(void) { calls++; return (U)(gettime() & 0x0FFFFFFF); }
@@ -506,12 +592,12 @@ static void heap_report(void)
 {
     heap_iblock info[2] = {{0}, {0}};
     for (int i = 0; i < 2; i++) if (fb_lo[i]) __lwp_heap_getinfo(&fb_heap[i], &info[i]);
-    fprintf(stderr, "jolt_gfx: heap at jg_init: malloc live %u, fallback used %u + %u, free %u + %u; chez bytes-allocated %u, collect-trip-bytes %u\n",
-            (unsigned)heap_live, (unsigned)info[0].used_size, (unsigned)info[1].used_size,
-            (unsigned)info[0].free_size, (unsigned)info[1].free_size,
-            (unsigned)chez_uint("bytes-allocated"), (unsigned)chez_uint("collect-trip-bytes"));
-    fprintf(stderr, "jolt_gfx: arena1 %p..%p arena2 %p..%p\n",
-            SYS_GetArena1Lo(), SYS_GetArena1Hi(), SYS_GetArena2Lo(), SYS_GetArena2Hi());
+    jg_log("jolt_gfx: heap at jg_init: malloc live %u, fallback used %u + %u, free %u + %u; chez bytes-allocated %u, collect-trip-bytes %u\n",
+           (unsigned)heap_live, (unsigned)info[0].used_size, (unsigned)info[1].used_size,
+           (unsigned)info[0].free_size, (unsigned)info[1].free_size,
+           (unsigned)chez_uint("bytes-allocated"), (unsigned)chez_uint("collect-trip-bytes"));
+    jg_log("jolt_gfx: arena1 %p..%p arena2 %p..%p\n",
+           SYS_GetArena1Lo(), SYS_GetArena1Hi(), SYS_GetArena2Lo(), SYS_GetArena2Hi());
 }
 
 void *__wrap_malloc(size_t n)

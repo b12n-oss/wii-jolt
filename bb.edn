@@ -403,7 +403,14 @@
 
   build:jolt-gfx
   {:doc "Compile the jolt-gfx C shim (raylib and Wiimotes for jolt programs)"
-   :task (sh! "scripts/dkp" "make" "-C" "jolt-gfx")}
+   :task
+   ;; The shim stamps every frame and its run.log with the git sha it was
+   ;; built from (plus -dirty when the tree had changes), so a photo of the
+   ;; TV says which build ran.
+   (let [sha (str/trim (:out (shell {:out :string :dir repo-root} "git" "rev-parse" "--short" "HEAD")))
+         dirty? (not (str/blank? (:out (shell {:out :string :dir repo-root} "git" "status" "--porcelain" "--untracked-files=no"))))
+         id (str sha (when dirty? "-dirty"))]
+     (sh! "scripts/dkp" "make" "-C" "jolt-gfx" (str "EXTRA_CFLAGS=-DJG_BUILD_ID=" id)))}
 
   gfx-pack
   {:doc "Assemble the graphics pack in .work/pack-tpb32b-gfx (needs bb pack first)"
