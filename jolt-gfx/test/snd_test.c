@@ -1,4 +1,5 @@
 // Host test for the jolt-snd core (voices, envelopes, mixer). Built by `bb test`.
+#include <math.h>
 #include <stdio.h>
 #include <string.h>
 #include "jolt_snd.h"
@@ -52,6 +53,8 @@ static void note_table_is_tuned(void)
     int64_t d2 = (int64_t)snd_note_inc[81] - (int64_t)(2 * (uint64_t)a4);
     CHECK(d1 >= -1 && d1 <= 1);
     CHECK(d2 >= -2 && d2 <= 2);
+    for (int n = 0; n < 128; n++)
+        CHECK(snd_note_inc[n] == (uint32_t)(440.0 * pow(2.0, (n - 69) / 12.0) * 4294967296.0 / 48000.0 + 0.5));
 }
 
 static void pulse_voice_renders_a_square(void)
