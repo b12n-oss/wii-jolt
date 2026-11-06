@@ -190,10 +190,12 @@
 
     (defn sound-pass?
       "True when some frames summary of the run shows the shim's mixer output
-       above 1000 and the effects counter summed over the run is above 0."
+       above 1000 and its music voices above 3000 (snd-music), and the effects
+       counter summed over the run is above 0."
       [nm r]
       (let [sums (frame-summaries nm r)]
         (boolean (and (some (fn [m] (> (get m :snd-peak 0) 1000)) sums)
+                      (some (fn [m] (> (get m :snd-music 0) 3000)) sums)
                       (pos? (reduce + (map (fn [m] (get m :sfx 0)) sums)))))))
 
     (defn lower-median
@@ -251,17 +253,23 @@
            :file (let [f (str sd "/apps/" nm "/settings.txt")] (when (fs/exists? f) (str/trim (slurp f))))})))
 
     (defn mute-check
-      "Press - once on Super Mona's title with an emulated SD card; passes
-       data: whether the log said `sound off` and what settings.txt holds."
+      "Press - once on Super Mona's title with an emulated SD card, then relaunch
+       with no presses. Data: whether the first run crashed, whether its log said
+       `sound off`, what settings.txt holds, and whether the second run said
+       `sound off` at start."
       []
       (let [sd (str repo-root "/.work/sd-mute")
             f (str sd "/apps/jolt-mona/settings.txt")
             _ (fs/delete-tree sd)
             _ (fs/create-dirs (str sd "/apps/jolt-mona"))
             r (run-in-dolphin "jolt-mona" 9 :user (auto-user "minus") :shot-name "jolt-mona-mute"
-                              :extra-env {"DOLPHIN_EXTRA" (str/join " " (sd-sync-opts sd))})]
-        {:toggled? (boolean (some (fn [l] (= l "sound off")) (game-lines "jolt-mona" r)))
-         :saved (when (fs/exists? f) (str/trim (slurp f)))}))
+                              :extra-env {"DOLPHIN_EXTRA" (str/join " " (sd-sync-opts sd))})
+            r2 (run-in-dolphin "jolt-mona" 6 :user (auto-user "idle") :shot-name "jolt-mona-mute-reload"
+                           :extra-env {"DOLPHIN_EXTRA" (str/join " " (sd-sync-opts sd))})]
+        {:crashed? (boolean (:crashed? r))
+         :toggled? (boolean (some (fn [l] (= l "sound off")) (game-lines "jolt-mona" r)))
+         :saved (when (fs/exists? f) (str/trim (slurp f)))
+         :reloaded? (boolean (some (fn [l] (= l "sound off")) (game-lines "jolt-mona" r2)))}))
 
     (defn play-game
       "Open a game in Dolphin for a person to play with the Mac. The optional
@@ -716,7 +724,7 @@
   {:doc "Press - once on Super Mona's title with an emulated SD card; print whether it muted and what was saved"
    :task (let [m (mute-check)]
            (println m)
-           (when-not (and (:toggled? m) (str/includes? (or (:saved m) "") "mona_sound=0")) (System/exit 1)))}
+           (when-not (and (not (:crashed? m)) (:toggled? m) (str/includes? (or (:saved m) "") "mona_sound=0") (:reloaded? m)) (System/exit 1)))}
 
   run:jolt-mona-wiimote
   {:doc "A game of Super Mona with a scripted Wiimote held sideways: 2 jumps, 1 runs, the d-pad runs right"
@@ -820,13 +828,13 @@
        (expect (str nm "-wiimote") (scripted-pass? nm scripted)
                "a scripted Wiimote presses A to join, the round starts, and player 1 scores in it")
        (when (= nm "jolt-mona")
-         (expect "jolt-mona-sound" (sound-pass? "jolt-mona" demo) "the shim rendered music and effects during the demo (snd-peak > 1000, sfx > 0)")
-         (expect "jolt-mona-sound-wiimote" (sound-pass? "jolt-mona" scripted) "the shim rendered music and effects during the scripted run (snd-peak > 1000, sfx > 0)")))
+         (expect "jolt-mona-sound" (sound-pass? "jolt-mona" demo) "the shim rendered music (snd-music > 3000) and effects (sfx > 0) during the demo")
+         (expect "jolt-mona-sound-wiimote" (sound-pass? "jolt-mona" scripted) "the shim rendered music (snd-music > 3000) and effects (sfx > 0) during the scripted run")))
      (doseq [[[nm _ k v] r] couch-runs]
        (expect (str nm "-couch") (and (:saved? r) (:loaded? r) (= (:file r) (str k "=" v)))
                (str "one button press sets " k "=" v ", it's saved to the SD card, and the next launch loads it")))
-     (expect "jolt-mona-mute" (and (:toggled? mute) (str/includes? (or (:saved mute) "") "mona_sound=0"))
-             "one press of - on the title mutes the sound and saves mona_sound=0 to the card")
+     (expect "jolt-mona-mute" (and (not (:crashed? mute)) (:toggled? mute) (str/includes? (or (:saved mute) "") "mona_sound=0") (:reloaded? mute))
+             "one press of - on the title mutes the sound, saves mona_sound=0 to the card, and the next launch starts muted")
      (expect "hello" (and (not (:crashed? h))
                           (some (fn [l] (str/includes? l "PLATFORM: DESKTOP (SDL2): Initialized successfully")) (:lines h)))
              "raylib initialised over SDL2/OpenGX, no crash")

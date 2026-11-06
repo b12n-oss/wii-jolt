@@ -186,6 +186,7 @@
 (ffi/defcfn c-music-tempo "jg_music_tempo" [:uptr] :uptr)
 (ffi/defcfn c-snd-volume "jg_snd_volume" [:uptr :uptr] :uptr)
 (ffi/defcfn c-snd-stats "jg_snd_stats" [] :uptr)
+(ffi/defcfn c-snd-music-peak "jg_snd_music_peak" [] :uptr)
 
 (defn sound-init!
   "Start the audio voice. True when it runs, false when AESND refused."
@@ -223,3 +224,8 @@
     {:peak (bit-and s 0x7FFF)
      :sfx (bit-and (bit-shift-right s 15) 0xFF)
      :callbacks (bit-shift-right s 23)}))
+
+(defn sound-music-peak
+  "The largest |sum of the four music voices| rendered since the last call,
+   before the volume scaling, 0 to 32767. Effects do not count."
+  [] (bit-and (c-snd-music-peak) 0x7FFF))

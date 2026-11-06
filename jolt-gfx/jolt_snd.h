@@ -73,6 +73,9 @@ void snd_init(void);
 // Interleaved stereo, both channels equal.
 void snd_render(int16_t *out, int frames);
 uint32_t snd_stats(void);
+// The largest |sum of voices 0..3| rendered since the last call, before the
+// music volume scaling, 0..32767; resets on read. Tells music from effects.
+uint32_t snd_music_peak(void);
 void snd_count_callback(void);
 
 #ifdef __wii__
@@ -81,6 +84,7 @@ void snd_count_callback(void);
 // Until jg_snd_init has returned 1 they are counted no-ops.
 U jg_snd_init(void);
 U jg_snd_stats(void);
+U jg_snd_music_peak(void);
 U jg_sfx(U id);
 U jg_music(U song, U loop);
 U jg_music_stop(void);

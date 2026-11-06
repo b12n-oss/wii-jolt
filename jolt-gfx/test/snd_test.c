@@ -543,6 +543,27 @@ static void hurry_tempo_renders(void)
     snd_music_tempo(100);
 }
 
+static void music_peak_tracks_the_music_voices(void)
+{
+    begin_song();
+    snd_music_peak();
+    snd_music(0, 1);
+    render(48000);
+    CHECK(snd_music_peak() > 1500);
+    CHECK(snd_music_peak() == 0);   // reset on read
+    snd_music_stop();
+    render(24000);                  // past every release
+    snd_music_peak();
+    render(4800);
+    CHECK(snd_music_peak() == 0);
+    begin_fx();                     // an effect alone is not music
+    snd_music_peak();
+    snd_sfx(0);
+    render(1920);
+    CHECK(peak_of(out, 0, 1920) > 1500);
+    CHECK(snd_music_peak() == 0);
+}
+
 int main(void)
 {
     void (*tests[])(void) = {
@@ -555,6 +576,7 @@ int main(void)
         play_once_ends, pause_holds_the_row, tempo_changes_from_the_next_row, stop_silences,
         hold_does_not_retrigger, music_before_tables_is_a_noop,
         every_effect_sounds_and_ends, every_song_renders, hurry_tempo_renders,
+        music_peak_tracks_the_music_voices,
     };
     int n = (int)(sizeof tests / sizeof tests[0]);
     for (int i = 0; i < n; i++) {

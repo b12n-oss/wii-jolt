@@ -10,7 +10,7 @@ CFLAGS += $(EXTRA_CFLAGS)
 
 all: build/jolt_gfx.o build/settings.o build/jolt_snd.o
 
-build/jolt_snd.o: jolt_snd.c jolt_snd.h jolt_gfx.h
+build/jolt_snd.o: jolt_snd.c jolt_snd.h jolt_gfx.h mona_music.h
 	mkdir -p build
 	$(CC) $(CFLAGS) -c $< -o $@
 

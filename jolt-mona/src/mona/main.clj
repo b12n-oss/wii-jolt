@@ -103,7 +103,7 @@
   (doseq [l (:log a)] (println (str name* ": " l))))
 
 ;; What the shim was last told about the music.
-(def ^:private snd0 {:song nil :loop? nil :tempo 100 :pause? false})
+(def ^:private snd0 {:song nil :loop? nil :tempo 100 :pause? false :sfx-muted? false})
 
 (defn- music-key
   "[song loop?] of a cue's music, or nil for no music."
@@ -111,12 +111,22 @@
   (when (:song m) [(:song m) (:loop? m)]))
 
 (defn- send-sound!
-  "Send one tick's cues to the shim: every effect, then the music, tempo and
-   pause changes against snd (what was last sent). Logs music changes.
-   Returns the new snd."
-  [cues snd]
-  (doseq [id (:sfx cues)] (gfx/sfx! id))
-  (let [want (music-key (:music cues))
+  "Send one tick's cues to the shim: the effect volume when the cue's
+   :sfx-muted? changed (0 while muted, else the user's setting), every effect,
+   then the tempo, music and pause changes against snd (what was last sent).
+   The tempo goes before the music, so a jingle's first row is not played at
+   the old tempo. Logs music changes. Returns the new snd."
+  [cues snd sound?]
+  (let [snd (if (= (boolean (:sfx-muted? cues)) (:sfx-muted? snd))
+              snd
+              (let [v (if sound? 255 0)]
+                (gfx/sound-volume! v (if (:sfx-muted? cues) 0 v))
+                (assoc snd :sfx-muted? (boolean (:sfx-muted? cues)))))
+        _ (doseq [id (:sfx cues)] (gfx/sfx! id))
+        snd (if (= (:tempo cues) (:tempo snd))
+              snd
+              (do (gfx/music-tempo! (:tempo cues)) (assoc snd :tempo (:tempo cues))))
+        want (music-key (:music cues))
         have (music-key snd)
         snd (if (= want have)
               snd
@@ -125,19 +135,17 @@
                     (gfx/music-stop!))
                   (println (str name* ": music "
                                 (if want (name (nth ids/song-ids (first want))) "none")))
-                  (assoc snd :song (first want) :loop? (second want))))
-        snd (if (= (:tempo cues) (:tempo snd))
-              snd
-              (do (gfx/music-tempo! (:tempo cues)) (assoc snd :tempo (:tempo cues))))]
+                  (assoc snd :song (first want) :loop? (second want))))]
     (if (= (:pause? cues) (:pause? snd))
       snd
       (do (gfx/music-pause! (:pause? cues)) (assoc snd :pause? (:pause? cues))))))
 
 (defn- apply-sound!
-  "Send the mute setting to the shim as the volumes and log it."
-  [sound?]
+  "Send the mute setting to the shim as the volumes (effects stay at 0 while
+   sfx-muted?) and log it."
+  [sound? sfx-muted?]
   (let [v (if sound? 255 0)]
-    (gfx/sound-volume! v v)
+    (gfx/sound-volume! v (if sfx-muted? 0 v))
     (println (str name* ": sound " (if sound? "on" "off")))))
 
 (defn- active-sky [a]
@@ -153,7 +161,7 @@
   (let [high0 (gfx/setting-get "mona_high" 0)
         a0 (app/init high0)]
     (println (str name* ": start"))
-    (apply-sound! (sound/sound-on? (gfx/setting-get "mona_sound" 1)))
+    (apply-sound! (sound/sound-on? (gfx/setting-get "mona_sound" 1)) false)
     (loop [a a0
            t 0.0
            last-held [0 0 0 0]
@@ -178,7 +186,7 @@
                                         channels)))
             sound? (if toggle? (not sound?) sound?)
             _ (when toggle?
-                (apply-sound! sound?)
+                (apply-sound! sound? (:sfx-muted? snd))
                 (gfx/setting-put! "mona_sound" (if sound? 1 0)))]
         (if (or (gfx/should-close?)
                 (some (fn [h] (pos? (bit-and h gfx/button-home))) held))
@@ -194,7 +202,7 @@
                 calls-total (if load (+ calls-total (long (nth load 1)) (long (nth load 2))) calls-total)
                 log-lines (:log a)
                 _ (print-log a)
-                snd (send-sound! (sound/cues a log-lines) snd)
+                snd (send-sound! (sound/cues a log-lines) snd sound?)
                 _ (when load
                     (println (str name* ": stage-load tick-us=" (stats/elapsed-us t0 t-tick)
                                   " hand-off-us=" (first load) " calls=" (nth load 2))))
@@ -230,11 +238,13 @@
                   (println (str name* ": stall frame-us=" fus
                                 " work-us=" (+ (:update-us sample) (:draw-us sample)))))
                 (when done?
-                  (let [ss (gfx/sound-stats)]
+                  (let [ss (gfx/sound-stats)
+                        music-pk (gfx/sound-music-peak)]
                     (println (str (stats/summary-line name* (stats/summary samples))
                                   " calls=" (quot calls-total summary-every)
                                   " snd-peak=" (:peak ss) " sfx=" (:sfx ss)
-                                  " snd-cb=" (:callbacks ss)))))
+                                  " snd-cb=" (:callbacks ss)
+                                  " snd-music=" music-pk))))
                 (recur a t held (if done? [] samples) (if done? 0 calls-total)
                        written state stage-key rumble-ch rumble-left want-rumble
                        sound? snd)))))))))

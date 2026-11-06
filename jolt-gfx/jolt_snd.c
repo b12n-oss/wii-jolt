@@ -45,6 +45,7 @@ static int mus_order, mus_row, mus_loop, mus_pct = 100, mus_paused;
 static int32_t mus_left;             // samples left in the row, 0 = trigger the row next frame
 
 static volatile int32_t peak;
+static volatile int32_t music_pk;
 static volatile uint32_t sfx_count;
 static volatile uint32_t cb_count;
 
@@ -424,13 +425,15 @@ static void music_tick(void)
 
 void snd_render(int16_t *out, int frames)
 {
-    int32_t pk = 0;
+    int32_t pk = 0, mpk = 0;
     for (int i = 0; i < frames; i++) {
         int32_t music = 0, sfx = 0;
         music_tick();
         chans_tick();
         for (int v = 0; v < 4; v++) music += voice_tick(&voices[v]);
         for (int v = 4; v < SND_VOICES; v++) sfx += voice_tick(&voices[v]);
+        int32_t m = music < 0 ? -music : music;
+        if (m > mpk) mpk = m;
         int32_t mix = music * music_vol / 255 + sfx * sfx_vol / 255;
         if (mix > 32767) mix = 32767;
         if (mix < -32767) mix = -32767;
@@ -440,11 +443,20 @@ void snd_render(int16_t *out, int frames)
         out[2 * i + 1] = (int16_t)mix;
     }
     if (pk > peak) peak = pk;
+    if (mpk > 32767) mpk = 32767;
+    if (mpk > music_pk) music_pk = mpk;
 }
 
 void snd_count_callback(void)
 {
     if (cb_count < 63) cb_count++;
+}
+
+uint32_t snd_music_peak(void)
+{
+    uint32_t p = (uint32_t)music_pk;
+    music_pk = 0;
+    return p;
 }
 
 uint32_t snd_stats(void)
@@ -516,6 +528,17 @@ U jg_snd_stats(void)
     return word;
 }
 
+U jg_snd_music_peak(void)
+{
+    jg_count();
+    if (!ready) return 0;
+    u32 level;
+    _CPU_ISR_Disable(level);
+    U p = snd_music_peak();
+    _CPU_ISR_Restore(level);
+    return p;
+}
+
 U jg_sfx(U id)
 {
     jg_count();
@@ -585,7 +608,7 @@ U jg_snd_volume(U music, U sfx)
 void jg_snd_register(void)
 {
 #define R(f) Sforeign_symbol(#f, (void *)f)
-    R(jg_snd_init); R(jg_snd_stats);
+    R(jg_snd_init); R(jg_snd_stats); R(jg_snd_music_peak);
     R(jg_sfx); R(jg_music); R(jg_music_stop); R(jg_music_pause); R(jg_music_tempo); R(jg_snd_volume);
 #undef R
 }
