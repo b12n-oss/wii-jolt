@@ -1,5 +1,6 @@
 // See settings.h.
 #include "settings.h"
+#include <errno.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -50,6 +51,8 @@ bool settings_save(const char *path, const char *key, float value)
     if (in) {
         got = fread(old, 1, sizeof old - 1, in);
         fclose(in);
+    } else if (errno != ENOENT) {
+        return false;   // unreadable is not absent: do not truncate what we cannot read
     }
     old[got] = '\0';
 

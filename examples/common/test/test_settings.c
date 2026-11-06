@@ -1,5 +1,7 @@
 // Host-side tests for settings.c (bb test). argv[1] is a scratch file path.
+#define _POSIX_C_SOURCE 200809L
 #include "settings.h"
+#include <sys/stat.h>
 #include <math.h>
 #include <stdio.h>
 #include <string.h>
@@ -51,6 +53,22 @@ int main(int argc, char *argv[])
     }
     remove(file);
     CHECK(!settings_save("/no/such/dir/settings.txt", "k", 1), "an unwritable path reports failure");
+
+    // A file that cannot be read (but can be written) must survive a failed save.
+    remove(file);
+    CHECK(settings_save(file, "keep", 5), "saves the file to protect");
+    if (chmod(file, 0200) == 0) {
+        FILE *probe = fopen(file, "r");
+        if (probe) {
+            fclose(probe);   // root reads it anyway: the case cannot be built
+        } else {
+            CHECK(!settings_save(file, "other", 1), "a read that fails for another reason than ENOENT fails the save");
+            chmod(file, 0600);
+            CHECK(settings_load(file, "keep", 0) == 5, "and leaves the file as it was");
+        }
+        chmod(file, 0600);
+    }
+    remove(file);
 
     printf("settings: %d checks, %d failed\n", checks, failures);
     return failures ? 1 : 0;
