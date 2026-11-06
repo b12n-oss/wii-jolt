@@ -372,6 +372,10 @@
           (sh! "cc" "-std=c99" "-Wall" "-Wextra" "-Werror" "-Iexamples/common" "examples/common/settings.c"
                "examples/common/test/test_settings.c" "-lm" "-o" (str repo-root "/.work/test_settings"))
           (sh! (str repo-root "/.work/test_settings") (str repo-root "/.work/test_settings.tmp"))
+          (sh! "scripts/music-to-c" (str repo-root "/.work/mona_music.h"))
+          (when-not (zero? (:exit (shell {:continue true} "cmp" (str repo-root "/.work/mona_music.h") "jolt-gfx/mona_music.h")))
+            (binding [*out* *err*] (println "mona_music.h is stale: run scripts/music-to-c"))
+            (System/exit 1))
           (sh! "cc" "-std=c99" "-Wall" "-Wextra" "-Werror" "-Ijolt-gfx" "jolt-gfx/jolt_snd.c"
                "jolt-gfx/test/snd_test.c" "-lm" "-o" (str repo-root "/.work/snd_test"))
           (sh! (str repo-root "/.work/snd_test"))

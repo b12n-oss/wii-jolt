@@ -28,7 +28,6 @@ struct voice {
 static struct voice voices[SND_VOICES];
 static int music_vol = 255;
 static int sfx_vol = 255;
-static int32_t test_left;      // samples left of the test tone, 0 when none
 
 // Effect channels 0..2 drive voices 4..6.
 static struct { const snd_effect *fx; int step; int32_t left; uint32_t age; } chans[3];
@@ -60,7 +59,6 @@ void snd_init(void)
     }
     music_vol = 255;
     sfx_vol = 255;
-    test_left = 0;
     for (int c = 0; c < 3; c++) {
         chans[c].fx = NULL;
         chans[c].step = 0;
@@ -158,17 +156,6 @@ void snd_voice_slide(int v, uint32_t target_inc, int ms)
 int snd_voice_active(int v)
 {
     return v >= 0 && v < SND_VOICES && voices[v].env_stage != ENV_OFF;
-}
-
-// The one float use besides snd_init, outside the callback.
-void snd_test_tone(int hz, int ms)
-{
-    static const snd_instrument tone = {SND_WAVE_PULSE, 2, 0, 0, 15, 15, 0};
-    if (hz < 20) hz = 20;
-    if (hz > 20000) hz = 20000;
-    snd_voice_on(4, &tone, (uint32_t)(hz * 4294967296.0 / SND_RATE));
-    test_left = (int32_t)((int64_t)ms * SND_RATE / 1000);
-    if (test_left < 1) test_left = 1;
 }
 
 // Advance one voice by a sample and return its output, +-OUT_FULL at most.
@@ -444,7 +431,6 @@ void snd_render(int16_t *out, int frames)
         chans_tick();
         for (int v = 0; v < 4; v++) music += voice_tick(&voices[v]);
         for (int v = 4; v < SND_VOICES; v++) sfx += voice_tick(&voices[v]);
-        if (test_left > 0 && --test_left == 0) snd_voice_off(4);
         int32_t mix = music * music_vol / 255 + sfx * sfx_vol / 255;
         if (mix > 32767) mix = 32767;
         if (mix < -32767) mix = -32767;
@@ -479,6 +465,7 @@ uint32_t snd_stats(void)
 #include <ogc/machine/processor.h>
 #include <aesndlib.h>
 #include "jolt_gfx.h"
+#include "mona_music.h"
 
 void Sforeign_symbol(const char *s, void *v);
 
@@ -499,17 +486,13 @@ static void stream_cb(AESNDPB *pb, u32 state)
     }
 }
 
-// Until the generated tables arrive: effect 0 is a 440 Hz pulse blip.
-static const snd_effect spike_fx[1] = {
-    {SND_WAVE_PULSE, 2, 0, 0, 10, 1, {{440, 440, 50, 15}}},
-};
-
 U jg_snd_init(void)
 {
     jg_count();
     if (ready) return 1;
     snd_init();
-    snd_tables(spike_fx, 1, NULL, 0, NULL, 0);
+    snd_tables(mona_effects, MONA_EFFECTS, mona_instruments,
+               (int)(sizeof mona_instruments / sizeof mona_instruments[0]), mona_songs, MONA_SONGS);
     AESND_Init();
     voice = AESND_AllocateVoice(stream_cb);
     if (!voice) return 0;
@@ -520,18 +503,6 @@ U jg_snd_init(void)
     AESND_SetVoiceStop(voice, false);
     ready = 1;
     return 1;
-}
-
-U jg_snd_test(U hz, U ms)
-{
-    jg_count();
-    if (ready) {
-        u32 level;
-        _CPU_ISR_Disable(level);
-        snd_test_tone((int)hz, (int)ms);
-        _CPU_ISR_Restore(level);
-    }
-    return 0;
 }
 
 U jg_snd_stats(void)
@@ -614,7 +585,7 @@ U jg_snd_volume(U music, U sfx)
 void jg_snd_register(void)
 {
 #define R(f) Sforeign_symbol(#f, (void *)f)
-    R(jg_snd_init); R(jg_snd_test); R(jg_snd_stats);
+    R(jg_snd_init); R(jg_snd_stats);
     R(jg_sfx); R(jg_music); R(jg_music_stop); R(jg_music_pause); R(jg_music_tempo); R(jg_snd_volume);
 #undef R
 }

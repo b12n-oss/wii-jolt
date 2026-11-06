@@ -72,8 +72,6 @@ int snd_music_row(void);              // order index * 256 + row, for tests
 void snd_init(void);
 // Interleaved stereo, both channels equal.
 void snd_render(int16_t *out, int frames);
-// Plays voice 4 as a 50 % pulse at full volume for ms, then releases it.
-void snd_test_tone(int hz, int ms);
 uint32_t snd_stats(void);
 void snd_count_callback(void);
 
@@ -82,7 +80,6 @@ void snd_count_callback(void);
 // Exports, registered by jg_snd_register. Every call counts as a jg_* call.
 // Until jg_snd_init has returned 1 they are counted no-ops.
 U jg_snd_init(void);
-U jg_snd_test(U hz, U ms);
 U jg_snd_stats(void);
 U jg_sfx(U id);
 U jg_music(U song, U loop);

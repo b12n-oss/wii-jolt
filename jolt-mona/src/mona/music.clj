@@ -2,8 +2,8 @@
   "Super Mona's sound data: the rule-event effects, the instruments and the
    songs, plus the small note language the songs are written in. Plain
    Clojure with no FFI, so it loads under jolt and babashka alike. The C
-   header that the Wii side reads is emitted from here (emit-header is still
-   a stub until the emitter lands)."
+   header that the Wii side reads is emitted from here by emit-header, which
+   scripts/music-to-c writes to jolt-gfx/mona_music.h."
   (:require [clojure.string :as str]))
 
 (def effect-ids
@@ -79,7 +79,7 @@
 (def songs
   "Songs by id. :loop is the order index to loop back to, or nil. :order lists
    pattern indexes. Only :title is written so far; it holds placeholder
-   patterns that P2.T3 replaces."
+   patterns that the real tunes will replace."
   {:title {:rpm 480 :loop 0
            :patterns [placeholder-pattern placeholder-pattern-2]
            :order [0 1]}})
@@ -245,8 +245,167 @@
     (check-song id s))
   nil)
 
+(def ^:private effect-index
+  (zipmap effect-ids (range)))
+
+(def ^:private song-index
+  (zipmap song-ids (range)))
+
+(defn effect-id
+  "The C index of effect keyword k, or nil when k is not an effect id."
+  [k]
+  (get effect-index k))
+
+(defn song-id
+  "The C index of song keyword k, or nil when k is not a song id."
+  [k]
+  (get song-index k))
+
+(def ^:private wave-values {:pulse 0 :tri 1 :noise 2})
+
+(def ^:private instrument-keys
+  "Instrument keywords in the sorted order the C table uses."
+  (vec (sort (keys instruments))))
+
+(def ^:private instrument-index
+  (zipmap instrument-keys (range)))
+
+(defn- c-name
+  "The upper-case C macro suffix of keyword k, as in :1up to 1UP."
+  [k]
+  (str/upper-case (name k)))
+
+(defn- join
+  "Joins the strings in coll with sep."
+  [sep coll]
+  (str/join sep coll))
+
+(defn- emit-step
+  "One snd_step initialiser."
+  [[f0 f1 ms vol]]
+  (str "{" f0 ", " f1 ", " ms ", " vol "}"))
+
+(defn- emit-effect
+  "One snd_effect initialiser line."
+  [e]
+  (str "    {" (get wave-values (:wave e)) ", " (:duty e) ", " (:chan e) ", "
+       (:attack e) ", " (:release e) ", " (count (:steps e)) ", {"
+       (join ", " (map emit-step (:steps e))) "}},"))
+
+(defn- emit-instrument
+  "One snd_instrument initialiser line, led by a comment naming it."
+  [k]
+  (let [i (get instruments k)]
+    (str "    /* " (name k) " */ {" (get wave-values (:wave i)) ", " (:duty i) ", "
+         (:a i) ", " (:d i) ", " (:s i) ", " (:vol i) ", " (:r i) "},")))
+
+(defn- note-value
+  "The C note of a melodic cell: the MIDI number, -1 for a rest, -2 for a hold."
+  [cell]
+  (case (:note cell)
+    :rest -1
+    :hold -2
+    (:note cell)))
+
+(defn- drum-value
+  "The C note of a drum cell: the drum id, or -1 for a rest."
+  [cell]
+  (let [d (:drum cell)]
+    (if (= d :rest) -1 d)))
+
+(defn- melodic-cells
+  "The snd_cell values of one melodic track, as [note inst] pairs."
+  [[inst-key text]]
+  (let [inst (get instrument-index inst-key)]
+    (map (fn [c] [(note-value c) inst]) (parse-track text))))
+
+(defn- drum-pairs
+  "The snd_cell values of the drum track, as [id 0] pairs."
+  [text]
+  (map (fn [c] [(drum-value c) 0]) (parse-drums text)))
+
+(defn- pattern-tracks
+  "The four tracks of pattern p as vectors of [note inst] pairs."
+  [p]
+  [(melodic-cells (:p1 p)) (melodic-cells (:p2 p)) (melodic-cells (:tri p))
+   (drum-pairs (:noise p))])
+
+(def ^:private empty-pattern
+  "One row of rests on all four tracks."
+  [[[-1 0]] [[-1 0]] [[-1 0]] [[-1 0]]])
+
+(defn- song-parts
+  "A song as {:rpm :loop :order :patterns}, where each pattern is a vector of
+   four tracks of [note inst] pairs. A song missing from songs is one pattern
+   of one row of rests, played once at 480 rpm."
+  [k]
+  (if-let [s (get songs k)]
+    {:rpm (:rpm s) :loop (:loop s) :order (:order s)
+     :patterns (mapv pattern-tracks (:patterns s))}
+    {:rpm 480 :loop nil :order [0] :patterns [empty-pattern]}))
+
+(defn- cells-name
+  "The C array name of one track: song index i, pattern j, track k."
+  [i j k]
+  (str "mona_s" i "_p" j "_t" k))
+
+(defn- emit-cells
+  "One snd_cell array."
+  [i j k cells]
+  (str "static const snd_cell " (cells-name i j k) "[] = {"
+       (join ", " (map (fn [[n inst]] (str "{" n ", " inst "}")) cells)) "};"))
+
+(defn- emit-song
+  "The C text of song index i: its cell arrays, patterns, order and nothing
+   else. The snd_song row itself goes in the mona_songs table."
+  [i parts]
+  (let [patterns (:patterns parts)]
+    (join "\n"
+          (concat
+           (for [[j tracks] (map-indexed vector patterns)
+                 [k cells] (map-indexed vector tracks)]
+             (emit-cells i j k cells))
+           [(str "static const snd_pattern mona_s" i "_patterns[] = {")]
+           (for [[j tracks] (map-indexed vector patterns)]
+             (str "    {" (count (first tracks)) ", {"
+                  (join ", " (map (fn [k] (cells-name i j k)) (range 4))) "}},"))
+           ["};"
+            (str "static const uint8_t mona_s" i "_order[] = {"
+                 (join ", " (:order parts)) "};")]))))
+
+(defn- emit-song-row
+  "The snd_song initialiser for song index i."
+  [i parts]
+  (str "    {" (:rpm parts) ", " (count (:patterns parts)) ", " (count (:order parts)) ", "
+       (if (nil? (:loop parts)) -1 (:loop parts)) ", mona_s" i "_patterns, mona_s" i "_order},"))
+
 (defn emit-header
-  "The C header for the sound data as a string. Returns \"\" until the
-   emitter lands (P2.T2)."
+  "The C header for the sound data as a string. The output depends only on
+   the data, so two calls return the same text."
   []
-  "")
+  (let [parts (mapv song-parts song-ids)]
+    (str "// Generated by scripts/music-to-c from jolt-mona/src/mona/music.clj. Do not edit.\n"
+         "// Regenerate: scripts/music-to-c\n"
+         "#include \"jolt_snd.h\"\n"
+         (join "" (map-indexed (fn [i k] (str "#define SFX_" (c-name k) " " i "\n")) effect-ids))
+         (join "" (map-indexed (fn [i k] (str "#define SONG_" (c-name k) " " i "\n")) song-ids))
+         "#define MONA_EFFECTS " (count effect-ids) "\n"
+         "#define MONA_SONGS " (count song-ids) "\n"
+         "static const snd_effect mona_effects[MONA_EFFECTS] = {\n"
+         (join "\n" (map emit-effect effects)) "\n};\n"
+         "static const snd_instrument mona_instruments[" (count instrument-keys) "] = {\n"
+         (join "\n" (map emit-instrument instrument-keys)) "\n};\n"
+         (join "" (map-indexed (fn [i p] (str (emit-song i p) "\n")) parts))
+         "static const snd_song mona_songs[MONA_SONGS] = {\n"
+         (join "\n" (map-indexed emit-song-row parts)) "\n};\n")))
+
+(defn -main
+  "Validates the data, then writes the header to the path in out (default
+   jolt-gfx/mona_music.h): to out.tmp first, then renamed over out."
+  [& [out]]
+  (validate)
+  (let [out (or out "jolt-gfx/mona_music.h")
+        tmp (str out ".tmp")]
+    (spit tmp (emit-header))
+    (when-not (.renameTo (java.io.File. tmp) (java.io.File. out))
+      (fail (str "could not rename " tmp " over " out) {:out out}))))

@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <string.h>
 #include "jolt_snd.h"
+#include "../mona_music.h"
 
 static int fails;
 static int passes;
@@ -434,6 +435,16 @@ static void music_before_tables_is_a_noop(void)
     CHECK(peak_of(out, 0, 480) == 0);
 }
 
+static void real_tables_install(void)
+{
+    begin();
+    snd_tables(mona_effects, MONA_EFFECTS, mona_instruments,
+               (int)(sizeof mona_instruments / sizeof mona_instruments[0]), mona_songs, MONA_SONGS);
+    snd_sfx(SFX_JUMP);
+    render(SND_RATE / 10);
+    CHECK(peak_of(out, 0, SND_RATE / 10) > 500);
+}
+
 int main(void)
 {
     void (*tests[])(void) = {
@@ -445,6 +456,7 @@ int main(void)
         calls_before_tables_are_noops, song_advances_rows, song_loops_at_its_order_point,
         play_once_ends, pause_holds_the_row, tempo_changes_from_the_next_row, stop_silences,
         hold_does_not_retrigger, music_before_tables_is_a_noop,
+        real_tables_install,
     };
     int n = (int)(sizeof tests / sizeof tests[0]);
     for (int i = 0; i < n; i++) {
