@@ -1,3 +1,12 @@
 {:paths ["src"]
  :deps {wii/jolt-gfx {:local/root "../jolt-gfx"}}
- :aliases {:test {:extra-paths ["test"]}}}
+ :aliases {:test {:extra-paths ["test"]}
+           ;; code metrics to guide refactoring: jolt -M:metrics src report.html
+           :metrics {:extra-deps {io.github.jlt-commons/jolt-metrics
+                                  {:git/url "https://github.com/jlt-commons/jolt-metrics"
+                                   :git/tag "v0.7.1" :git/sha "d134ab1"}}
+                     :main-opts ["-m" "metrics.cli"]}
+           ;; the same, from a jolt-metrics checkout at ~/dev/jlt-commons/jolt-metrics
+           :metrics-dev {:extra-deps {io.github.jlt-commons/jolt-metrics
+                                      {:local/root "../../../jlt-commons/jolt-metrics"}}
+                         :main-opts ["-m" "metrics.cli"]}}}
