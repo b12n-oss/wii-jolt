@@ -38,7 +38,7 @@ has tried it with a real remote yet.
 ## Playing it on the Mac
 
 ```sh
-bb play:starcatcher
+jolt play:starcatcher
 ```
 
 Dolphin's keyboard has no tilt, so on the Mac the arrow keys steer (they're
@@ -48,7 +48,7 @@ is HOME.
 ## How it's built
 
 The same split as Balloon Pop. `examples/starcatcher/game.c` holds the rules
-and builds on the Mac, where `bb test` runs 48 checks on it: joining,
+and builds on the Mac, where `jolt test` runs 48 checks on it: joining,
 steering from tilt in both directions, steering speed and the walls, which
 items land in a basket, one basket per item, the storm cloud's slow-down, the
 round timer, rumble that stops when the round ends, and the demo.

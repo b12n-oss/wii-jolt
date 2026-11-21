@@ -1,7 +1,7 @@
 # Clojure drawing on the Wii: first measurement
 
 Program: `balloons.stress` (4 players aiming, 24 balloons, 100 particles, mode
-`:play`), built with `bb build:jolt-stress`, run in Dolphin 2609a (idle profile,
+`:play`), built with `jolt build:jolt-stress`, run in Dolphin 2609a (idle profile,
 MMU on) for 170 s. Per-shape drawing: one FFI call per raylib shape.
 
 Calls per frame: 368 (`balloons.stress/count-busy-frame`, run on the Mac with
@@ -34,7 +34,7 @@ memory" after about 14 frames. `jolt-gfx/jolt_gfx.c` now sets
 
 The first measurement put draw at 94% of work, which suggested batching draw
 calls into a command buffer. Before building one, `balloons.ffi-bench`
-(`bb run:jolt-ffi-bench`, Dolphin, idle profile, MMU on, 2000 operations per
+(`jolt run:jolt-ffi-bench`, Dolphin, idle profile, MMU on, 2000 operations per
 case) timed the pieces a buffer would use. Two runs gave identical numbers,
 since Dolphin's clock is emulated. The bench draws a 4x4 rect, so it shows
 crossing cost only, not the cost of real shapes.
@@ -86,7 +86,7 @@ exact integers, which for `long` are bignums on every Chez, so each cast paid
 generic flonum-vs-bignum compares. The fix (jolt `host/chez/converters.ss`,
 branch `feat/cheap-double-casts` at `36c48e7`, not yet upstream) compares
 flonums against flonum bounds. Measured with `balloons.cast-bench`
-(`bb build:jolt-cast-bench`, `bb run:jolt-cast-bench`), the profile's cast
+(`jolt build:jolt-cast-bench`, `jolt run:jolt-cast-bench`), the profile's cast
 micro-ops in a program small enough to boot (the draw profile now prints
 "out of memory" at startup with either jolt; it sits on the .dol memory
 cliff). Same Dolphin settings; net nanoseconds per operation, second pass:
@@ -138,8 +138,8 @@ The checked cast is 4x cheaper again and the unchecked one 7x; what is left
 compiler can remove. Built with the branch's jolt first on PATH; the target
 pack needs no rebuild for a runtime change.
 
-The same runtime under the stress frame and the game (`bb run:jolt-stress`,
-`bb compare:balloons`, same settings as the sections above):
+The same runtime under the stress frame and the game (`jolt run:jolt-stress`,
+`jolt compare:balloons`, same settings as the sections above):
 
 | | after the cast fix | after the lane |
 |---|---|---|
@@ -205,7 +205,7 @@ first and then take the lowered cast; a double argument costs one predicate.
 Colours and channels stay unhinted. Built with jolt's `develop` branch
 (`v0.8.23-343-g7208ddd3`: upstream main plus #1491, #1493, #1494,
 `feat/wii-tpb32b` and #1497) first on PATH, baseline and hinted from the same
-runtime, one run each of `bb run:jolt-stress` and `bb compare:balloons`.
+runtime, one run each of `jolt run:jolt-stress` and `jolt compare:balloons`.
 
 | | unhinted (baseline, same jolt) | hinted |
 |---|---|---|
@@ -260,7 +260,7 @@ the start-up frames). All numbers are microseconds, medians of 120 frames.
 
 - **stress**: `balloons.stress`, the real thing (update, Clojure draw, raylib).
 - **stress-stub**: the same program linked against a shim built with
-  `-DJG_STUB_DRAW` (`bb gfx-pack-stub`), where every drawing function returns at
+  `-DJG_STUB_DRAW` (`jolt gfx-pack-stub`), where every drawing function returns at
   once. Draw time is Clojure compute plus the FFI crossing.
 - **const-draw**: `balloons.const-draw`, the same 368 calls with arguments
   computed once at start-up. Per frame it only loops over a vector. Draw time is
@@ -302,7 +302,7 @@ so a run no longer leaves the round after 60 s.
 ## Profile of balloons.draw
 
 Program: `balloons.draw-profile`, built against the stub-draw pack
-(`bb build:jolt-draw-profile`, `bb run:jolt-draw-profile`), Dolphin 2609a, idle
+(`jolt build:jolt-draw-profile`, `jolt run:jolt-draw-profile`), Dolphin 2609a, idle
 profile, MMU on. State: the stress start-up state (24 balloons, 100 particles, 4
 players aiming, mode `:play`) at t = 1.0. Each section is timed 120 times
 inside `begin!`/`end!` and the median taken; microseconds. The whole draw here
@@ -416,7 +416,7 @@ Frame budget: update (15.5 ms) plus draw (60 ms) is 75 ms of work against a
 16.7 ms frame at 60 fps, about 4.5 times too slow. Even with a free draw, the
 update alone is under budget only barely (15.5 of 16.7 ms).
 
-Screenshot check: `bb run:jolt-stress` took its shot after 170 s when this
+Screenshot check: `jolt run:jolt-stress` took its shot after 170 s when this
 run was made (it waits 100 s now), which was
 mid-run before the optimisation (1800 frames at 267 ms is about 8 minutes) but
 is after the exit now (1800 frames at 75 ms is about 135 s), so the first after
@@ -428,7 +428,7 @@ other positions since the frame differs. Exact equality is the golden test's
 job (13 states, 1129 recorded wii.gfx calls), plus
 `casts-agree-on-every-recorded-argument` on all 3108 double arguments.
 
-## Comparison (bb compare:balloons), 2026-11-03
+## Comparison (jolt compare:balloons), 2026-11-03
 
 These are Dolphin numbers, not hardware: nothing has run on a physical Wii yet.
 

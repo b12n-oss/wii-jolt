@@ -41,7 +41,7 @@ about 15 seconds for the kids, go up a level or two.
 ## Playing it on the Mac
 
 ```sh
-bb play:shakerace
+jolt play:shakerace
 ```
 
 Left click joins, and **holding the space bar** shakes the remote (so does

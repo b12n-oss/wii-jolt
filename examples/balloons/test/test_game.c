@@ -1,6 +1,6 @@
 // Host-side tests for the Balloon Pop rules. Build and run on the Mac:
 //   cc -std=c99 -Wall -I.. ../game.c test_game.c -lm -o test_game && ./test_game
-// (bb test:balloons does exactly that.)
+// (jolt test:balloons does exactly that.)
 #include "game.h"
 #include <math.h>
 #include <stdio.h>

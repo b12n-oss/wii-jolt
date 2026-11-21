@@ -2,4 +2,8 @@
 # Write jolt-gfx/mona_music.h (or $1) from jolt-mona/src/mona/music.clj.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-exec bb -cp "$ROOT/jolt-mona/src" -m mona.music "${1:-$ROOT/jolt-gfx/mona_music.h}"
+OUT="${1:-$ROOT/jolt-gfx/mona_music.h}"
+case "$OUT" in /*) ;; *) OUT="$PWD/$OUT" ;; esac
+# jolt-mona/deps.edn puts src on the path.
+cd "$ROOT/jolt-mona"
+exec jolt -m mona.music "$OUT"

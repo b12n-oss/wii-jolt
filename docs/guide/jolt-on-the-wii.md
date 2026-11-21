@@ -9,17 +9,17 @@ Clojure program across too. It does, after two fixes to assumptions jolt makes
 about 32-bit machines.
 
 ```sh
-bb build:chez         # also builds the runtime objects jolt programs link
-bb pack               # .work/pack-tpb32b
-bb build:jolt-hello
-bb run:jolt-hello
+jolt build:chez         # also builds the runtime objects jolt programs link
+jolt pack               # .work/pack-tpb32b
+jolt build:jolt-hello
+jolt run:jolt-hello
 ```
 
 `jolt-hello/src/hello/core.clj` exercises the parts of Clojure most likely to
 break on a new machine: long and bignum arithmetic, persistent maps and sets,
 lazy sequences, string functions, atoms, and `hash`, whose values jolt pins to
 the JVM's. Its output in Dolphin matches the Mac build byte for byte, and
-`bb verify` checks that against `jolt-hello/expected-output.txt`.
+`jolt verify` checks that against `jolt-hello/expected-output.txt`.
 
 ## How the build works
 
@@ -122,7 +122,7 @@ they did before.
 
 So this repo needs a jolt at or past that merge and nothing else: the pack's
 `xpatch` is Chez's own cross patch, and `scripts/jolt-wii-build` sets no
-environment variable. `bb doctor` checks the installed jolt's version. Until
+environment variable. `jolt doctor` checks the installed jolt's version. Until
 then the repo carried the same two fixes itself, as a wrapper `xpatch` that
 defined the aliases plus `JOLT_NARROW_HASH=1` in the build script; a jolt
 older than the merge fails at init on the Wii with "variable murmur3-seed is

@@ -50,14 +50,14 @@ a Clojure platformer played with the remote held sideways:
   and checked in Dolphin through the shim's own stats.
 
 Super Mona with sound: [a one-minute Dolphin recording](docs/demos/super-mona-sound.mp4)
-(made by `bb demo:jolt-mona-video`).
+(made by `jolt demo:jolt-mona-video`).
 
 Each one has a robot demo, rumble, and rules that are tested on the Mac. The
 two numbers we could only guess at in the emulator can be fixed from the
 couch: **−** flips Star Catcher's steering, and **+**/**−** set Shake Race's
 shake power. Both are saved on the SD card.
-`bb play:<game>` opens any of them in Dolphin to try with the mouse and
-keyboard, and `bb verify` plays each one with a scripted remote.
+`jolt play:<game>` opens any of them in Dolphin to try with the mouse and
+keyboard, and `jolt verify` plays each one with a scripted remote.
 
 ## What's here
 
@@ -109,15 +109,15 @@ that stands in for an operating system.
 ## Quick start
 
 ```sh
-bb doctor        # Docker, the devkitPPC image, Dolphin, jolt, Chez: what's missing
-bb chez:setup    # one time: Chez 10.4.1 + the Wii patch, about 5 minutes
-bb test          # every game's rules, compiled and tested on the Mac
-bb verify        # build everything, boot each app in Dolphin, check the output
-bb sd            # gather everything into build/sd/apps for an SD card
+jolt doctor        # Docker, the devkitPPC image, Dolphin, jolt, Chez: what's missing
+jolt chez:setup    # one time: Chez 10.4.1 + the Wii patch, about 5 minutes
+jolt test          # every game's rules, compiled and tested on the Mac
+jolt verify        # build everything, boot each app in Dolphin, check the output
+jolt sd            # gather everything into build/sd/apps for an SD card
 ```
 
-`bb info` prints every task, grouped. `jolt info` works too, since jolt reads
-the same `bb.edn`.
+`jolt info` prints every task, grouped. The tasks live in `deps.edn`, which jolt
+reads directly, so there's no babashka to install.
 
 Copy `build/sd/apps` to the root of an SD card or USB drive and the apps show up
 in the Homebrew Channel. [Running on your Wii](docs/guide/running-on-your-wii.md)
@@ -147,7 +147,7 @@ Wii.
   links
 - [Roadmap](ROADMAP.md): what's next, starting with real hardware
 
-`bb site:serve` builds the docs into a local site through
+`jolt site:serve` builds the docs into a local site through
 [docs-engine](https://github.com/jlt-commons/docs-engine) and serves it on
 localhost.
 

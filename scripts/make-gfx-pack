@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Derive .work/pack-tpb32b-gfx from the plain pack: no text-console runtime
 # (raylib owns the screen), plus the jolt-gfx shim, raylib and SDL.
-# Prereqs: bb pack, bb build:jolt-gfx, bb build:raylib.
+# Prereqs: jolt pack, jolt build:jolt-gfx, jolt build:raylib.
 # --stub-draw: link a shim built with -DJG_STUB_DRAW (every drawing function
 # returns at once, a measurement build) into .work/pack-tpb32b-gfx-stub.
 set -euo pipefail
@@ -12,9 +12,9 @@ if [ "${1:-}" = "--stub-draw" ]; then
   "$ROOT/scripts/dkp" make -C jolt-gfx build/jolt_gfx_stub.o
 fi
 SRC="$ROOT/.work/pack-tpb32b"; PACK="${1:-$ROOT/.work/$PACKNAME}"
-[ -e "$SRC/xpatch" ] || { echo "the plain pack is missing: run bb pack first" >&2; exit 1; }
+[ -e "$SRC/xpatch" ] || { echo "the plain pack is missing: run jolt pack first" >&2; exit 1; }
 for f in "$ROOT/jolt-gfx/build/$SHIM.o" "$ROOT/jolt-gfx/build/settings.o" "$ROOT/jolt-gfx/build/jolt_snd.o" "$ROOT/raylib-wii/build/wii_shim.o" "$ROOT/raylib-wii/build/libraylib.a"; do
-  [ -e "$f" ] || { echo "missing: $f (bb build:jolt-gfx, bb build:raylib)" >&2; exit 1; }
+  [ -e "$f" ] || { echo "missing: $f (jolt build:jolt-gfx, jolt build:raylib)" >&2; exit 1; }
 done
 rm -rf "$PACK"; cp -R "$SRC" "$PACK"
 rm -f "$PACK/lib/wii_runtime.o"

@@ -18,14 +18,14 @@ the Clojure one. The rules and the drawing are the same on purpose.
 ## Trying it
 
 ```sh
-bb build:jolt-balloons
-bb run:jolt-balloons            # robot demo, prints the events
-bb run:jolt-balloons-wiimote    # a scripted Wiimote plays a round
-bb play:jolt-balloons           # you play, with the Mac's mouse as the pointer
-bb compare:balloons             # C and Clojure side by side, one table
+jolt build:jolt-balloons
+jolt run:jolt-balloons            # robot demo, prints the events
+jolt run:jolt-balloons-wiimote    # a scripted Wiimote plays a round
+jolt play:jolt-balloons           # you play, with the Mac's mouse as the pointer
+jolt compare:balloons             # C and Clojure side by side, one table
 ```
 
-`bb play:jolt-balloons` works like `bb play:balloons`: left click is A, Return
+`jolt play:jolt-balloons` works like `jolt play:balloons`: left click is A, Return
 is HOME. The Clojure game takes about 7 seconds to show its first frame.
 
 ## How it's built
@@ -83,7 +83,7 @@ bridge (`jg_setting_get`, `jg_setting_put`) over `examples/common/settings.c`.
 That page shows how they are used.
 
 The graphics pack is the plain pack minus the text console, plus the shim,
-raylib and SDL: `bb gfx-pack`. Whether to keep this link-time registration or
+raylib and SDL: `jolt gfx-pack`. Whether to keep this link-time registration or
 teach jolt's cross builds about `:jolt/native` is still open (see
 `ROADMAP.md`).
 
@@ -102,7 +102,7 @@ was 94% of the work, about 0.69 ms per call.
 ### 2. Why there is no command buffer
 
 The obvious fix is to batch the 368 calls into a buffer and cross once. Before
-building it, `balloons.ffi-bench` (`bb run:jolt-ffi-bench`) timed the pieces.
+building it, `balloons.ffi-bench` (`jolt run:jolt-ffi-bench`) timed the pieces.
 
 | Operation | Per op |
 |---|---|
@@ -152,7 +152,7 @@ saturates an out-of-range double and turns NaN into 0, where `long` throws.
 
 ### 5. The real game
 
-The stress frame is a worst case. `bb compare:balloons` runs both real games
+The stress frame is a worst case. `jolt compare:balloons` runs both real games
 for a 45 second robot demo and for a scripted round (64.5 seconds for C, 70
 for Clojure), drops each run's first summary line, and prints one table.
 
