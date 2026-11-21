@@ -112,9 +112,11 @@ beats hundreds of calls that draw a cell each. The tile window is that batch.
 
 `bb build:jolt-mona` needs jolt at or past
 [jolt-lang/jolt#1514](https://github.com/jolt-lang/jolt/pull/1514). It builds
-with `--closed-world --boot small`, passed through `JOLT_BUILD_FLAGS`. The
-reason is the heap. A 17.5 MB `.dol` ran out of jolt's heap at boot, and the
-11.9 MB one boots. The heap arithmetic is in
+with `--closed-world --boot small --no-trace`, passed through
+`JOLT_BUILD_FLAGS`. The reason is the heap. A 17.5 MB `.dol` ran out of jolt's
+heap at boot, and the 11.9 MB one boots. jolt 0.8.28 made a traced build about
+1 MB bigger again (13.06 MB, out of memory at boot), so the build also turns
+tracing off, which gives 12.35 MB. A crash report then names fewer frames. The heap arithmetic is in
 [Balloon Pop in Clojure](balloon-pop-in-clojure.md#what-this-taught-us-about-jolt).
 
 ## What moved and what did not

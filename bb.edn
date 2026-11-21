@@ -535,8 +535,11 @@
   {:doc "Cross-build Balloon Pop in Clojure (balloons.main)"
    :depends [gfx-pack]
    :task (do
+           ;; jolt 0.8.28 made this 16.69 MB and out of memory at boot; with
+           ;; these flags it is 10.19 MB and boots.
            (sh! "env" (str "JOLT_WII_PACK=" repo-root "/.work/pack-tpb32b-gfx")
                 (str "JOLT_WII_CC=" repo-root "/scripts/wii-cc-sdl")
+                "JOLT_BUILD_FLAGS=--closed-world --boot small --no-trace"
                 "scripts/jolt-wii-build" "jolt-balloons" "balloons.main" "jolt-balloons"))}
 
   build:jolt-mona
@@ -544,9 +547,11 @@
    :depends [gfx-pack]
    :task (do
            ;; Without these the .dol is 17.5 MB and the boot runs out of memory.
+           ;; jolt 0.8.28 compiles traced code about 1 MB bigger (13.06 MB, out
+           ;; of memory at boot); --no-trace brings it to 12.35 MB.
            (sh! "env" (str "JOLT_WII_PACK=" repo-root "/.work/pack-tpb32b-gfx")
                 (str "JOLT_WII_CC=" repo-root "/scripts/wii-cc-sdl")
-                "JOLT_BUILD_FLAGS=--closed-world --boot small"
+                "JOLT_BUILD_FLAGS=--closed-world --boot small --no-trace"
                 "scripts/jolt-wii-build" "jolt-mona" "mona.main" "jolt-mona"))}
 
   build:jolt-ffi-bench
