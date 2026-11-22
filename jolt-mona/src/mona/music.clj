@@ -73,11 +73,6 @@
    :hollow {:wave :pulse :duty 2 :a 2 :d 90 :s 6 :r 60 :vol 15}
    :stab {:wave :pulse :duty 0 :a 1 :d 30 :s 7 :r 30 :vol 15}})
 
-(defn- pat
-  "A pattern from its four tracks."
-  [p1 p2 tri noise]
-  {:p1 p1 :p2 p2 :tri tri :noise noise})
-
 (def songs
   "Songs by id. :loop is the order index to loop back to, or nil. :order lists
    pattern indexes. Every pattern below is two bars of 4/4 (32 rows), except
@@ -87,149 +82,149 @@
    :title
    {:rpm 480 :loop 0 :order [0 1 0 2]
     :patterns
-    [(pat [:brass "d4:2 g4:2 d5:4 b4:2 d5:2 g5:4 f#5:3 e5 d5:4 b4:2 e5:2 d5:4"]
-          [:harm "b3:8 d4:8 c4:8 a3:4 f#3:4"]
-          [:bass "g2:2 -:2 g2:2 d2:2 g2:2 -:2 g2:2 d2:2 d2:2 -:2 d2:2 a2:2 d2:2 -:2 d2:2 f#2:2"]
-          "k - - - s - h - k - k - s - h h k - - - s - h - k - k - s - h h")
-     (pat [:brass "e5:2 g5:2 b5:4 a5:3 g5 e5:4 c5:2 e5:2 a5:4 f#5:2 a5:2 d6:4"]
-          [:harm "g3:8 b3:8 e4:8 f#4:8"]
-          [:bass "e2:2 -:2 e2:2 b2:2 e2:2 -:2 e2:2 b2:2 a2:2 -:2 a2:2 e2:2 d2:2 -:2 d2:2 a2:2"]
-          "k - - - s - h - k - k - s - h h k - - - s - h - k - k - s s s s")
-     (pat [:brass "b5:3 a5 g5:4 e5:2 c5:2 a4:4 d5:2 f#5:2 a5:2 c6:2 b5:8"]
-          [:harm "d4:8 c4:8 c4:8 b3:8"]
-          [:bass "g2:2 -:2 g2:2 d3:2 a2:2 -:2 a2:2 e2:2 d2:2 -:2 d2:2 a2:2 g2:4 d2:4"]
-          "k - - - s - h - k - k - s - h h k - s - k - s - k:8")]}
+    [{:p1 [:brass "d4:2 g4:2 d5:4 b4:2 d5:2 g5:4 f#5:3 e5 d5:4 b4:2 e5:2 d5:4"]
+      :p2 [:harm "b3:8 d4:8 c4:8 a3:4 f#3:4"]
+      :tri [:bass "g2:2 -:2 g2:2 d2:2 g2:2 -:2 g2:2 d2:2 d2:2 -:2 d2:2 a2:2 d2:2 -:2 d2:2 f#2:2"]
+      :noise "k - - - s - h - k - k - s - h h k - - - s - h - k - k - s - h h"}
+     {:p1 [:brass "e5:2 g5:2 b5:4 a5:3 g5 e5:4 c5:2 e5:2 a5:4 f#5:2 a5:2 d6:4"]
+      :p2 [:harm "g3:8 b3:8 e4:8 f#4:8"]
+      :tri [:bass "e2:2 -:2 e2:2 b2:2 e2:2 -:2 e2:2 b2:2 a2:2 -:2 a2:2 e2:2 d2:2 -:2 d2:2 a2:2"]
+      :noise "k - - - s - h - k - k - s - h h k - - - s - h - k - k - s s s s"}
+     {:p1 [:brass "b5:3 a5 g5:4 e5:2 c5:2 a4:4 d5:2 f#5:2 a5:2 c6:2 b5:8"]
+      :p2 [:harm "d4:8 c4:8 c4:8 b3:8"]
+      :tri [:bass "g2:2 -:2 g2:2 d3:2 a2:2 -:2 a2:2 e2:2 d2:2 -:2 d2:2 a2:2 g2:4 d2:4"]
+      :noise "k - - - s - h - k - k - s - h h k - s - k - s - k:8"}]}
 
    ;; Day: G major, 132 bpm, bright. Off-beat harmony and a walking bass.
    :day
    {:rpm 528 :loop 0 :order [0 1 0 2 0 1]
     :patterns
-    [(pat [:lead "d5:2 b4 d5 g5:3 f#5 e5:2 d5:2 b4:2 c5:2 a4:2 c5 e5 d5:4 -:2 c5 a4 f#4:4"]
-          [:harm "-:2 b3:2 -:2 d4:2 -:2 b3:2 -:2 d4:2 -:2 c4:2 -:2 e4:2 -:2 d4:2 -:2 f#4:2"]
-          [:bass "g2:4 a2:4 b2:4 d3:4 a2:4 c3:4 d3:4 f#2:4"]
-          "k - h - s - h - k - h - s h s - k - h - s - h - k - h - s h s -")
-     (pat [:lead "e5:2 g5:2 b5:3 a5 g5:2 e5:2 d5:2 e5:2 c5:3 d5 e5:2 g5:2 a5:4 d5:2 f#5:2"]
-          [:harm "-:2 g3:2 -:2 b3:2 -:2 g3:2 -:2 e4:2 -:2 g3:2 -:2 e4:2 -:2 a3:2 -:2 f#4:2"]
-          [:bass "e2:4 g2:4 c3:4 e3:4 g2:4 e2:4 d2:4 f#2:4"]
-          "k - h - s - h - k - h - s h s - k - h - s - h - k - h - s h s -")
-     (pat [:lead "g5:2 e5:2 c5 e5 g5:2 f#5:2 a5:2 d5:4 b4:2 e5:2 g5:3 e5 f#5:2 a5:2 d5:2 c5:2"]
-          [:harm "-:2 e3:2 -:2 g3:2 -:2 f#3:2 -:2 a3:2 -:2 g3:2 -:2 b3:2 -:2 f#3:2 -:2 a3:2"]
-          [:bass "c3:4 b2:4 a2:4 d3:4 e2:4 g2:4 d2:4 f#2:4"]
-          "k - h k s - h - k - h k s - s s k - h k s - h - k - h k s - s s")]}
+    [{:p1 [:lead "d5:2 b4 d5 g5:3 f#5 e5:2 d5:2 b4:2 c5:2 a4:2 c5 e5 d5:4 -:2 c5 a4 f#4:4"]
+      :p2 [:harm "-:2 b3:2 -:2 d4:2 -:2 b3:2 -:2 d4:2 -:2 c4:2 -:2 e4:2 -:2 d4:2 -:2 f#4:2"]
+      :tri [:bass "g2:4 a2:4 b2:4 d3:4 a2:4 c3:4 d3:4 f#2:4"]
+      :noise "k - h - s - h - k - h - s h s - k - h - s - h - k - h - s h s -"}
+     {:p1 [:lead "e5:2 g5:2 b5:3 a5 g5:2 e5:2 d5:2 e5:2 c5:3 d5 e5:2 g5:2 a5:4 d5:2 f#5:2"]
+      :p2 [:harm "-:2 g3:2 -:2 b3:2 -:2 g3:2 -:2 e4:2 -:2 g3:2 -:2 e4:2 -:2 a3:2 -:2 f#4:2"]
+      :tri [:bass "e2:4 g2:4 c3:4 e3:4 g2:4 e2:4 d2:4 f#2:4"]
+      :noise "k - h - s - h - k - h - s h s - k - h - s - h - k - h - s h s -"}
+     {:p1 [:lead "g5:2 e5:2 c5 e5 g5:2 f#5:2 a5:2 d5:4 b4:2 e5:2 g5:3 e5 f#5:2 a5:2 d5:2 c5:2"]
+      :p2 [:harm "-:2 e3:2 -:2 g3:2 -:2 f#3:2 -:2 a3:2 -:2 g3:2 -:2 b3:2 -:2 f#3:2 -:2 a3:2"]
+      :tri [:bass "c3:4 b2:4 a2:4 d3:4 e2:4 g2:4 d2:4 f#2:4"]
+      :noise "k - h k s - h - k - h k s - s s k - h k s - h - k - h k s - s s"}]}
 
    ;; Dusk: D minor, 100 bpm. A slow soft pad under a sighing tune.
    :dusk
    {:rpm 400 :loop 0 :order [0 1 0 2]
     :patterns
-    [(pat [:lead "a4:4 f4:2 g4:2 a4:3 c5 d5:4 c5:2 bb4:2 a4:2 f4:2 g4:6 -:2"]
-          [:soft "f3:8 a3:8 d3:8 bb3:8"]
-          [:bass "d2:4 -:2 a2:2 d3:4 a2:4 bb2:4 -:2 f2:2 g2:4 d2:4"]
-          "k - - - s - - h - - k - s - - - k - - - s - - h - - k - s - - -")
-     (pat [:lead "bb4:2 d5:2 g5:4 f5:2 e5:2 c#5:4 e5:2 g5:2 f5:3 e5 d5:8"]
-          [:soft "d3:8 c#3:8 e3:8 f3:8"]
-          [:bass "g2:4 -:2 d2:2 a2:4 e2:4 a2:4 -:2 c#3:2 d3:4 a2:4"]
-          "k - - - s - - h - - k - s - - - k - - - s - - h - - k - s - h -")
-     (pat [:lead "d5:3 c5 bb4:2 c5:2 f5:4 e5:2 c5:2 bb4:2 a4:2 g4:2 bb4:2 a4:8"]
-          [:soft "f3:8 c3:8 d3:8 c#3:8"]
-          [:bass "bb2:4 -:2 f2:2 a2:4 f2:4 g2:4 -:2 d2:2 a2:4 e2:4"]
-          "k - - - s - - h - - k - s - - - k - - - s - - h - - k - s - h -")]}
+    [{:p1 [:lead "a4:4 f4:2 g4:2 a4:3 c5 d5:4 c5:2 bb4:2 a4:2 f4:2 g4:6 -:2"]
+      :p2 [:soft "f3:8 a3:8 d3:8 bb3:8"]
+      :tri [:bass "d2:4 -:2 a2:2 d3:4 a2:4 bb2:4 -:2 f2:2 g2:4 d2:4"]
+      :noise "k - - - s - - h - - k - s - - - k - - - s - - h - - k - s - - -"}
+     {:p1 [:lead "bb4:2 d5:2 g5:4 f5:2 e5:2 c#5:4 e5:2 g5:2 f5:3 e5 d5:8"]
+      :p2 [:soft "d3:8 c#3:8 e3:8 f3:8"]
+      :tri [:bass "g2:4 -:2 d2:2 a2:4 e2:4 a2:4 -:2 c#3:2 d3:4 a2:4"]
+      :noise "k - - - s - - h - - k - s - - - k - - - s - - h - - k - s - h -"}
+     {:p1 [:lead "d5:3 c5 bb4:2 c5:2 f5:4 e5:2 c5:2 bb4:2 a4:2 g4:2 bb4:2 a4:8"]
+      :p2 [:soft "f3:8 c3:8 d3:8 c#3:8"]
+      :tri [:bass "bb2:4 -:2 f2:2 a2:4 f2:4 g2:4 -:2 d2:2 a2:4 e2:4"]
+      :noise "k - - - s - - h - - k - s - - - k - - - s - - h - - k - s - h -"}]}
 
    ;; Cloud: F lydian, 112 bpm. A thin bell high up, a slow pad, hats and one low drum.
    :cloud
    {:rpm 448 :loop 0 :order [0 1 0 2]
     :patterns
-    [(pat [:bell "c6:2 -:2 a5:2 -:2 f5:4 -:2 b5:2 c6:4 e6:4 d6:2 -:2 c6:2 -:2"]
-          [:pad "f4:16 e4:8 g4:8"]
-          [:bass "f3:6 -:2 c4:4 -:4 c3:6 -:2 g3:4 -:4"]
-          "h - - - - - - - h - - - - - - - h - - - - - - - h - - - h - - -")
-     (pat [:bell "d6:2 -:2 f6:4 -:2 e6:2 c6:4 a5:4 -:4 g5:2 a5:2 c6:4"]
-          [:pad "d4:16 c4:8 e4:8"]
-          [:bass "bb2:6 -:2 f3:4 -:4 a2:6 -:2 c3:4 -:4"]
-          "h - - - - - - - h - - - - - - - h - - - - - - - h - - - h - - -")
-     (pat [:bell "a5:2 -:2 d6:2 -:2 e6:2 -:2 f6:4 -:4 g6:2 e6:2 c6:8"]
-          [:pad "f4:16 e4:16"]
-          [:bass "d3:6 -:2 a3:4 -:4 c3:6 -:2 g3:4 -:4"]
-          "h - - - - - - - h - - - - - - - h - - - - - - - k - - - h - - -")]}
+    [{:p1 [:bell "c6:2 -:2 a5:2 -:2 f5:4 -:2 b5:2 c6:4 e6:4 d6:2 -:2 c6:2 -:2"]
+      :p2 [:pad "f4:16 e4:8 g4:8"]
+      :tri [:bass "f3:6 -:2 c4:4 -:4 c3:6 -:2 g3:4 -:4"]
+      :noise "h - - - - - - - h - - - - - - - h - - - - - - - h - - - h - - -"}
+     {:p1 [:bell "d6:2 -:2 f6:4 -:2 e6:2 c6:4 a5:4 -:4 g5:2 a5:2 c6:4"]
+      :p2 [:pad "d4:16 c4:8 e4:8"]
+      :tri [:bass "bb2:6 -:2 f3:4 -:4 a2:6 -:2 c3:4 -:4"]
+      :noise "h - - - - - - - h - - - - - - - h - - - - - - - h - - - h - - -"}
+     {:p1 [:bell "a5:2 -:2 d6:2 -:2 e6:2 -:2 f6:4 -:4 g6:2 e6:2 c6:8"]
+      :p2 [:pad "f4:16 e4:16"]
+      :tri [:bass "d3:6 -:2 a3:4 -:4 c3:6 -:2 g3:4 -:4"]
+      :noise "h - - - - - - - h - - - - - - - h - - - - - - - k - - - h - - -"}]}
 
    ;; Cave: A minor, 96 bpm, low and hollow. Low drum and hat only, no snare.
    :cave
    {:rpm 384 :loop 0 :order [0 1 0 2]
     :patterns
-    [(pat [:hollow "a3:4 e4:2 c4:2 b3:4 -:2 d4 c4 a3:2 e3:2 g#3:4 a3:6 -:2"]
-          [:harm "-:4 e3:4 -:4 c3:4 -:4 c3:4 -:4 b2:4"]
-          [:bass "a2:4 -:4 a2:2 e2:2 -:4 f2:4 -:4 e2:4 -:4"]
-          "k - - - h - - - k - - k h - - - k - - - h - - - k - - k h - - -")
-     (pat [:hollow "f4:4 e4:2 d4:2 a4:4 g4:2 f4:2 e4:2 c4:2 d4:2 b3:2 g#3:4 b3:4"]
-          [:harm "-:4 a3:4 -:4 f3:4 -:4 g#3:4 -:4 e3:4"]
-          [:bass "d2:4 -:4 d2:2 a2:2 -:4 e2:4 -:4 e2:2 b2:2 -:4"]
-          "k - - - h - - - k - - k h - - - k - - - h - - - k - - k h - h -")
-     (pat [:hollow "-:4 e4 -:3 c4 -:3 a3:4 -:4 d4 -:3 b3 -:3 g#3:4"]
-          [:harm "c3:16 c3:8 b2:8"]
-          [:bass "a2:8 -:8 f2:8 e2:8"]
-          "k - - - - - - - h - - - - - - - k - - - - - - - h - - - - - - -")]}
+    [{:p1 [:hollow "a3:4 e4:2 c4:2 b3:4 -:2 d4 c4 a3:2 e3:2 g#3:4 a3:6 -:2"]
+      :p2 [:harm "-:4 e3:4 -:4 c3:4 -:4 c3:4 -:4 b2:4"]
+      :tri [:bass "a2:4 -:4 a2:2 e2:2 -:4 f2:4 -:4 e2:4 -:4"]
+      :noise "k - - - h - - - k - - k h - - - k - - - h - - - k - - k h - - -"}
+     {:p1 [:hollow "f4:4 e4:2 d4:2 a4:4 g4:2 f4:2 e4:2 c4:2 d4:2 b3:2 g#3:4 b3:4"]
+      :p2 [:harm "-:4 a3:4 -:4 f3:4 -:4 g#3:4 -:4 e3:4"]
+      :tri [:bass "d2:4 -:4 d2:2 a2:2 -:4 e2:4 -:4 e2:2 b2:2 -:4"]
+      :noise "k - - - h - - - k - - k h - - - k - - - h - - - k - - k h - h -"}
+     {:p1 [:hollow "-:4 e4 -:3 c4 -:3 a3:4 -:4 d4 -:3 b3 -:3 g#3:4"]
+      :p2 [:harm "c3:16 c3:8 b2:8"]
+      :tri [:bass "a2:8 -:8 f2:8 e2:8"]
+      :noise "k - - - - - - - h - - - - - - - k - - - - - - - h - - - - - - -"}]}
 
    ;; Castle: C minor, 152 bpm. A pedal C in the bass with Db and B leaning
    ;; on it, clipped thin stabs, a busy kit.
    :castle
    {:rpm 608 :loop 0 :order [0 1 0 2 1 2]
     :patterns
-    [(pat [:stab "g4:2 ab4:2 g4:2 -:2 eb5:3 d5 c5:2 b4:2 g4:2 -:2 ab4:2 f#4:2 g4:4 -:4"]
-          [:harm "c4:2 -:2 c4:2 -:2 eb4:2 -:2 d4:2 -:2 eb4:2 -:2 c4:2 -:2 b3:4 -:4"]
-          [:bass "c2:2 c2:2 c2:2 db2:2 c2:2 c2:2 b1:2 c2:2 c2:2 c2:2 c2:2 db2:2 c2:2 c2:2 b1:2 c2:2"]
-          "k h s h k h s h k h s h k k s h k h s h k h s h k h s h k k s h")
-     (pat [:stab "c5:2 eb5:2 g5:2 f#5:2 g5:4 ab5:2 g5:2 f5:2 eb5:2 d5:2 eb5:2 b4:4 -:4"]
-          [:harm "-:2 g4:2 -:2 g4:2 -:2 ab4:2 -:2 g4:2 -:2 ab4:2 -:2 g4:2 -:2 f4:2 -:2 d4:2"]
-          [:bass "c2:2 c2:2 db2:2 c2:2 c2:2 c2:2 b1:2 c2:2 c2:2 c2:2 db2:2 db2:2 c2:2 b1:2 b1:2 c2:2"]
-          "k h s h k h s h k h s h k k s h k h s h k h s h k h s h s s s s")
-     (pat [:stab "g4 ab4 g4 ab4 b4:4 c5 db5 c5 db5 d5:4 eb5:4 d5:2 db5:2 c5:4 b4:4"]
-          [:harm "eb4:8 f4:8 g4:8 g3:8"]
-          [:bass "c2:2 c2:2 c2:2 db2:2 c2:2 c2:2 b1:2 c2:2 c2:2 c2:2 c2:2 db2:2 c2:2 c2:2 b1:2 c2:2"]
-          "k h s h k h s h k h s h k k s h k h s h k h s h k k s s k s s s")]}
+    [{:p1 [:stab "g4:2 ab4:2 g4:2 -:2 eb5:3 d5 c5:2 b4:2 g4:2 -:2 ab4:2 f#4:2 g4:4 -:4"]
+      :p2 [:harm "c4:2 -:2 c4:2 -:2 eb4:2 -:2 d4:2 -:2 eb4:2 -:2 c4:2 -:2 b3:4 -:4"]
+      :tri [:bass "c2:2 c2:2 c2:2 db2:2 c2:2 c2:2 b1:2 c2:2 c2:2 c2:2 c2:2 db2:2 c2:2 c2:2 b1:2 c2:2"]
+      :noise "k h s h k h s h k h s h k k s h k h s h k h s h k h s h k k s h"}
+     {:p1 [:stab "c5:2 eb5:2 g5:2 f#5:2 g5:4 ab5:2 g5:2 f5:2 eb5:2 d5:2 eb5:2 b4:4 -:4"]
+      :p2 [:harm "-:2 g4:2 -:2 g4:2 -:2 ab4:2 -:2 g4:2 -:2 ab4:2 -:2 g4:2 -:2 f4:2 -:2 d4:2"]
+      :tri [:bass "c2:2 c2:2 db2:2 c2:2 c2:2 c2:2 b1:2 c2:2 c2:2 c2:2 db2:2 db2:2 c2:2 b1:2 b1:2 c2:2"]
+      :noise "k h s h k h s h k h s h k k s h k h s h k h s h k h s h s s s s"}
+     {:p1 [:stab "g4 ab4 g4 ab4 b4:4 c5 db5 c5 db5 d5:4 eb5:4 d5:2 db5:2 c5:4 b4:4"]
+      :p2 [:harm "eb4:8 f4:8 g4:8 g3:8"]
+      :tri [:bass "c2:2 c2:2 c2:2 db2:2 c2:2 c2:2 b1:2 c2:2 c2:2 c2:2 c2:2 db2:2 c2:2 c2:2 b1:2 c2:2"]
+      :noise "k h s h k h s h k h s h k k s h k h s h k h s h k k s s k s s s"}]}
 
    ;; Clear: G major, 150 bpm, once. A climb that lands on the tonic.
    :clear
    {:rpm 600 :loop nil :order [0]
     :patterns
-    [(pat [:brass "g4:2 a4:2 b4:2 d5:2 c5:2 e5:2 f#5:4 g5:2 a5:2 b5:3 a5 g5:8"]
-          [:harm "-:4 d4:4 e4:4 c4:4 d4:8 b4:8"]
-          [:bass "g2:4 b2:4 c3:4 d3:4 d2:8 g2:8"]
-          "k - - - k - - - k - - - s - s s s - s - s - s - k:8")]}
+    [{:p1 [:brass "g4:2 a4:2 b4:2 d5:2 c5:2 e5:2 f#5:4 g5:2 a5:2 b5:3 a5 g5:8"]
+      :p2 [:harm "-:4 d4:4 e4:4 c4:4 d4:8 b4:8"]
+      :tri [:bass "g2:4 b2:4 c3:4 d3:4 d2:8 g2:8"]
+      :noise "k - - - k - - - k - - - s - s s s - s - s - s - k:8"}]}
 
    ;; Die: E minor, 120 bpm, once, 2 s. A drop by thirds to a low E.
    :die
    {:rpm 480 :loop nil :order [0]
     :patterns
-    [(pat [:lead "e5:2 b4:2 g4:2 d#4:2 e4:2 b3:2 e3:4"]
-          [:harm "g4:2 d#4:2 b3:2 a3:2 g3:2 f#3:2 -:4"]
-          [:bass "e3:4 b2:4 g2:4 e2:4"]
-          "-:16")]}
+    [{:p1 [:lead "e5:2 b4:2 g4:2 d#4:2 e4:2 b3:2 e3:4"]
+      :p2 [:harm "g4:2 d#4:2 b3:2 a3:2 g3:2 f#3:2 -:4"]
+      :tri [:bass "e3:4 b2:4 g2:4 e2:4"]
+      :noise "-:16"}]}
 
    ;; Over: A minor, 90 bpm, once, 5.3 s. Slow falling lines to a low A.
    :over
    {:rpm 360 :loop nil :order [0]
     :patterns
-    [(pat [:lead "e5:4 c5:2 a4:2 d5:4 b4:2 g#4:2 f4:3 e4 d4:2 b3:2 a3:8"]
-          [:soft "a3:8 g#3:8 d3:8 c3:8"]
-          [:bass "a2:8 e2:8 d2:8 a1:8"]
-          "-:16 -:8 k:8")]}
+    [{:p1 [:lead "e5:4 c5:2 a4:2 d5:4 b4:2 g#4:2 f4:3 e4 d4:2 b3:2 a3:8"]
+      :p2 [:soft "a3:8 g#3:8 d3:8 c3:8"]
+      :tri [:bass "a2:8 e2:8 d2:8 a1:8"]
+      :noise "-:16 -:8 k:8"}]}
 
    ;; Win: C major, 116 bpm, a march. The bass repeats one figure (root,
    ;; fifth, third, root, fifth) moved to each chord; a marching snare.
    :win
    {:rpm 464 :loop 0 :order [0 1 0 2]
     :patterns
-    [(pat [:brass "e5:3 d5 c5:2 g4:2 c5:4 e5:2 g5:2 f5:3 e5 d5:2 b4:2 g4:8"]
-          [:harm "e4:2 -:2 e4:2 -:2 e4:2 -:2 g4:2 -:2 d4:2 -:2 f4:2 -:2 d4:2 -:2 b3:2 -:2"]
-          [:bass "c2:2 -:2 g2:2 e2:2 c2:2 -:2 g2:2 -:2 g2:2 -:2 d3:2 b2:2 g2:2 -:2 d3:2 -:2"]
-          "s - s s k - s - s - s s k - s s s - s s k - s - s - s s k - s s")
-     (pat [:brass "a5:3 g5 f5:2 a5:2 c6:4 a5:4 g5:3 e5 c5:2 e5:2 d5:4 -:4"]
-          [:harm "c4:2 -:2 f4:2 -:2 c4:2 -:2 f4:2 -:2 e4:2 -:2 g4:2 -:2 d4:2 -:2 b3:2 -:2"]
-          [:bass "f2:2 -:2 c3:2 a2:2 f2:2 -:2 c3:2 -:2 c2:2 -:2 g2:2 e2:2 g2:2 -:2 d3:2 -:2"]
-          "s - s s k - s - s - s s k - s s s - s s k - s - s - s s k - s s")
-     (pat [:brass "e5:2 g5:2 c6:4 b5:2 a5:2 g5:4 e5:2 d5:2 b4:2 d5:2 c5:8"]
-          [:harm "g4:8 e4:8 d4:8 e4:8"]
-          [:bass "c2:2 -:2 g2:2 e2:2 a2:2 -:2 e2:2 -:2 g2:2 -:2 d3:2 b2:2 c2:2 -:2 g2:2 -:2"]
-          "s - s s k - s - s - s s k - s s s - s s k - s - k - k - k:4")]}})
+    [{:p1 [:brass "e5:3 d5 c5:2 g4:2 c5:4 e5:2 g5:2 f5:3 e5 d5:2 b4:2 g4:8"]
+      :p2 [:harm "e4:2 -:2 e4:2 -:2 e4:2 -:2 g4:2 -:2 d4:2 -:2 f4:2 -:2 d4:2 -:2 b3:2 -:2"]
+      :tri [:bass "c2:2 -:2 g2:2 e2:2 c2:2 -:2 g2:2 -:2 g2:2 -:2 d3:2 b2:2 g2:2 -:2 d3:2 -:2"]
+      :noise "s - s s k - s - s - s s k - s s s - s s k - s - s - s s k - s s"}
+     {:p1 [:brass "a5:3 g5 f5:2 a5:2 c6:4 a5:4 g5:3 e5 c5:2 e5:2 d5:4 -:4"]
+      :p2 [:harm "c4:2 -:2 f4:2 -:2 c4:2 -:2 f4:2 -:2 e4:2 -:2 g4:2 -:2 d4:2 -:2 b3:2 -:2"]
+      :tri [:bass "f2:2 -:2 c3:2 a2:2 f2:2 -:2 c3:2 -:2 c2:2 -:2 g2:2 e2:2 g2:2 -:2 d3:2 -:2"]
+      :noise "s - s s k - s - s - s s k - s s s - s s k - s - s - s s k - s s"}
+     {:p1 [:brass "e5:2 g5:2 c6:4 b5:2 a5:2 g5:4 e5:2 d5:2 b4:2 d5:2 c5:8"]
+      :p2 [:harm "g4:8 e4:8 d4:8 e4:8"]
+      :tri [:bass "c2:2 -:2 g2:2 e2:2 a2:2 -:2 e2:2 -:2 g2:2 -:2 d3:2 b2:2 c2:2 -:2 g2:2 -:2"]
+      :noise "s - s s k - s - s - s s k - s s s - s s k - s - k - k - k:4"}]}})
 
 (def ^:private note-re #"([a-g])([#b]?)([0-8])(?::(\d+))?")
 (def ^:private hold-re #"(-|=)(?::(\d+))?")
@@ -507,9 +502,9 @@
   (str "mona_s" i "_p" j "_t" k))
 
 (defn- emit-cells
-  "One snd_cell array."
-  [i j k cells]
-  (str "static const snd_cell " (cells-name i j k) "[] = {"
+  "One snd_cell array: track :track of pattern :pattern of song :song."
+  [{:keys [song pattern track cells]}]
+  (str "static const snd_cell " (cells-name song pattern track) "[] = {"
        (join ", " (map (fn [[n inst]] (str "{" n ", " inst "}")) cells)) "};"))
 
 (defn- emit-song
@@ -521,7 +516,7 @@
           (concat
            (for [[j tracks] (map-indexed vector patterns)
                  [k cells] (map-indexed vector tracks)]
-             (emit-cells i j k cells))
+             (emit-cells {:song i :pattern j :track k :cells cells}))
            [(str "static const snd_pattern mona_s" i "_patterns[] = {")]
            (for [[j tracks] (map-indexed vector patterns)]
              (str "    {" (count (first tracks)) ", {"

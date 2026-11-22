@@ -63,7 +63,7 @@
   "Time (f), which loops reps times; ops is the operations per run. Prints
    total microseconds and the net nanoseconds per operation (empty loop's cost
    per iteration subtracted)."
-  [nm iters ops f]
+  [{nm :name :keys [iters ops f]}]
   (let [t0 (gfx/time-us)
         _ (reset! sink (f))
         t1 (gfx/time-us)
@@ -76,9 +76,9 @@
 (defmacro ^:private micro
   "Run body (which may use i, the iteration number) reps times."
   [nm ops body]
-  `(measure ~nm reps ~ops
-            (fn [] (loop [~'i 0 ~'acc nil]
-                     (if (< ~'i reps) (recur (inc ~'i) ~body) ~'acc)))))
+  `(measure {:name ~nm :iters reps :ops ~ops
+             :f (fn [] (loop [~'i 0 ~'acc nil]
+                         (if (< ~'i reps) (recur (inc ~'i) ~body) ~'acc)))}))
 
 (defn- micro-ops []
   (let [t0 (gfx/time-us)
@@ -101,14 +101,14 @@
   (micro "str-P-i" reps (str "P" i))
   (micro "string->ptr+free" reps (let [p (ffi/string->ptr "P1")] (ffi/free p) 0))
   ;; 50 runs over 100 elements: 5000 element visits
-  (measure "doseq-empty-100-vector" 50 5000
-           (fn [] (loop [k 0] (if (< k 50) (do (doseq [x vec100] x) (recur (inc k))) k))))
-  (measure "loop-nth-100-vector" 50 5000
-           (fn [] (loop [k 0]
-                    (if (< k 50)
-                      (do (loop [j 0] (when (< j 100) (nth vec100 j) (recur (inc j))))
-                          (recur (inc k)))
-                      k)))))
+  (measure {:name "doseq-empty-100-vector" :iters 50 :ops 5000
+            :f (fn [] (loop [k 0] (if (< k 50) (do (doseq [x vec100] x) (recur (inc k))) k)))})
+  (measure {:name "loop-nth-100-vector" :iters 50 :ops 5000
+            :f (fn [] (loop [k 0]
+                        (if (< k 50)
+                          (do (loop [j 0] (when (< j 100) (nth vec100 j) (recur (inc j))))
+                              (recur (inc k)))
+                          k)))}))
 
 (defn -main [& _]
   (gfx/init! r/screen-w r/screen-h)

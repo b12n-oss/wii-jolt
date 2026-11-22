@@ -3,14 +3,14 @@
             [mona.rules :as r]))
 
 (deftest ground-and-get-tile
-  (let [lv (-> (r/make-level "T" 10 :day 300 false) (r/ground 0 9))]
+  (let [lv (-> (r/make-level "T" 10 {:theme :day :time 300 :switch? false}) (r/ground 0 9))]
     (is (= r/t-ground-top (r/get-tile lv 3 13)))
     (is (= r/t-ground (r/get-tile lv 3 14)))
     (is (= r/t-empty (r/get-tile lv 3 12)))
     (is (r/solid? lv 3 13))))
 
 (deftest get-tile-outside-the-grid
-  (let [lv (r/make-level "T" 10 :day 300 false)]
+  (let [lv (r/make-level "T" 10 {:theme :day :time 300 :switch? false})]
     (is (= r/t-hard (r/get-tile lv -1 5)))
     (is (= r/t-hard (r/get-tile lv 10 5)))
     (is (= r/t-empty (r/get-tile lv 5 -1)))
@@ -18,19 +18,19 @@
     (is (identical? lv (r/set-tile! lv 10 5 r/t-brick)))))
 
 (deftest row-letters-and-contents
-  (let [lv (-> (r/make-level "T" 20 :day 300 false) (r/row 2 9 "BQ-H=o" :chip))]
+  (let [lv (-> (r/make-level "T" 20 {:theme :day :time 300 :switch? false}) (r/row 2 9 "BQ-H=o" {:content :chip}))]
     (is (= [r/t-brick r/t-question r/t-empty r/t-hard r/t-girder r/t-empty]
            (mapv (fn [i] (r/get-tile lv (+ 2 i) 9)) (range 6))))
     (is (= :chip (get (:contents lv) (r/index lv 3 9))))
     (is (contains? (:stars lv) [7 9]))))
 
 (deftest cave-theme-uses-cave-tiles
-  (let [lv (-> (r/make-level "T" 10 :cave 300 true) (r/ground 0 9) (r/row 1 9 "B"))]
+  (let [lv (-> (r/make-level "T" 10 {:theme :cave :time 300 :switch? true}) (r/ground 0 9) (r/row 1 9 "B"))]
     (is (= r/t-cave-ground (r/get-tile lv 1 13)))
     (is (= r/t-cave-brick (r/get-tile lv 1 9)))))
 
 (deftest pipe-stairs-and-flag
-  (let [lv (-> (r/make-level "T" 40 :day 300 false) (r/ground 0 39) (r/pipe 4 2) (r/stairs 10 3) (r/flag 30))]
+  (let [lv (-> (r/make-level "T" 40 {:theme :day :time 300 :switch? false}) (r/ground 0 39) (r/pipe 4 2) (r/stairs 10 3) (r/flag 30))]
     (is (= [r/t-pipe-tl r/t-pipe-tr] [(r/get-tile lv 4 11) (r/get-tile lv 5 11)]))
     (is (= [r/t-pipe-l r/t-pipe-r] [(r/get-tile lv 4 12) (r/get-tile lv 5 12)]))
     (is (= [r/t-hard r/t-empty] [(r/get-tile lv 10 12) (r/get-tile lv 10 11)]))
@@ -43,33 +43,33 @@
     (is (= r/t-castle (get (:decor lv) (r/index lv 35 8))))))
 
 (deftest block-and-enemy
-  (let [lv (-> (r/make-level "T" 10 :day 300 false) (r/block 3 5 [:multi 6] true) (r/enemy 7 :shellbot) (r/enemy 8))]
+  (let [lv (-> (r/make-level "T" 10 {:theme :day :time 300 :switch? false}) (r/block 3 5 [:multi 6] {:brick? true}) (r/enemy 7 {:kind :shellbot}) (r/enemy 8))]
     (is (= r/t-brick (r/get-tile lv 3 5)))
     (is (= [:multi 6] (get (:contents lv) (r/index lv 3 5))))
     (is (= [[7 12 :shellbot] [8 12 :bug]] (:spawns lv)))))
 
 (deftest move-x-stops-at-a-wall
-  (let [lv (-> (r/make-level "T" 20 :day 300 false) (r/ground 0 19) (r/row 10 12 "H"))
-        p (assoc (r/new-player 70.0 93.0 :mona false) :vx 60.0)
+  (let [lv (-> (r/make-level "T" 20 {:theme :day :time 300 :switch? false}) (r/ground 0 19) (r/row 10 12 "H"))
+        p (assoc (r/new-player 70.0 93.0 :mona {:big? false}) :vx 60.0)
         [p2 hit?] (r/move-x p 11 lv 0.1)]
     (is hit?)
     (is (= 74.0 (:x p2)) "stops at tx*8 - w: 80 - 6"))
-  (let [lv (-> (r/make-level "T" 20 :day 300 false) (r/ground 0 19) (r/row 5 12 "H"))
-        p (assoc (r/new-player 50.0 93.0 :mona false) :vx -60.0)
+  (let [lv (-> (r/make-level "T" 20 {:theme :day :time 300 :switch? false}) (r/ground 0 19) (r/row 5 12 "H"))
+        p (assoc (r/new-player 50.0 93.0 :mona {:big? false}) :vx -60.0)
         [p2 hit?] (r/move-x p 11 lv 0.1)]
     (is hit?)
     (is (= 48.0 (:x p2)) "stops at (tx+1)*8")))
 
 (deftest move-y-lands-and-bumps
-  (let [lv (-> (r/make-level "T" 20 :day 300 false) (r/ground 0 19) (r/row 4 8 "B"))
-        p (assoc (r/new-player 33.0 80.0 :mona false) :vy 100.0)
+  (let [lv (-> (r/make-level "T" 20 {:theme :day :time 300 :switch? false}) (r/ground 0 19) (r/row 4 8 "B"))
+        p (assoc (r/new-player 33.0 80.0 :mona {:big? false}) :vy 100.0)
         [p2 head] (r/move-y p 11 lv 0.2)]
     (is (nil? head))
     (is (= 93.0 (:y p2)) "lands with feet on row 13: 104 - 11")
     (is (:on-ground? p2))
     (is (= 0.0 (:vy p2))))
-  (let [lv (-> (r/make-level "T" 20 :day 300 false) (r/ground 0 19) (r/row 4 8 "B"))
-        p (assoc (r/new-player 33.0 76.0 :mona false) :vy -100.0)
+  (let [lv (-> (r/make-level "T" 20 {:theme :day :time 300 :switch? false}) (r/ground 0 19) (r/row 4 8 "B"))
+        p (assoc (r/new-player 33.0 76.0 :mona {:big? false}) :vy -100.0)
         [p2 head] (r/move-y p 11 lv 0.1)]
     (is (= [[4] 8] head))
     (is (= 72.0 (:y p2)) "pushed back under the block: (ty+1)*8")))
@@ -77,7 +77,7 @@
 (def dt (/ 1.0 30))
 
 (defn- blank-level []
-  (-> (r/make-level "TEST" 60 :day 300 false)
+  (-> (r/make-level "TEST" 60 {:theme :day :time 300 :switch? false})
       (r/ground 0 59)
       (assoc :start [4 12])))
 
@@ -194,7 +194,7 @@
       (is (= :dying (:state w))))))
 
 (deftest shell-pickup-and-throw
-  (let [lv (-> (blank-level) (r/enemy 10 :shellbot))
+  (let [lv (-> (blank-level) (r/enemy 10 {:kind :shellbot}))
         w (settle (r/new-world lv (r/new-session)) 2)
         w (-> w (assoc-in [:enemies 0 :state] :shell) (assoc-in [:enemies 0 :vx] 0.0))
         w (assoc-in w [:player :x] (- (:x (first (:enemies w))) 6 2))
@@ -210,7 +210,7 @@
 (deftest kicked-shell-defeats-neighbours
   ;; three enemies: a bug behind, a shellbot, a bug ahead; stomp the shellbot into a
   ;; shell, kick it right, and the bug ahead dies; the ids and slots stay stable
-  (let [lv (-> (blank-level) (r/enemy 12) (r/enemy 16 :shellbot) (r/enemy 20))
+  (let [lv (-> (blank-level) (r/enemy 12) (r/enemy 16 {:kind :shellbot}) (r/enemy 20))
         w (settle (r/new-world lv (r/new-session)) 2)
         w (-> w (assoc-in [:enemies 1 :state] :shell) (assoc-in [:enemies 1 :vx] 0.0))
         w (assoc-in w [:player :x] (- (:x (get-in w [:enemies 1])) 6 2))
@@ -242,7 +242,7 @@
     (is (= :play (:state w)) "a dead slot cannot touch the player")))
 
 (deftest falling-off-the-stage-kills
-  (let [lv (-> (r/make-level "T" 40 :day 300 false) (r/ground 0 10))
+  (let [lv (-> (r/make-level "T" 40 {:theme :day :time 300 :switch? false}) (r/ground 0 10))
         w (loop [w (r/new-world lv (r/new-session)) i 0]
             (if (or (= :dying (:state w)) (= i 300)) w (recur (r/step w (assoc r/no-controls :right true :run true) dt) (inc i))))]
     (is (= :dying (:state w)))
@@ -265,7 +265,7 @@
 
 (deftest autopilot-clears-walls-and-gaps
   ;; stairs at 13, not 14: with 14 the badge's own bot lands 3 px short of the far edge and dies in the gap
-  (let [lv (-> (r/make-level "T" 60 :day 300 false) (r/ground 0 20) (r/stairs 13 3) (r/ground 24 59) (r/row 40 12 "H") (r/flag 52))
+  (let [lv (-> (r/make-level "T" 60 {:theme :day :time 300 :switch? false}) (r/ground 0 20) (r/stairs 13 3) (r/ground 24 59) (r/row 40 12 "H") (r/flag 52))
         w (assoc (r/new-world lv (r/new-session)) :demo? true)
         w (loop [w w c r/no-controls i 0]
             (if (or (= :clear (:state w)) (= i 3600))

@@ -35,7 +35,7 @@
     @log))
 
 (defn- blank-level []
-  (-> (r/make-level "BLANK" 30 :day 300 false) (r/ground 0 29)))
+  (-> (r/make-level "BLANK" 30 {:theme :day :time 300 :switch? false}) (r/ground 0 29)))
 
 (defn- fresh-world []
   (r/new-world (blank-level) (r/new-session)))
@@ -46,8 +46,8 @@
 
 (defn- enemy-world []
   (let [w (fresh-world)
-        shell (assoc (r/new-enemy 0 60 88 :shellbot) :active? true :vx 18.0)
-        bug (assoc (r/new-enemy 1 100 88 :bug) :active? true :state :squashed)]
+        shell (assoc (r/new-enemy {:id 0 :x 60 :y 88 :kind :shellbot}) :active? true :vx 18.0)
+        bug (assoc (r/new-enemy {:id 1 :x 100 :y 88 :kind :bug}) :active? true :state :squashed)]
     (assoc w :enemies [shell bug])))
 
 (defn- app [state world & {:as more}]
@@ -72,7 +72,7 @@
     (is (= (- (long (:x (:player (facing-left-world)))) 5) (nth p 4)) "x is not shifted by the width when flipping")))
 
 (deftest load-stage-goes-cell-by-cell
-  (let [lvl (-> (r/make-level "TEN" 10 :day 300 false)
+  (let [lvl (-> (r/make-level "TEN" 10 {:theme :day :time 300 :switch? false})
                 (r/set-tile! 1 2 7) (r/set-tile! 4 5 9) (r/set-tile! 9 14 3)
                 (assoc :decor {12 4}))
         calls (record (fn [] (draw/load-stage! lvl)))]

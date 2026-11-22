@@ -158,14 +158,15 @@ graphics ones.
 The tunes are data in `jolt-mona/src/mona/music.clj`. Each pattern is two bars
 of 4/4 on 32 rows, and a track is a string of notes, each with an optional `:` and
 row count: `g4:2` is G in octave 4 held for two rows, `-` is a rest and a bare
-note is one row. Drums are `k`, `s` and `h`. This is the first pattern of the
-title tune:
+note is one row. Drums are `k`, `s` and `h`. A pattern is a map of its four
+tracks, the two pulse voices, the triangle and the noise channel. This is the
+first pattern of the title tune:
 
 ```clojure
-(pat [:brass "d4:2 g4:2 d5:4 b4:2 d5:2 g5:4 f#5:3 e5 d5:4 b4:2 e5:2 d5:4"]
-     [:harm "b3:8 d4:8 c4:8 a3:4 f#3:4"]
-     [:bass "g2:2 -:2 g2:2 d2:2 g2:2 -:2 g2:2 d2:2 d2:2 -:2 d2:2 a2:2 d2:2 -:2 d2:2 f#2:2"]
-     "k - - - s - h - k - k - s - h h k - - - s - h - k - k - s - h h")
+{:p1 [:brass "d4:2 g4:2 d5:4 b4:2 d5:2 g5:4 f#5:3 e5 d5:4 b4:2 e5:2 d5:4"]
+ :p2 [:harm "b3:8 d4:8 c4:8 a3:4 f#3:4"]
+ :tri [:bass "g2:2 -:2 g2:2 d2:2 g2:2 -:2 g2:2 d2:2 d2:2 -:2 d2:2 a2:2 d2:2 -:2 d2:2 f#2:2"]
+ :noise "k - - - s - h - k - k - s - h h k - - - s - h - k - k - s - h h"}
 ```
 
 A song names its patterns in `:order`, a tempo in rows per minute and the

@@ -6,22 +6,22 @@
   (:require [mona.rules :as r]))
 
 (defn- scenery
-  "Hills, bushes and clouds (a seq of [x y]) as plain decor."
-  [level hills bushes clouds]
+  "The :hills, :bushes and :clouds (a seq of [x y]) as plain decor."
+  [level {:keys [hills bushes clouds]}]
   (as-> level lv
     (reduce r/hill lv hills)
     (reduce r/bush lv bushes)
     (reduce (fn [l [x y]] (r/cloud l x y)) lv clouds)))
 
 (defn- hello-world []
-  (-> (r/make-level "1-1 HELLO WORLD" 190 :day 300 false)
+  (-> (r/make-level "1-1 HELLO WORLD" 190 {:theme :day :time 300 :switch? false})
       (r/ground 0 68)
       (r/ground 71 85)
       (r/ground 89 150)
       (r/ground 153 189)
-      (scenery [0 40 92 140 178]
-               [9 33 60 104 130 157]
-               [[6 3] [24 2] [47 4] [70 3] [96 2] [118 4] [146 3] [166 2]])
+      (scenery {:hills [0 40 92 140 178]
+                :bushes [9 33 60 104 130 157]
+                :clouds [[6 3] [24 2] [47 4] [70 3] [96 2] [118 4] [146 3] [166 2]]})
 
       (r/row 12 9 "Q")
       (r/row 18 9 "B-B")
@@ -35,13 +35,13 @@
       (r/enemy 46)
       (r/pipe 52 4)
       (r/star-line 57 10 4)
-      (r/enemy 63 :shellbot)
+      (r/enemy 63 {:kind :shellbot})
 
       (r/star-line 68 9 4)
       (r/row 74 9 "BB-BB")
-      (r/block 76 9 [:multi 6] true)
-      (r/block 78 5 :1up true)
-      (r/enemy 81 :shellbot)
+      (r/block 76 9 [:multi 6] {:brick? true})
+      (r/block 78 5 :1up {:brick? true})
+      (r/enemy 81 {:kind :shellbot})
 
       (r/star-line 86 8 3)
       (r/row 92 9 "QQQ")
@@ -50,15 +50,15 @@
       (r/row 100 9 "BBBBBB")
       (r/block 103 5 :sparkle)
       (r/star-line 100 4 3)
-      (r/enemy 108 :shellbot)
+      (r/enemy 108 {:kind :shellbot})
       (r/enemy 112)
       (r/enemy 114)
 
       (r/stairs 120 4)
-      (r/stairs 124 4 false 13)
+      (r/stairs 124 4 {:up? false})
       (r/enemy 132)
       (r/pipe 138 2)
-      (r/row 144 9 "Q" :chip)
+      (r/row 144 9 "Q" {:content :chip})
       (r/star-line 150 8 4)
       (r/enemy 157)
       (r/enemy 159)
@@ -66,7 +66,7 @@
       (r/flag 176)))
 
 (defn- server-room []
-  (-> (r/make-level "1-2 SERVER ROOM" 165 :cave 300 true)
+  (-> (r/make-level "1-2 SERVER ROOM" 165 {:theme :cave :time 300 :switch? true})
       (r/ground 0 39)
       (r/ground 43 77)
       (r/ground 81 103)
@@ -84,7 +84,7 @@
       (r/star-line 33 7 4)
       (r/star-line 40 9 3)
 
-      (r/enemy 46 :shellbot)
+      (r/enemy 46 {:kind :shellbot})
       (r/enemy 50)
       (r/enemy 52)
       (r/row 56 9 "BB-BB")
@@ -97,31 +97,31 @@
 
       (r/row 84 9 "BBBBBBBB")
       (r/row 84 5 "BBBBBBBB")
-      (r/block 88 9 [:multi 8] true)
+      (r/block 88 9 [:multi 8] {:brick? true})
       (r/star-line 85 7 6)
       (r/enemy 94)
       (r/enemy 96)
-      (r/enemy 99 :shellbot)
+      (r/enemy 99 {:kind :shellbot})
       (r/star-line 104 9 3)
 
       (r/stairs 112 4)
-      (r/row 122 9 "Q" :1up)
+      (r/row 122 9 "Q" {:content :1up})
       (r/enemy 128)
       (r/enemy 130)
-      (r/row 134 9 "Q" :chip)
+      (r/row 134 9 "Q" {:content :chip})
       (r/stairs 140 6)
       (r/flag 152)))
 
 (defn- sky-bridge []
-  (-> (r/make-level "1-3 SKY BRIDGE" 175 :dusk 300 true)
+  (-> (r/make-level "1-3 SKY BRIDGE" 175 {:theme :dusk :time 300 :switch? true})
       (r/ground 0 20)
       (r/ground 33 50)
       (r/ground 72 95)
       (r/ground 100 120)
       (r/ground 127 174)
-      (scenery [2 36 76 130 165]
-               [12 45 88 110 140]
-               [[8 3] [28 2] [52 4] [80 2] [108 3] [136 2] [156 4]])
+      (scenery {:hills [2 36 76 130 165]
+                :bushes [12 45 88 110 140]
+                :clouds [[8 3] [28 2] [52 4] [80 2] [108 3] [136 2] [156 4]]})
 
       (r/row 10 9 "QBQ")
       (r/enemy 15)
@@ -129,32 +129,32 @@
       (r/star-line 24 9 6)
 
       (r/pipe 38 3)
-      (r/enemy 42 :shellbot)
-      (r/row 44 9 "BQB" :chip)
+      (r/enemy 42 {:kind :shellbot})
+      (r/row 44 9 "BQB" {:content :chip})
       (r/enemy 47)
 
       (r/row 54 10 "====")
       (r/row 60 8 "====")
       (r/row 66 10 "====")
       (r/star-line 60 7 4)
-      (r/enemy 62 :bug 7)
+      (r/enemy 62 {:kind :bug :y 7})
 
       (r/enemy 78)
       (r/enemy 80)
-      (r/enemy 83 :shellbot)
-      (r/row 86 9 "Q" :sparkle)
+      (r/enemy 83 {:kind :shellbot})
+      (r/row 86 9 "Q" {:content :sparkle})
       (r/stairs 90 3)
       (r/row 97 11 "==")
 
       (r/row 104 9 "BB-BB")
-      (r/block 106 9 [:multi 6] true)
+      (r/block 106 9 [:multi 6] {:brick? true})
       (r/enemy 108)
       (r/enemy 110)
       (r/pipe 114 4)
       (r/row 122 9 "====")
       (r/star-line 122 8 4)
 
-      (r/enemy 132 :shellbot)
+      (r/enemy 132 {:kind :shellbot})
       (r/enemy 134)
       (r/enemy 136)
       (r/block 140 9 :1up)
@@ -164,31 +164,31 @@
 
 (defn- firewall []
   ;; World 1 castle: low ceiling, pits bridged by girders, dense blocks.
-  (-> (r/make-level "1-4 FIREWALL" 150 :castle 300 true)
-      (r/ground 0 14 10)
+  (-> (r/make-level "1-4 FIREWALL" 150 {:theme :castle :time 300 :switch? true})
+      (r/ground 0 14 {:top 10})
       (r/ground 15 30)
       (r/ground 34 52)
       (r/ground 57 80)
       (r/ground 84 110)
       (r/ground 114 149)
-      (r/ceiling 0 134 [1 2])
+      (r/ceiling 0 134 {:rows [1 2]})
       (assoc :start [2 9])
 
-      (r/row 17 9 "Q" :chip)
+      (r/row 17 9 "Q" {:content :chip})
       (r/enemy 22)
       (r/row 24 6 "HHHHHH")
       (r/star-line 31 10 3)
 
       (r/enemy 38)
       (r/enemy 40)
-      (r/row 42 9 "BQB" :sparkle)
+      (r/row 42 9 "BQB" {:content :sparkle})
       (r/stairs 48 3)
       (r/row 53 11 "===")
 
       (r/row 60 6 "HHHHHHHHHHHH")
       (r/row 62 9 "BBBB")
-      (r/block 64 9 [:multi 8] true)
-      (r/enemy 68 :shellbot)
+      (r/block 64 9 [:multi 8] {:brick? true})
+      (r/enemy 68 {:kind :shellbot})
       (r/enemy 74)
       (r/enemy 76)
       (r/star-line 81 10 3)
@@ -196,47 +196,47 @@
       (r/pipe 88 2)
       (r/enemy 93)
       (r/enemy 95)
-      (r/row 98 9 "Q" :1up)
+      (r/row 98 9 "Q" {:content :1up})
       (r/stairs 104 4)
       (r/row 111 11 "==")
 
-      (r/enemy 118 :shellbot)
+      (r/enemy 118 {:kind :shellbot})
       (r/enemy 122)
       (r/stairs 126 5)
       (r/flag 138)))
 
 (defn- pull-request []
   ;; World 2 overworld: pipes in pairs, long block rows and stair pits.
-  (-> (r/make-level "2-1 PULL REQUEST" 185 :day 300 true)
+  (-> (r/make-level "2-1 PULL REQUEST" 185 {:theme :day :time 300 :switch? true})
       (r/ground 0 45)
       (r/ground 48 98)
       (r/ground 102 132)
       (r/ground 135 184)
-      (scenery [0 50 104 150]
-               [14 38 66 90 120 168]
-               [[8 2] [30 4] [58 2] [84 3] [112 2] [140 4] [164 3]])
+      (scenery {:hills [0 50 104 150]
+                :bushes [14 38 66 90 120 168]
+                :clouds [[8 2] [30 4] [58 2] [84 3] [112 2] [140 4] [164 3]]})
 
-      (r/row 8 9 "BQB" :chip)
+      (r/row 8 9 "BQB" {:content :chip})
       (r/row 14 9 "QQ")
       (r/enemy 18)
       (r/enemy 20)
       (r/pipe 24 2)
       (r/pipe 30 3)
-      (r/enemy 34 :shellbot)
-      (r/row 38 5 "BBQBB" :sparkle)
+      (r/enemy 34 {:kind :shellbot})
+      (r/row 38 5 "BBQBB" {:content :sparkle})
       (r/star-line 38 4 5)
       (r/star-line 45 9 3)
 
       (r/stairs 52 3)
-      (r/stairs 55 3 false 13)
+      (r/stairs 55 3 {:up? false})
       (r/enemy 60)
       (r/enemy 62)
       (r/enemy 64)
       (r/row 68 9 "BBBBBBBB")
-      (r/block 71 9 [:multi 6] true)
-      (r/row 70 5 "Q" :1up)
+      (r/block 71 9 [:multi 6] {:brick? true})
+      (r/row 70 5 "Q" {:content :1up})
       (r/pipe 80 4)
-      (r/enemy 85 :shellbot)
+      (r/enemy 85 {:kind :shellbot})
       (r/pipe 90 2)
       (r/star-line 98 9 4)
 
@@ -244,10 +244,10 @@
       (r/enemy 108)
       (r/enemy 110)
       (r/stairs 116 4)
-      (r/row 124 9 "Q" :chip)
+      (r/row 124 9 "Q" {:content :chip})
       (r/star-line 131 8 4)
 
-      (r/enemy 140 :shellbot)
+      (r/enemy 140 {:kind :shellbot})
       (r/enemy 144)
       (r/enemy 146)
       (r/pipe 150 3)
@@ -264,7 +264,7 @@
 
 (defn- stack-overflow []
   ;; World 2 underground: brick towers, tight corridors and a pipe maze.
-  (-> (r/make-level "2-2 OVERFLOW" 160 :cave 300 true)
+  (-> (r/make-level "2-2 OVERFLOW" 160 {:theme :cave :time 300 :switch? true})
       (r/ground 0 34)
       (r/ground 38 70)
       (r/ground 74 112)
@@ -280,10 +280,10 @@
       (r/star-line 35 9 3)
 
       (r/row 42 6 "BBBBBBBBBB")
-      (r/row 42 9 "B-B-BQB" :sparkle)
+      (r/row 42 9 "B-B-BQB" {:content :sparkle})
       (r/enemy 46)
       (r/enemy 48)
-      (r/enemy 52 :shellbot)
+      (r/enemy 52 {:kind :shellbot})
       (r/pipe 58 2)
       (r/pipe 62 3)
       (r/pipe 66 4)
@@ -291,56 +291,56 @@
 
       (r/row 78 9 "BBBBBB")
       (r/row 78 5 "BBBBBB")
-      (r/block 80 5 :1up true)
+      (r/block 80 5 :1up {:brick? true})
       (r/star-line 78 7 6)
       (r/enemy 88)
       (r/enemy 90)
       (r/enemy 92)
       (r/stairs 98 4)
-      (r/stairs 102 4 false 13)
+      (r/stairs 102 4 {:up? false})
       (r/star-line 113 9 3)
 
-      (r/row 120 9 "Q" :chip)
-      (r/enemy 124 :shellbot)
+      (r/row 120 9 "Q" {:content :chip})
+      (r/enemy 124 {:kind :shellbot})
       (r/enemy 128)
       (r/stairs 134 6)
       (r/flag 148)))
 
 (defn- cloud-deploy []
   ;; World 2 athletic stage: girder hops high above the clouds.
-  (-> (r/make-level "2-3 CLOUD DEPLOY" 175 :cloud 300 true)
+  (-> (r/make-level "2-3 CLOUD DEPLOY" 175 {:theme :cloud :time 300 :switch? true})
       (r/ground 0 14)
       (r/ground 46 56)
       (r/ground 98 108)
       (r/ground 135 174)
-      (scenery [2 144]
-               [8 50 102 156]
-               [[10 8] [22 3] [36 10] [60 2] [76 9] [92 3] [116 10] [130 4]])
+      (scenery {:hills [2 144]
+                :bushes [8 50 102 156]
+                :clouds [[10 8] [22 3] [36 10] [60 2] [76 9] [92 3] [116 10] [130 4]]})
 
-      (r/row 8 9 "Q" :chip)
+      (r/row 8 9 "Q" {:content :chip})
       (r/row 17 11 "=========")
       (r/row 29 10 "========")
       (r/star-line 30 9 6)
-      (r/enemy 33 :bug 9)
+      (r/enemy 33 {:kind :bug :y 9})
       (r/row 40 11 "======")
 
-      (r/row 48 9 "BQB" :sparkle)
+      (r/row 48 9 "BQB" {:content :sparkle})
       (r/enemy 52)
       (r/row 59 11 "=========")
       (r/row 71 10 "========")
       (r/star-line 72 9 6)
-      (r/enemy 75 :bug 9)
-      (r/row 82 8 "Q" :1up)
+      (r/enemy 75 {:kind :bug :y 9})
+      (r/row 82 8 "Q" {:content :1up})
       (r/row 83 11 "============")
 
-      (r/enemy 102 :shellbot)
+      (r/enemy 102 {:kind :shellbot})
       (r/row 111 11 "=========")
       (r/row 123 10 "=======")
       (r/star-line 124 9 5)
-      (r/enemy 127 :bug 9)
+      (r/enemy 127 {:kind :bug :y 9})
       (r/star-line 133 7 3)
 
-      (r/row 144 9 "QBQ" :chip)
+      (r/row 144 9 "QBQ" {:content :chip})
       (r/enemy 148)
       (r/enemy 150)
       (r/stairs 152 6)
@@ -348,53 +348,53 @@
 
 (defn- merge-conflict []
   ;; World 2 castle: the final stage, longer pits and more shellbots.
-  (-> (r/make-level "2-4 CONFLICT" 165 :castle 300 true)
-      (r/ground 0 14 10)
+  (-> (r/make-level "2-4 CONFLICT" 165 {:theme :castle :time 300 :switch? true})
+      (r/ground 0 14 {:top 10})
       (r/ground 15 28)
       (r/ground 32 46)
       (r/ground 51 66)
       (r/ground 71 92)
       (r/ground 96 120)
       (r/ground 125 164)
-      (r/ceiling 0 150 [1 2])
+      (r/ceiling 0 150 {:rows [1 2]})
       (assoc :start [2 9])
 
-      (r/row 18 9 "Q" :chip)
-      (r/enemy 22 :shellbot)
+      (r/row 18 9 "Q" {:content :chip})
+      (r/enemy 22 {:kind :shellbot})
       (r/row 24 6 "HHHH")
       (r/star-line 29 10 3)
 
       (r/enemy 35)
       (r/enemy 37)
-      (r/row 38 9 "BQB" :sparkle)
+      (r/row 38 9 "BQB" {:content :sparkle})
       (r/stairs 42 3)
       (r/row 47 11 "===")
 
       (r/row 54 6 "HHHHHHHHHH")
       (r/row 56 9 "BBBB")
-      (r/block 57 9 [:multi 8] true)
-      (r/enemy 60 :shellbot)
+      (r/block 57 9 [:multi 8] {:brick? true})
+      (r/enemy 60 {:kind :shellbot})
       (r/enemy 63)
       (r/row 67 11 "===")
 
       (r/pipe 74 3)
       (r/enemy 79)
       (r/enemy 81)
-      (r/enemy 83 :shellbot)
-      (r/row 86 9 "Q" :1up)
+      (r/enemy 83 {:kind :shellbot})
+      (r/row 86 9 "Q" {:content :1up})
       (r/stairs 88 4)
       (r/star-line 93 9 3)
 
       (r/enemy 100)
       (r/enemy 102)
       (r/row 104 6 "HHHHHHHH")
-      (r/enemy 110 :shellbot)
+      (r/enemy 110 {:kind :shellbot})
       (r/stairs 114 4)
       (r/row 121 11 "===")
 
       (r/enemy 130)
       (r/enemy 132)
-      (r/enemy 134 :shellbot)
+      (r/enemy 134 {:kind :shellbot})
       (r/stairs 138 6)
       (r/flag 152)))
 
@@ -431,7 +431,7 @@
         lv (-> lv (r/pipe (+ x 2) (+ 2 a)) (r/enemy (+ x 6)))
         [b rng] (rand-next rng 2)
         lv (r/pipe lv (+ x 9) (+ 3 b))]
-    [(if (> k 1) (r/enemy lv (+ x 13) :shellbot) lv) (+ x 16) rng]))
+    [(if (> k 1) (r/enemy lv (+ x 13) {:kind :shellbot}) lv) (+ x 16) rng]))
 
 (defn- blocks [lv x _k rng]
   (let [[i rng] (rand-next rng (count items))
@@ -442,7 +442,7 @@
         [c rng] (rand-next rng 2)
         lv (if (zero? c)
              (r/star-line lv (+ x 3) 5 3)
-             (r/block lv (+ x 4) 5 [:multi 6] true))]
+             (r/block lv (+ x 4) 5 [:multi 6] {:brick? true}))]
     [(-> lv (r/enemy (+ x 9)) (r/enemy (+ x 11))) (+ x 14) rng]))
 
 (defn- pit [lv x k rng]
@@ -457,7 +457,7 @@
         x2 (+ x h 1 (if (>= k 2) 2 0))
         lv (-> lv
                (r/ground x2 (+ x2 h 2))
-               (r/stairs x2 h false 13)
+               (r/stairs x2 h {:up? false})
                (r/enemy (+ x2 h 1)))]
     [lv (+ x2 h 3) rng]))
 
@@ -465,10 +465,10 @@
   (let [[d rng] (rand-next rng 4)
         lv (-> lv
                (r/ground x (+ x 13))
-               (r/row (+ x 4) 8 "Q" (if (zero? d) :1up :chip))
+               (r/row (+ x 4) 8 "Q" {:content (if (zero? d) :1up :chip)})
                (r/enemy (+ x 3))
                (r/enemy (+ x 5))
-               (r/enemy (+ x 8) :shellbot))]
+               (r/enemy (+ x 8) {:kind :shellbot}))]
     [(if (>= k 2) (r/enemy lv (+ x 11)) lv) (+ x 14) rng]))
 
 (defn- towers [lv x _k rng]
@@ -485,7 +485,7 @@
                (r/row (+ x 1) 5 "BBBBBBBB"))
         [d rng] (rand-next rng 4)
         [i rng] (rand-next rng (count items))
-        lv (r/block lv (+ x 3 d) 9 (nth items i) true)]
+        lv (r/block lv (+ x 3 d) 9 (nth items i) {:brick? true})]
     [(-> lv (r/star-line (+ x 2) 7 6) (r/enemy (+ x 10))) (+ x 12) rng]))
 
 (defn- hops [lv x _k rng]
@@ -493,7 +493,7 @@
        (r/row (+ x 2) 11 "=========")
        (r/row (+ x 14) 10 "========")
        (r/star-line (+ x 15) 9 6)
-       (r/enemy (+ x 18) :bug 9)
+       (r/enemy (+ x 18) {:kind :bug :y 9})
        (r/row (+ x 25) 11 "======"))
    (+ x 34) rng])
 
@@ -511,27 +511,27 @@
                (r/row (+ x 2) 6 "HHHHHHHHHH")
                (r/row (+ x 4) 9 "BBBB"))
         [c rng] (rand-next rng 2)
-        lv (r/block lv (+ x 5) 9 (if (zero? c) :sparkle [:multi 8]) true)]
-    [(-> lv (r/enemy (+ x 8) :shellbot) (r/enemy (+ x 12))) (+ x 16) rng]))
+        lv (r/block lv (+ x 5) 9 (if (zero? c) :sparkle [:multi 8]) {:brick? true})]
+    [(-> lv (r/enemy (+ x 8) {:kind :shellbot}) (r/enemy (+ x 12))) (+ x 16) rng]))
 
 (def ^:private segments
   {\f flat \p pipes \b blocks \g pit \s stairs-seg \w swarm \t towers
    \c corridor \h hops \x bridge \r roof})
 
 (defn- build
-  "A stage from its segment `plan` at `width` columns: [level end]."
-  [name theme plan k seed width]
+  "A stage from its segment :plan at :width columns: [level end]."
+  [{:keys [name theme plan k seed width]}]
   (let [[lv x rng] (reduce (fn [[lv x rng] code] ((segments code) lv x k rng))
-                           [(-> (r/make-level name width theme 300 true)
+                           [(-> (r/make-level name width {:theme theme :time 300 :switch? true})
                                 (r/ground 0 9)
-                                (r/row 5 9 "Q" :chip))
+                                (r/row 5 9 "Q" {:content :chip}))
                             10 (lcg seed)]
                            plan)
         lv (-> lv (r/ground x (+ x 23)) (r/stairs (+ x 2) 6) (r/flag (+ x 14)))
         end (+ x 24)
         lv (case theme
              :cave (r/ceiling lv 0 (+ x 13))
-             :castle (r/ceiling lv 0 (+ x 13) [1 2])
+             :castle (r/ceiling lv 0 (+ x 13) {:rows [1 2]})
              (as-> lv lv
                (reduce (fn [l hx] (if (and (r/solid? l hx 13) (r/solid? l (+ hx 2) 13))
                                     (r/hill l hx)
@@ -547,12 +547,13 @@
     [lv end]))
 
 (defn- stage
-  "A thunk for a generated stage. Builds once at width 200 to learn the end,
-   then again at exactly that width."
-  [name theme plan k seed]
+  "A thunk for a generated stage of :name, :theme, :plan, :k and :seed.
+   Builds once at width 200 to learn the end, then again at exactly that
+   width."
+  [opts]
   (fn []
-    (let [[_ width] (build name theme plan k seed 200)]
-      (first (build name theme plan k seed width)))))
+    (let [[_ width] (build (assoc opts :width 200))]
+      (first (build (assoc opts :width width))))))
 
 (def ^:private worlds
   [[["CLONE" "FORK" "PUSH" "PULL"]
@@ -580,8 +581,8 @@
          pull-request stack-overflow cloud-deploy merge-conflict]
         (for [[w [names themes plans]] (map-indexed vector worlds)
               s (range 4)]
-          (stage (str (+ w 3) "-" (inc s) " " (nth names s))
-                 (nth themes s) (nth plans s) w (+ (* w 4) s 7)))))
+          (stage {:name (str (+ w 3) "-" (inc s) " " (nth names s))
+                  :theme (nth themes s) :plan (nth plans s) :k w :seed (+ (* w 4) s 7)}))))
 
 (defn level-at
   "A fresh Level for stage index n."
