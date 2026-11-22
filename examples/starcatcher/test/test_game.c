@@ -1,4 +1,4 @@
-// Host-side tests for the Star Catcher rules (bb test builds and runs them).
+// Host-side tests for the Star Catcher rules (jolt test builds and runs them).
 #include "game.h"
 #include <math.h>
 #include <stdio.h>

@@ -53,13 +53,13 @@ ends, any remote can start the next one. The high score is saved as
 `mona_high` in `settings.txt` beside `boot.dol`.
 
 ```sh
-bb build:jolt-mona
-bb run:jolt-mona            # the title demo plays stage 1-1
-bb run:jolt-mona-wiimote    # a scripted remote: 2 every second, 1 and D-pad down held
-bb play:jolt-mona           # you play with the keyboard
+jolt build:jolt-mona
+jolt run:jolt-mona            # the title demo plays stage 1-1
+jolt run:jolt-mona-wiimote    # a scripted remote: 2 every second, 1 and D-pad down held
+jolt play:jolt-mona           # you play with the keyboard
 ```
 
-`bb play:jolt-mona` uses the `play-sideways` profile: Left and Right Arrow
+`jolt play:jolt-mona` uses the `play-sideways` profile: Left and Right Arrow
 move, Up and Down Arrow are the pad's up and down, X is 2, Z is 1, Return is +
 and Escape is Home. The profiles are described in
 [Wiimote input](wiimote-input.md#scripted-remotes-for-testing).
@@ -110,11 +110,13 @@ beats hundreds of calls that draw a cell each. The tile window is that batch.
 
 ### Build flags and the heap
 
-`bb build:jolt-mona` needs jolt at or past
+`jolt build:jolt-mona` needs jolt at or past
 [jolt-lang/jolt#1514](https://github.com/jolt-lang/jolt/pull/1514). It builds
-with `--closed-world --boot small`, passed through `JOLT_BUILD_FLAGS`. The
-reason is the heap. A 17.5 MB `.dol` ran out of jolt's heap at boot, and the
-11.9 MB one boots. The heap arithmetic is in
+with `--closed-world --boot small --no-trace`, passed through
+`JOLT_BUILD_FLAGS`. The reason is the heap. A 17.5 MB `.dol` ran out of jolt's
+heap at boot, and the 11.9 MB one boots. jolt 0.8.28 made a traced build about
+1 MB bigger again (13.06 MB, out of memory at boot), so the build also turns
+tracing off, which gives 12.35 MB. A crash report then names fewer frames. The heap arithmetic is in
 [Balloon Pop in Clojure](balloon-pop-in-clojure.md#what-this-taught-us-about-jolt).
 
 ## What moved and what did not
@@ -131,7 +133,7 @@ Super Mona has chip-style sound: seventeen effects and ten original tunes,
 synthesised in the C shim and played through libogc's AESND. The badge has no
 sound to port, so all of it is new. The recording is
 [a one-minute Dolphin capture with its audio](../demos/super-mona-sound.mp4),
-made by `bb demo:jolt-mona-video`, which writes `docs/demos/super-mona-sound.mp4`
+made by `jolt demo:jolt-mona-video`, which writes `docs/demos/super-mona-sound.mp4`
 with the debug stamp hidden. Nothing here has run on the real console yet, so
 every claim below is Dolphin's.
 
@@ -146,7 +148,7 @@ state only: no allocation, no floats, no calls into Chez.
 
 A four-track sequencer plays the tunes (pulse 1, pulse 2, triangle, and drums
 on the noise voice). It can loop, pause on a row, and change tempo from the
-next row. The core is plain C99, so `bb test` builds and checks it with a host
+next row. The core is plain C99, so `jolt test` builds and checks it with a host
 `cc`. The Wii glue sits behind `__wii__`, and `jg_snd_register` in
 `jolt_snd.c` registers its exports the same way `register_all` registers the
 graphics ones.
@@ -173,7 +175,7 @@ order index to loop back to. The ten songs are `title`, `day`, `dusk`, `cloud`,
 ### From note data to C
 
 `scripts/music-to-c` reads `mona.music` and writes `jolt-gfx/mona_music.h`, the
-tables the shim links. The header is committed. A `bb test` gate regenerates
+tables the shim links. The header is committed. A `jolt test` gate regenerates
 it and fails when the committed copy is stale, so editing a tune means running
 `scripts/music-to-c` and committing both files. The Makefile makes
 `jolt_snd.o` depend on the header, so a changed tune rebuilds the shim.
@@ -220,18 +222,18 @@ setting is applied, and `music <song|none>` whenever the tune changes. The
 
 ### Listening
 
-`bb run:jolt-mona-audio` boots the game in Dolphin with
+`jolt run:jolt-mona-audio` boots the game in Dolphin with
 `-C Dolphin.DSP.DumpAudio=True`, picks the loudest dump and prints its path and
 peak. The 48 kHz voice is `dspdump1.wav` under the profile's `Dump/Audio`
 (`.dolphin-auto/idle/Dump/Audio`). The plain `dspdump.wav` is Dolphin's silent
 32 kHz mixer. `-C Dolphin.Movie.DumpFrames=True` dumps PNG frames, which
-`bb demo:jolt-mona-video` joins with the audio, because this Dolphin build has
-no video encoder of its own. `bb run:jolt-mona-mute` presses `-` on the title
+`jolt demo:jolt-mona-video` joins with the audio, because this Dolphin build has
+no video encoder of its own. `jolt run:jolt-mona-mute` presses `-` on the title
 and prints whether the game muted and saved.
 
-### What `bb verify` checks without a listener
+### What `jolt verify` checks without a listener
 
-`bb verify` can't hear anything, so it reads the shim's stats. Three gates
+`jolt verify` can't hear anything, so it reads the shim's stats. Three gates
 cover sound, and 18 checks pass with them:
 
 - **`jolt-mona-sound`:** in the demo run, `snd-music` is above 3000 in some
@@ -278,7 +280,7 @@ test.
 
 ## The tests
 
-`bb test` runs four namespaces for the game, all on the Mac under
+`jolt test` runs four namespaces for the game, all on the Mac under
 `jolt -A:test`.
 
 - **`mona.levels-test`** compares every stage byte for byte with a dump of the
@@ -293,7 +295,7 @@ test.
 - **`mona.draw-test`** pins the draw calls of recorded states
   (`draw_golden.edn`), including a left-facing player flipped in place.
 
-`bb verify` also boots the game in Dolphin. It checks the demo, the scripted
+`jolt verify` also boots the game in Dolphin. It checks the demo, the scripted
 jump, and that the loop is still printing frame summaries late in the run.
 
 ## The measurements

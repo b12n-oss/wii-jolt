@@ -49,7 +49,7 @@ static const char *settings_file_path(void);
 //  - run.log beside boot.dol on the card: the build id, the heap report, a
 //    line every 300 frames and one at exit, each fsynced so a crash keeps
 //    the last one. Nothing is written when there is no card to write to.
-// The build id comes from bb build:jolt-gfx (-DJG_BUILD_ID=<git sha>).
+// The build id comes from jolt build:jolt-gfx (-DJG_BUILD_ID=<git sha>).
 #ifndef JG_BUILD_ID
 #define JG_BUILD_ID dev
 #endif

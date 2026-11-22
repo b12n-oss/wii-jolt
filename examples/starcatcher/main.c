@@ -249,7 +249,7 @@ static void draw(const Game *g, float t)
 }
 
 // ---------------------------------------------------------------- log
-// One line per event on stdout (Dolphin's log, or a USB Gecko). bb verify
+// One line per event on stdout (Dolphin's log, or a USB Gecko). jolt verify
 // reads these.
 
 static const char *mode_name(Mode m)

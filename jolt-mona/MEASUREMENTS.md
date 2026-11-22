@@ -6,13 +6,13 @@ First frame-cost measurements of Super Mona (Clojure on jolt) for the Wii, taken
 
 - Date: 2026-11-05.
 - jolt: v0.8.23-429-ga65c59ed (`jolt --version`).
-- Build: `bb build:jolt-mona`, `jolt build --target tpb32b` with `--closed-world --boot small`; `jolt-mona/build/jolt-mona.dol` is 11,901,344 bytes (11.9 MB).
-- Dolphin with MMU emulation on. The demo runs (`bb run:jolt-mona`, 45 s) use the `idle` profile; the scripted runs (`bb run:jolt-mona-wiimote`, 40 s) use the `platformer` profile.
+- Build: `jolt build:jolt-mona`, `jolt build --target tpb32b` with `--closed-world --boot small`; `jolt-mona/build/jolt-mona.dol` is 11,901,344 bytes (11.9 MB).
+- Dolphin with MMU emulation on. The demo runs (`jolt run:jolt-mona`, 45 s) use the `idle` profile; the scripted runs (`jolt run:jolt-mona-wiimote`, 40 s) use the `platformer` profile.
 - The game prints one summary line per 300 frames. Work is update plus draw, timed from the top of the frame to just before `EndDrawing`. Dropped counts frames whose interval exceeded 20 ms. Calls is shim crossings per frame.
 - The saved measure logs keep only the `jolt-mona:` lines, so they show no `jolt_gfx:` heap line. The shim prints it to stderr at `jg_init`, and Dolphin's own log has it for a jolt-mona run: `jolt_gfx: heap at jg_init: malloc live 46987384, fallback used 0 + 0, free 0 + 0; chez bytes-allocated 39710984, collect-trip-bytes 2097152`.
 - Each task ran twice. The two demo runs produced identical medians, worst-case and dropped counts to the digit; the two scripted runs differ by at most 1 microsecond in some medians and a few milliseconds in the worst cases (the second run's lines are in the task's measure logs). The tables below are the first run of each; the second run's lines agree.
 
-## Demo run (`bb run:jolt-mona`, 45 s)
+## Demo run (`jolt run:jolt-mona`, 45 s)
 
 | Window (frames) | Update median (ms) | Draw median (ms) | Work median (ms) | Work worst (ms) | Frame worst (ms) | Dropped | Calls |
 |---|---|---|---|---|---|---|---|
@@ -26,7 +26,7 @@ First frame-cost measurements of Super Mona (Clojure on jolt) for the Wii, taken
 
 Window 1 is the title screen plus startup, window 2 the rest of the 10 s on the title and the first demo frames (the demo begins during window 2: `mode demo`, stage 1-1 HELLO WORLD). Windows 3 to 6 are the bot on stage 1-1: the update median goes 12.9, 11.8, 8.2, 2.9 ms as the stage goes on, with 53, 34, 2 and 1 frames dropped. The bot reached the flag (`event flag`) and the run moved to stage 2, 1-2 SERVER ROOM, during window 7, so window 7 covers the end of 1-1 and the start of 1-2. No `clear` line was printed. Calls per frame were 27 on the title and 31 to 33 in play.
 
-## Scripted run (`bb run:jolt-mona-wiimote`, 40 s)
+## Scripted run (`jolt run:jolt-mona-wiimote`, 40 s)
 
 | Window (frames) | Update median (ms) | Draw median (ms) | Work median (ms) | Work worst (ms) | Frame worst (ms) | Dropped | Calls |
 |---|---|---|---|---|---|---|---|
@@ -52,7 +52,7 @@ The update dominates the heavy demo frames: 12.9 ms at the worst against 5.3 ms 
 
 ## Rung 0: the enemy update by index (2026-11-05)
 
-The enemy update now works by index: an enemy's `:id` is its slot in `:enemies`, dead enemies keep their slot with `:alive? false` instead of being pruned each frame, `find-enemy` and `update-enemy` are `nth` and `assoc-in`, and `walkers-bounce` and `shell-hits` are index loops. The main loop also reads `connected?` once per channel per frame, calls `rumble!` only when a channel's state changes, and prints `stall` lines for frames over 100 ms. Build: `bb build:jolt-mona`, same jolt as above. Two `bb run:jolt-mona` runs agreed on dropped counts and worst-case work; the medians differed by at most 0.2 ms (update 6758 vs 6572 us in the last window) and frame-worst by at most 0.7 ms (77394 vs 76756 us). The table is the first run. A `stall` line pairs the previous frame's interval with the current frame's work, so it is one frame off.
+The enemy update now works by index: an enemy's `:id` is its slot in `:enemies`, dead enemies keep their slot with `:alive? false` instead of being pruned each frame, `find-enemy` and `update-enemy` are `nth` and `assoc-in`, and `walkers-bounce` and `shell-hits` are index loops. The main loop also reads `connected?` once per channel per frame, calls `rumble!` only when a channel's state changes, and prints `stall` lines for frames over 100 ms. Build: `jolt build:jolt-mona`, same jolt as above. Two `jolt run:jolt-mona` runs agreed on dropped counts and worst-case work; the medians differed by at most 0.2 ms (update 6758 vs 6572 us in the last window) and frame-worst by at most 0.7 ms (77394 vs 76756 us). The table is the first run. A `stall` line pairs the previous frame's interval with the current frame's work, so it is one frame off.
 
 | Window (frames) | Update median (ms) | Draw median (ms) | Work median (ms) | Work worst (ms) | Frame worst (ms) | Dropped | Calls |
 |---|---|---|---|---|---|---|---|
@@ -74,7 +74,7 @@ The question: are the 280 to 850 ms stalls jolt's older-generation collections? 
 
 ```
 scripts/dkp make -C jolt-gfx EXTRA_CFLAGS=-DJG_GC_LOG
-bb gfx-pack && bb build:jolt-mona && bb run:jolt-mona
+jolt gfx-pack && jolt build:jolt-mona && jolt run:jolt-mona
 grep -E 'gc:|jolt-mona: (stall|frames|mode|stage)|jolt_gfx: heap' .dolphin-auto/idle/Logs/dolphin.log
 ```
 
@@ -161,7 +161,7 @@ Steady-state frames, same build flags as the Rung 0 section: the demo's windows 
 
 ## Sound (2026-11-07)
 
-Super Mona now plays ten chip tunes and seventeen effects through the shim's synthesiser (`jolt-gfx/jolt_snd.c`). One 45 s demo run from `bb run:jolt-mona` on the sound build (branch `feat/mona-sound`, shim build `69c095a-dirty`), Dolphin only, the same build flags as the Rung 0 section. The `bb verify` run that gated the sound passed all 18 checks, but its demo log was overwritten by later runs, so these figures come from the separate `bb run:jolt-mona` made afterwards.
+Super Mona now plays ten chip tunes and seventeen effects through the shim's synthesiser (`jolt-gfx/jolt_snd.c`). One 45 s demo run from `jolt run:jolt-mona` on the sound build (branch `feat/mona-sound`, shim build `69c095a-dirty`), Dolphin only, the same build flags as the Rung 0 section. The `jolt verify` run that gated the sound passed all 18 checks, but its demo log was overwritten by later runs, so these figures come from the separate `jolt run:jolt-mona` made afterwards.
 
 Work medians of the windows 601 to 2100, against the previous section's:
 
@@ -178,6 +178,6 @@ The shim's static footprint (`scripts/dkp powerpc-eabi-size jolt-gfx/build/jolt_
 
 The .dol grew from 11,872,224 bytes without sound to 12,017,920 bytes with it (+145,696). Putting all of `mona.music` on the Wii path gave 12.26 MB and ran out of heap at boot; these two .dol figures and that one were measured in the previous task, not here.
 
-The audio dump (`bb run:jolt-mona-audio`, `-C Dolphin.DSP.DumpAudio=True`): the WAV with the highest peak was `dspdump1.wav` (the 48 kHz AESND voice), peak 7718 of 32767. The frame log's `snd-peak` is a running maximum of the rendered samples since the previous summary (`snd_render` keeps it), so it is not a sample taken at one moment. The dump's 7718 and the log's figures sit in the same range once the stage music plays.
+The audio dump (`jolt run:jolt-mona-audio`, `-C Dolphin.DSP.DumpAudio=True`): the WAV with the highest peak was `dspdump1.wav` (the 48 kHz AESND voice), peak 7718 of 32767. The frame log's `snd-peak` is a running maximum of the rendered samples since the previous summary (`snd_render` keeps it), so it is not a sample taken at one moment. The dump's 7718 and the log's figures sit in the same range once the stage music plays.
 
-The log now also carries `snd-music`, the largest |sum of the four music voices| since the last summary, before the volume scaling (`jg_snd_music_peak`, effects excluded), and `bb verify` requires it above 3000 in some window. One `bb run:jolt-mona` on the build with the star effect (.dol 12,040,896 bytes) printed, for the five demo windows in order: `snd-music` 7470, 7357, 7479, 7485, 7304; `snd-peak` 7470, 9756, 8922, 9177, 7304; `sfx` 4, 10, 6, 9, 3. The two title windows before them read `snd-music` 7578 and 7546 with `sfx=0`. So the stage music does render in the demo (about 7300 to 7500 per window, where a song measured 6461 or more per window on the host), and the windows where `snd-peak` exceeds `snd-music` are the ones with several effects on top. An earlier run's 1638 to 1774 was not seen again; the cause was not investigated.
+The log now also carries `snd-music`, the largest |sum of the four music voices| since the last summary, before the volume scaling (`jg_snd_music_peak`, effects excluded), and `jolt verify` requires it above 3000 in some window. One `jolt run:jolt-mona` on the build with the star effect (.dol 12,040,896 bytes) printed, for the five demo windows in order: `snd-music` 7470, 7357, 7479, 7485, 7304; `snd-peak` 7470, 9756, 8922, 9177, 7304; `sfx` 4, 10, 6, 9, 3. The two title windows before them read `snd-music` 7578 and 7546 with `sfx=0`. So the stage music does render in the demo (about 7300 to 7500 per window, where a song measured 6461 or more per window on the host), and the windows where `snd-peak` exceeds `snd-music` are the ones with several effects on top. An earlier run's 1638 to 1774 was not seen again; the cause was not investigated.

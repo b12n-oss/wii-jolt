@@ -196,7 +196,7 @@ static void draw(const Game *g, float t)
 
 // ---------------------------------------------------------------- log
 // One line per event on stdout, which goes to Dolphin's log (OSREPORT) and to
-// a USB Gecko on hardware. bb verify reads these.
+// a USB Gecko on hardware. jolt verify reads these.
 
 static const char *mode_name(Mode m)
 {

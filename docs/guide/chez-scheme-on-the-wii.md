@@ -26,8 +26,8 @@ experiment runs it on `tpb32l`.
 ## Building it
 
 ```sh
-bb chez:setup    # once
-bb build:chez
+jolt chez:setup    # once
+jolt build:chez
 ```
 
 `scripts/setup-chez` clones `~/dev/ChezScheme` locally into `.work/ChezScheme`,

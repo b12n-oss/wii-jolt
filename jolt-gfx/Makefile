@@ -3,7 +3,7 @@
 include $(DEVKITPPC)/wii_rules
 
 PORTS  := $(DEVKITPRO)/portlibs
-# ../.work/pack-tpb32b/scheme.h: the Chez C API, for the heap report (bb pack first).
+# ../.work/pack-tpb32b/scheme.h: the Chez C API, for the heap report (jolt pack first).
 CFLAGS := -O2 -Wall $(MACHDEP) -I../vendor/raylib -I../.work/pack-tpb32b -I../examples/common \
           -I$(PORTS)/wii/include -I$(PORTS)/ppc/include -I$(LIBOGC_INC)
 CFLAGS += $(EXTRA_CFLAGS)
@@ -22,7 +22,7 @@ build/jolt_gfx_stub.o: jolt_gfx.c jolt_gfx.h
 	mkdir -p build
 	$(CC) $(CFLAGS) -DJG_STUB_DRAW -c $< -o $@
 
-# Always recompiled: the build id (-DJG_BUILD_ID, from bb build:jolt-gfx) is
+# Always recompiled: the build id (-DJG_BUILD_ID, from jolt build:jolt-gfx) is
 # in CFLAGS, not in a source file, and the compile takes a second.
 build/jolt_gfx.o: jolt_gfx.c jolt_gfx.h FORCE
 	mkdir -p build

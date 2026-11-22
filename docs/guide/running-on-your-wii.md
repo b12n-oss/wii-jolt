@@ -32,8 +32,8 @@ order.
 ## Putting apps on an SD card
 
 ```sh
-bb build
-bb sd
+jolt build
+jolt sd
 ```
 
 Then copy `build/sd/apps` to the root of an SD card (FAT32), so you end up with:
@@ -106,8 +106,8 @@ does not touch, so `debug_hud=0` and `mona_sound=0` can sit beside the high
 score (`mona_high`) in one file.
 
 **Clean captures.** For talk screenshots in Dolphin, write `debug_hud=0` into
-`.work/sd-mona/apps/jolt-mona/settings.txt` before `bb run:jolt-mona`, and the
-stamp stays off the picture. `bb demo:jolt-mona-video` does the same on its
+`.work/sd-mona/apps/jolt-mona/settings.txt` before `jolt run:jolt-mona`, and the
+stamp stays off the picture. `jolt demo:jolt-mona-video` does the same on its
 own card folder.
 
 **Sound evidence.** The 300-frame line in `run.log` does not carry the sound

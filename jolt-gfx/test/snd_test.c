@@ -1,4 +1,4 @@
-// Host test for the jolt-snd core (voices, envelopes, mixer). Built by `bb test`.
+// Host test for the jolt-snd core (voices, envelopes, mixer). Built by `jolt test`.
 #include <math.h>
 #include <stdio.h>
 #include <string.h>

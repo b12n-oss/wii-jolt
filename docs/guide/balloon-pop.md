@@ -26,7 +26,7 @@ players put on a 20-second demo. Pressing A stops it.
 ## Playing it on the Mac first
 
 ```sh
-bb play:balloons
+jolt play:balloons
 ```
 
 This opens the game in Dolphin. Dolphin's emulated Wiimote follows the Mac's
@@ -39,8 +39,8 @@ Dolphin's controller settings are the first place to look.
 ## Putting it on the Wii
 
 ```sh
-bb build:balloons
-bb sd
+jolt build:balloons
+jolt sd
 ```
 
 Then copy `build/sd/apps/balloons/` to `apps/balloons/` on the SD card or USB
@@ -53,7 +53,7 @@ The game is two halves, so the rules can be tested on the Mac.
 
 - **`examples/balloons/game.c`** has the rules and nothing else: balloons,
   spawning, scoring, the title → countdown → play → results flow, the demo
-  robots, confetti. It doesn't include raylib or any Wii header. `bb test`
+  robots, confetti. It doesn't include raylib or any Wii header. `jolt test`
   compiles it with the Mac's `cc` and runs 45 checks from
   `examples/balloons/test/test_game.c`: joining, popping, gold scoring, the
   round timer, ties, the results-screen lock, and the demo.
@@ -64,7 +64,7 @@ The game is two halves, so the rules can be tested on the Mac.
 
 Balloon Pop and Star Catcher share this flow. `game_update` moves between
 the modes, and `main.c` logs each change as `mode <name>`, which is what
-`bb verify` reads.
+`jolt verify` reads.
 
 ```mermaid
 stateDiagram-v2
@@ -109,14 +109,14 @@ GameCube pad.
 
 ### Checking it without anyone holding a Wiimote
 
-`bb verify` plays Balloon Pop twice in Dolphin, both times with MMU emulation
+`jolt verify` plays Balloon Pop twice in Dolphin, both times with MMU emulation
 on.
 
 **The robot demo.** Boot, wait 20 seconds, and require `balloons: mode demo`
 followed by at least three pops. That covers drawing, the game loop and the
 rules.
 
-**A scripted Wiimote** (`bb run:balloons-wiimote`). The `pointer` profile of
+**A scripted Wiimote** (`jolt run:balloons-wiimote`). The `pointer` profile of
 `scripts/dolphin-auto-wiimote` makes Dolphin's emulated Wiimote 1 play by
 itself:
 
@@ -143,7 +143,7 @@ at once each keep their own pointer.
 
 ### An open question: one hang at boot
 
-In one `bb verify` run, right after the switch to SDL's `main`, the game stopped
+In one `jolt verify` run, right after the switch to SDL's `main`, the game stopped
 during raylib's start-up, just before SDL's video init, and never opened a
 window. It didn't happen again in the next eight boots. SDL's wrapper now also
 reloads IOS and mounts the SD card at start-up, which is new work that could be

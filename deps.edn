@@ -1,6 +1,6 @@
-{:min-bb-version "1.3.0"
-
- :tasks
+;; wii-jolt's tasks. jolt reads :tasks from deps.edn (jolt info lists them).
+;; jolt provides the babashka.fs and babashka.process namespaces required below.
+{:tasks
  {:requires ([babashka.fs :as fs]
              [babashka.process :as p]
              [babashka.process :refer [shell]]
@@ -8,9 +8,8 @@
 
   :init
   (do
-    ;; bb sets babashka.version, jolt sets jolt.version.
-    (def runner (if (System/getProperty "babashka.version") "bb" "jolt"))
-    (def repo-root (str (fs/parent (fs/absolutize "bb.edn"))))
+    (def runner "jolt")
+    (def repo-root (str (fs/parent (fs/absolutize "deps.edn"))))
     (defn auto-user
       "Write a scripted (or play) Wiimote profile and return its Dolphin user dir."
       [profile]
@@ -19,7 +18,7 @@
 
     ;; One row per thing that runs on the Wii:
     ;; [name dol-path console? what-it-shows & :measurement]
-    ;; :measurement = a benchmark, not an app: bb sd skips it, and its build leaves out meta.xml.
+    ;; :measurement = a benchmark, not an app: jolt sd skips it, and its build leaves out meta.xml.
     ;; console? = the app draws with libogc's text console (CPU-written
     ;; framebuffer), which Dolphin only shows with XFB-to-texture off.
     (def apps
@@ -328,7 +327,7 @@
          hdr (fn [s] (println (str "\n" (col "35" (str "-- " s " --")))))
          row (fn [t d] (println (str "  " (col "36" (format "%-28s" (str runner " " t))) d)))]
      (println (col "1;35" "\nwii-jolt: raylib, Chez Scheme and Clojure (jolt) on the Nintendo Wii"))
-     (println (col "2" (str "  runner: " runner "   ·   both `bb <task>` and `jolt <task>` work")))
+     (println (col "2" (str "  runner: jolt   ·   tasks live in deps.edn")))
      (hdr "Verify")
      (row "doctor" "check Docker, the devkitPPC image, Dolphin, jolt, Chez")
      (row "test" "host-side unit tests: every game's rules, on the Mac")
@@ -486,7 +485,7 @@
      (sh! "scripts/dkp" "make" "-C" "jolt-gfx" (str "EXTRA_CFLAGS=-DJG_BUILD_ID=" id)))}
 
   gfx-pack
-  {:doc "Assemble the graphics pack in .work/pack-tpb32b-gfx (needs bb pack first)"
+  {:doc "Assemble the graphics pack in .work/pack-tpb32b-gfx (needs jolt pack first)"
    :depends [build:jolt-gfx build:raylib]
    :task (sh! "scripts/make-gfx-pack")}
 
@@ -495,7 +494,7 @@
    :task (sh! "scripts/jolt-wii-build" "jolt-hello" "hello.core" "jolt-hello")}
 
   gfx-pack-stub
-  {:doc "Assemble .work/pack-tpb32b-gfx-stub: the shim compiled with -DJG_STUB_DRAW (needs bb pack first)"
+  {:doc "Assemble .work/pack-tpb32b-gfx-stub: the shim compiled with -DJG_STUB_DRAW (needs jolt pack first)"
    :depends [build:raylib]
    :task (sh! "scripts/make-gfx-pack" "--stub-draw")}
 
@@ -535,8 +534,11 @@
   {:doc "Cross-build Balloon Pop in Clojure (balloons.main)"
    :depends [gfx-pack]
    :task (do
+           ;; jolt 0.8.28 made this 16.69 MB and out of memory at boot; with
+           ;; these flags it is 10.19 MB and boots.
            (sh! "env" (str "JOLT_WII_PACK=" repo-root "/.work/pack-tpb32b-gfx")
                 (str "JOLT_WII_CC=" repo-root "/scripts/wii-cc-sdl")
+                "JOLT_BUILD_FLAGS=--closed-world --boot small --no-trace"
                 "scripts/jolt-wii-build" "jolt-balloons" "balloons.main" "jolt-balloons"))}
 
   build:jolt-mona
@@ -544,9 +546,11 @@
    :depends [gfx-pack]
    :task (do
            ;; Without these the .dol is 17.5 MB and the boot runs out of memory.
+           ;; jolt 0.8.28 compiles traced code about 1 MB bigger (13.06 MB, out
+           ;; of memory at boot); --no-trace brings it to 12.35 MB.
            (sh! "env" (str "JOLT_WII_PACK=" repo-root "/.work/pack-tpb32b-gfx")
                 (str "JOLT_WII_CC=" repo-root "/scripts/wii-cc-sdl")
-                "JOLT_BUILD_FLAGS=--closed-world --boot small"
+                "JOLT_BUILD_FLAGS=--closed-world --boot small --no-trace"
                 "scripts/jolt-wii-build" "jolt-mona" "mona.main" "jolt-mona"))}
 
   build:jolt-ffi-bench
@@ -865,7 +869,7 @@
   site:build {:doc  "Build the documentation site into _site/ (needs a docs-engine checkout)"
               :task (site-task "build")}
 
-  site:serve {:doc  "Build the docs site and serve it locally (bb site:serve [port], default 3000)"
+  site:serve {:doc  "Build the docs site and serve it locally (jolt site:serve [port], default 3000)"
               :task (site-task "serve" (first *command-line-args*))}
 
   site:clean {:doc  "Delete the _site/ build output"

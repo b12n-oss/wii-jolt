@@ -8,13 +8,13 @@
   files embedded in the `.dol`.
 - Clojure through `jolt build --target tpb32b`, with output matching the Mac
   build. The jolt-side fix is upstream (jolt-lang/jolt#1514, 2026-11-05).
-- `bb verify` builds all three and checks each one's output in Dolphin with MMU
+- `jolt verify` builds all three and checks each one's output in Dolphin with MMU
   emulation on.
 
 ## Done: Balloon Pop (2026-11-03)
 
 A Wiimote pointer game for up to four players, with rumble and a robot demo.
-45 host-side checks on its rules. `bb verify` plays it in Dolphin twice: the
+45 host-side checks on its rules. `jolt verify` plays it in Dolphin twice: the
 robot demo, and a round driven by a scripted emulated Wiimote (A to join, IR
 pointer pops). Building that second test found that raylib apps never
 initialised the Wiimotes at all (SDL's `main` wrapper wasn't linked), now
@@ -29,7 +29,7 @@ reproduced since. See [Balloon Pop](docs/guide/balloon-pop.md).
 Two more games, each using the Wiimote a new way: Star Catcher steers by
 tilting a sideways remote, and Shake Race runs on shaking. 38 and 35
 host-side checks. The Wiimote code moved into `examples/common/wiimote.c`,
-which all three games now share. `bb verify` plays every game twice, with
+which all three games now share. `jolt verify` plays every game twice, with
 the robot demo and with a scripted remote (pointer, tilt or shake).
 
 While testing these, we found that Dolphin ignores controller input whenever
@@ -40,7 +40,7 @@ turns on background input. See [Wiimote input](docs/guide/wiimote-input.md).
 
 Star Catcher's steering direction and Shake Race's shake power can be changed
 from the remote and are saved to `settings.txt` beside each game's `boot.dol`
-(`examples/common/settings.c`). `bb verify` checks the save and reload
+(`examples/common/settings.c`). `jolt verify` checks the save and reload
 through Dolphin's emulated SD card.
 
 ## Done: Balloon Pop in Clojure (2026-11-03)
@@ -71,7 +71,7 @@ the numbers.
 
 ## Next: the real console
 
-1. ~~Copy `bb sd`'s output to an SD card and run every app on the family Wii.~~
+1. ~~Copy `jolt sd`'s output to an SD card and run every app on the family Wii.~~
    Done 2026-11-06, in two rounds. The first card ran the C games and Hello
    raylib and stopped every jolt build at boot with an alignment exception
    (the kernel patch fixed it, see the guide). The second card ran
@@ -124,7 +124,7 @@ the numbers.
   shim on libogc's AESND (seven voices, an effect player, a four-track
   sequencer), seventeen effects and ten original tunes written as note data in
   `jolt-mona/src/mona/music.clj`, cues from the app's state, and a `-` mute on
-  the title saved as `mona_sound`. `bb verify` checks it in Dolphin through the
+  the title saved as `mona_sound`. `jolt verify` checks it in Dolphin through the
   shim's stats (three new gates). Dolphin only; see
   [Super Mona in jolt](docs/guide/super-mona-in-jolt.md#sound).
 - **Sound for Balloon Pop (Clojure).** The next sound arc: recipes for pop,

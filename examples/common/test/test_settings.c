@@ -1,4 +1,4 @@
-// Host-side tests for settings.c (bb test). argv[1] is a scratch file path.
+// Host-side tests for settings.c (jolt test). argv[1] is a scratch file path.
 #define _POSIX_C_SOURCE 200809L
 #include "settings.h"
 #include <sys/stat.h>

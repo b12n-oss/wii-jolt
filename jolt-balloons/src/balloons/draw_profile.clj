@@ -3,7 +3,7 @@
    the whole draw and each section (median of 120 frames), then the cost of
    single operations (N iterations, the empty loop subtracted). Build it
    against the stub-draw pack so the numbers are Clojure plus the crossing
-   (bb build:jolt-draw-profile). Prints 'draw-profile: ...' lines.
+   (jolt build:jolt-draw-profile). Prints 'draw-profile: ...' lines.
 
    WARNING: the heap is nearly full at boot (jolt's runtime holds about 41 MB of
    the Wii's 60 MB; MEASUREMENTS.md). Builds a few KB larger than this one died

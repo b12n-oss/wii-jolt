@@ -2,7 +2,7 @@
   "AESND stream voice spike: the title tune plays and a jump blip fires each
    second while a text frame loop runs, with the shim's sound counters printed
    every 60 frames.
-   Dolphin's audio dump (bb run:jolt-snd-spike) shows whether the voice is
+   Dolphin's audio dump (jolt run:jolt-snd-spike) shows whether the voice is
    audible."
   (:require [wii.gfx :as gfx]))
 

@@ -1,8 +1,7 @@
 # Getting started
 
 Everything builds on a Mac. The Wii compiler runs inside Docker, so the only
-things installed on the Mac itself are Docker, the Dolphin emulator, babashka,
-and jolt.
+things installed on the Mac itself are Docker, the Dolphin emulator and jolt.
 
 ## What you need
 
@@ -11,14 +10,13 @@ and jolt.
 | Docker | runs devkitPro's devkitPPC toolchain | Docker Desktop |
 | `devkitpro/devkitppc` image | the Wii compiler, libogc, SDL2, OpenGX | `docker pull devkitpro/devkitppc:latest` |
 | Dolphin | the Wii emulator we test in | `brew install --cask dolphin` |
-| babashka | the task runner (`bb`) | `brew install borkdude/brew/babashka` |
-| jolt | compiles the Clojure app | see [jolt](https://github.com/jolt-lang/jolt) |
+| jolt | compiles the Clojure apps and runs the tasks in `deps.edn` | see [jolt](https://github.com/jolt-lang/jolt) |
 | a Chez Scheme checkout | source for the Wii build of Chez | `~/dev/ChezScheme` with submodules, or set `CHEZ_SRC` |
 
-`bb doctor` checks each of these and says what the missing ones block:
+`jolt doctor` checks each of these and says what the missing ones block:
 
 ```
-$ bb doctor
+$ jolt doctor
 toolchain (blocks every build):
   ok    docker on PATH
   ok    docker daemon running
@@ -41,11 +39,11 @@ all good
 
 ```mermaid
 flowchart LR
-  src["Source on the Mac"] --> bb["bb build:NAME"]
-  bb --> dkp["scripts/dkp<br/>devkitPPC in Docker"]
+  src["Source on the Mac"] --> task["jolt build:NAME"]
+  task --> dkp["scripts/dkp<br/>devkitPPC in Docker"]
   dkp --> dol[".dol + sd/apps/NAME/"]
-  dol --> dolphin["Dolphin, MMU on<br/>(bb run:*, bb verify)"]
-  dol --> sd["bb sd: build/sd/apps"]
+  dol --> dolphin["Dolphin, MMU on<br/>(jolt run:*, jolt verify)"]
+  dol --> sd["jolt sd: build/sd/apps"]
   sd --> card["SD card or USB drive"]
   card --> hbc["Homebrew Channel"] --> tv["The family Wii"]
 ```
@@ -53,24 +51,24 @@ flowchart LR
 The raylib app needs nothing beyond Docker:
 
 ```sh
-bb build:hello      # builds raylib for the Wii, then examples/hello
+jolt build:hello      # builds raylib for the Wii, then examples/hello
 ```
 
-Chez needs a one-time setup. `bb chez:setup` clones your local Chez checkout
+Chez needs a one-time setup. `jolt chez:setup` clones your local Chez checkout
 into `.work/ChezScheme` at tag `v10.4.1` (the version jolt is built on),
 applies `patches/chez-wii.patch`, builds a Mac Chez, and builds the `tpb32b`
 boot files. That takes about five minutes. After it:
 
 ```sh
-bb build:chez       # the Chez kernel for the Wii and the chez test app
-bb pack             # the jolt target pack in .work/pack-tpb32b
-bb build:jolt-hello # jolt build --target tpb32b, then elf2dol
+jolt build:chez       # the Chez kernel for the Wii and the chez test app
+jolt pack             # the jolt target pack in .work/pack-tpb32b
+jolt build:jolt-hello # jolt build --target tpb32b, then elf2dol
 ```
 
-`bb build` does all of it in order.
+`jolt build` does all of it in order.
 
 Each build leaves a `.dol` (the Wii's executable format) and an
-`sd/apps/<name>/` folder laid out for the Homebrew Channel. `bb sd` gathers every
+`sd/apps/<name>/` folder laid out for the Homebrew Channel. `jolt sd` gathers every
 app into one `build/sd/apps` tree.
 
 ### What `scripts/dkp` does
@@ -87,10 +85,10 @@ resolve unchanged inside the container.
 ## Testing in Dolphin
 
 ```sh
-bb run:hello        # screenshot in .work/shots/hello.png
-bb run:chez         # prints the Scheme results
-bb run:jolt-hello   # prints the Clojure program's output
-bb verify           # builds everything, runs all three, checks the output
+jolt run:hello        # screenshot in .work/shots/hello.png
+jolt run:chez         # prints the Scheme results
+jolt run:jolt-hello   # prints the Clojure program's output
+jolt verify           # builds everything, runs all three, checks the output
 ```
 
 These go through `scripts/dolphin-shot`, which boots a `.dol` with a separate

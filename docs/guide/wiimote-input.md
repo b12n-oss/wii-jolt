@@ -2,7 +2,7 @@
 
 All three games read the remotes through one small module,
 `examples/common/wiimote.{h,c}`. This page covers what it gives a game, the
-numbers we measured for tilt and shake, and how `bb verify` plays each game
+numbers we measured for tilt and shake, and how `jolt verify` plays each game
 with a scripted remote.
 
 ## The module
@@ -120,16 +120,16 @@ input expressions:
 | `minus`, `plus` | the couch check | one press of − or +, 3.4 to 4 s after start |
 | `idle` | the couch check | connected, presses nothing |
 | `platformer` | Super Mona | held sideways: 2 pressed every second, with 1 and D-pad down held |
-| `play-sideways` | `bb play:jolt-mona` | nothing scripted: Left and Right Arrow move, Up and Down Arrow are the pad's up and down, X is 2, Z is 1, Return is +, Escape is Home |
-| `play` | `bb play:*` | nothing scripted: Dolphin's mouse and keyboard defaults (Q is −, E is +), plus Space to shake |
+| `play-sideways` | `jolt play:jolt-mona` | nothing scripted: Left and Right Arrow move, Up and Down Arrow are the pad's up and down, X is 2, Z is 1, Return is +, Escape is Home |
+| `play` | `jolt play:*` | nothing scripted: Dolphin's mouse and keyboard defaults (Q is −, E is +), plus Space to shake |
 
-`bb verify` boots each game twice, once to watch the robot demo and once with
+`jolt verify` boots each game twice, once to watch the robot demo and once with
 its scripted remote, and requires the remote to join, the round to start, and
 player 1 to score during it.
 
 ```mermaid
 flowchart LR
-  t["bb test<br/>rules and settings, on the Mac"] --> d
+  t["jolt test<br/>rules and settings, on the Mac"] --> d
   subgraph each["For each game, in Dolphin with MMU on"]
     d["Robot demo<br/>3+ scores, no crash"] --> s["Scripted remote<br/>joins, plays, scores"]
   end
@@ -154,7 +154,7 @@ can't be written, the banner says so instead of claiming it saved. Integral
 values are saved exactly (the old `%g` format cut them off from 1,000,000 up),
 and `jolt-mona` keeps its high score there as `mona_high`.
 
-`bb verify` checks each setting end to end (`bb run:couch` runs just that).
+`jolt verify` checks each setting end to end (`jolt run:couch` runs just that).
 Dolphin builds an emulated SD card from a folder on the Mac, `.work/sd-couch`,
 and copies it back on shutdown:
 
@@ -179,7 +179,7 @@ sequenceDiagram
 
 The check presses the button once, requires `saved=1` in the log and the
 right line in the folder's `settings.txt`, then boots again with no presses
-and requires the game to start with the new value. `bb play:*` uses the same
+and requires the game to start with the new value. `jolt play:*` uses the same
 trick with `.work/sd-play`, so settings stick between sessions on the Mac.
 
 Two traps from writing these:
@@ -197,6 +197,6 @@ Two traps from writing these:
 - **Background input also hears the Mac.** Once it was on, the robot-demo
   runs, which still used Dolphin's default profile (mouse and keyboard),
   started picking up clicks and key presses from whoever was using the Mac.
-  Any press ends a demo, so all three demo checks failed in one `bb verify`.
+  Any press ends a demo, so all three demo checks failed in one `jolt verify`.
   Every unscripted run now uses the `idle` profile, a remote with nothing
-  bound, and only `bb play:*` binds the Mac's mouse and keyboard.
+  bound, and only `jolt play:*` binds the Mac's mouse and keyboard.
