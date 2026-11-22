@@ -74,7 +74,7 @@ keyboard, and `jolt verify` plays each one with a scripted remote.
 
 The interesting part is the bottom row. Chez has a big-endian 32-bit
 portable-bytecode target (`tpb32b`) that had never been pointed at a real
-machine, and jolt had never produced code for a 32-bit or big-endian one. Getting
+machine, and jolt had never cross-compiled for a 32-bit target. Getting
 there took a short patch to the Chez kernel, two small shims for gaps in libogc,
 and a fix to how `jolt build` cross-compiles for 32-bit targets. The
 [Jolt on the Wii](docs/guide/jolt-on-the-wii.md) page walks through each one.
