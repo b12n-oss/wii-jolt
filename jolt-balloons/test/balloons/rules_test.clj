@@ -3,8 +3,8 @@
             [balloons.rules :as r]))
 
 (defn place
-  "Add a balloon at (x, y) with radius 30, rising at 40 px/s."
-  [g x y gold?]
+  "Add a balloon at (x, y) with radius 30, rising at 40 px/s, gold when :gold?."
+  [g x y & [{:keys [gold?] :or {gold? false}}]]
   (-> g
       (update :balloons conj {:id (:next-id g) :x x :y y :r 30.0 :vy -40.0
                               :wobble 0.0 :color 0 :gold gold?})
@@ -24,7 +24,7 @@
   (take n (rest (iterate (fn [s] (r/update-balloons s (/ 1.0 60) true)) g))))
 
 (deftest pop-scores
-  (let [g0 (-> (playing 1 [0]) (place 200.0 200.0 false) (place 400.0 200.0 true))
+  (let [g0 (-> (playing 1 [0]) (place 200.0 200.0) (place 400.0 200.0 {:gold? true}))
         [g1 p1] (r/try-pop g0 0 205.0 195.0)
         [g2 p2] (r/try-pop g1 0 205.0 195.0)
         [g3 p3] (r/try-pop g2 0 (+ 400.0 31.0) 200.0)
@@ -39,9 +39,9 @@
     (is (= 0 (count (:balloons g4))) "both balloons are gone")))
 
 (deftest balloons-rise-and-leave
-  (let [g0 (place (playing 3 [0]) 320.0 100.0 false)
+  (let [g0 (place (playing 3 [0]) 320.0 100.0)
         g1 (r/update-balloons g0 0.5 false)
-        g2 (r/update-balloons (place (playing 3 [0]) 320.0 -200.0 false) (/ 1.0 60) false)]
+        g2 (r/update-balloons (place (playing 3 [0]) 320.0 -200.0) (/ 1.0 60) false)]
     (is (< (:y (first (:balloons g1))) 100.0) "balloons rise")
     (is (empty? (:balloons g2)) "a balloon that floats off the top is removed")))
 
@@ -109,21 +109,21 @@
     (is (= 2 (r/joined-count g3)) "two players joined")))
 
 (deftest fire-through-update
-  (let [g0 (place (playing 7 [3]) 320.0 300.0 false)
+  (let [g0 (place (playing 7 [3]) 320.0 300.0)
         g1 (r/update g0 (press 3 320.0 300.0) dt)]
     (is (= 1 (get-in g1 [:players 3 :score])) "fire on a balloon through update scores")
     (is (= 1 (:pops-this-round g1)) "pop counter increments")
     (is (> (alive-particles g1) 0) "a pop makes particles")))
 
 (deftest unjoined-cannot-score
-  (let [g0 (place (playing 7 [0]) 320.0 300.0 false)
+  (let [g0 (place (playing 7 [0]) 320.0 300.0)
         g1 (r/update g0 (press 2 320.0 300.0) dt)]
     (is (and (= 0 (get-in g1 [:players 2 :score])) (some (fn [b] (= 0 (:id b))) (:balloons g1)))
         "a player who didn't join can't pop")
     (is (= false (get-in g1 [:players 2 :joined])) "and doesn't join mid-round")))
 
 (deftest disconnected-player-keeps-score
-  (let [g0 (-> (playing 7 [1]) (assoc-in [:players 1 :score] 3) (place 320.0 300.0 false))
+  (let [g0 (-> (playing 7 [1]) (assoc-in [:players 1 :score] 3) (place 320.0 300.0))
         in (assoc r/no-input 1 {:connected false :aiming true :x 320.0 :y 300.0 :fire true})
         g1 (r/update g0 in dt)]
     (is (= 3 (get-in g1 [:players 1 :score])) "score unchanged")
@@ -132,7 +132,7 @@
     (is (= false (get-in g1 [:players 1 :aiming])) "not aiming")))
 
 (deftest simultaneous-pop-scores-once
-  (let [g0 (place (playing 7 [0 2]) 320.0 300.0 false)
+  (let [g0 (place (playing 7 [0 2]) 320.0 300.0)
         fire {:connected true :aiming true :x 320.0 :y 300.0 :fire true}
         g1 (r/update g0 (assoc r/no-input 0 fire 2 fire) dt)]
     (is (= 1 (get-in g1 [:players 0 :score])) "the lower index scores")
@@ -143,7 +143,7 @@
 (deftest effects-respect-their-caps
   (let [particle {:x 0.0 :y 0.0 :vx 0.0 :vy 0.0 :life 5.0 :color 0}
         popup {:x 0.0 :y 0.0 :life 5.0 :points 1 :player 0}
-        g0 (-> (place (playing 7 [0]) 320.0 300.0 false)
+        g0 (-> (place (playing 7 [0]) 320.0 300.0)
                (assoc :particles (vec (repeat 256 particle))
                       :popups (vec (repeat 16 popup))))
         [g1 points] (r/try-pop g0 0 320.0 300.0)]

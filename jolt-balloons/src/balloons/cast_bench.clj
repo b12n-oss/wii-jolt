@@ -21,7 +21,7 @@
 (def ^:private empty-ns-per-iter (atom 0))
 
 (defn- measure
-  [nm iters ops f]
+  [{nm :name :keys [iters ops f]}]
   (let [t0 (gfx/time-us)
         _ (reset! sink (f))
         t1 (gfx/time-us)
@@ -34,9 +34,9 @@
 (defmacro ^:private micro
   "Run body (which may use i, the iteration number) reps times."
   [nm ops body]
-  `(measure ~nm reps ~ops
-            (fn [] (loop [~'i 0 ~'acc nil]
-                     (if (< ~'i reps) (recur (inc ~'i) ~body) ~'acc)))))
+  `(measure {:name ~nm :iters reps :ops ~ops
+             :f (fn [] (loop [~'i 0 ~'acc nil]
+                         (if (< ~'i reps) (recur (inc ~'i) ~body) ~'acc)))}))
 
 (defn- micro-ops []
   (let [t0 (gfx/time-us)

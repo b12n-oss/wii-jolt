@@ -78,8 +78,9 @@
 ;; Level access
 
 (defn make-level
-  "An empty level of `width` columns."
-  [name width theme time switch?]
+  "An empty level of `width` columns. Options, as levels.py's Level takes
+   them: :theme (default :day), :time (300), :switch? (false)."
+  [name width & [{:keys [theme time switch?] :or {theme :day time 300 switch? false}}]]
   (->Level name width theme time switch? (byte-array (* width rows))
            {} {} #{} [] [2 12] nil nil))
 
@@ -118,53 +119,49 @@
   (if (contains? dark-themes (:theme level)) t-cave-brick t-brick))
 
 (defn ground
-  "Fill columns x0..x1 from row `top` (default 13) down with ground."
-  ([level x0 x1] (ground level x0 x1 13))
-  ([level x0 x1 top]
-   (let [cave? (contains? dark-themes (:theme level))]
-     (doseq [x (range x0 (inc x1))
-             y (range top rows)]
-       (set-tile! level x y (cond
-                              cave? t-cave-ground
-                              (= y top) t-ground-top
-                              :else t-ground))))
-   level))
+  "Fill columns x0..x1 from row :top (default 13) down with ground."
+  [level x0 x1 & [{:keys [top] :or {top 13}}]]
+  (let [cave? (contains? dark-themes (:theme level))]
+    (doseq [x (range x0 (inc x1))
+            y (range top rows)]
+      (set-tile! level x y (cond
+                             cave? t-cave-ground
+                             (= y top) t-ground-top
+                             :else t-ground))))
+  level)
 
 (defn ceiling
-  "Cave bricks along columns x0..x1 on each of `ys` (default row 2)."
-  ([level x0 x1] (ceiling level x0 x1 [2]))
-  ([level x0 x1 ys]
-   (doseq [x (range x0 (inc x1))
-           y ys]
-     (set-tile! level x y t-cave-brick))
-   level))
+  "Cave bricks along columns x0..x1 on each of :rows (default [2])."
+  [level x0 x1 & [{ys :rows :or {ys [2]}}]]
+  (doseq [x (range x0 (inc x1))
+          y ys]
+    (set-tile! level x y t-cave-brick))
+  level)
 
 (defn row
   "Place blocks from a string at row y starting at column x: B brick, Q
-   question (with `content`, default :star), H hard, = girder, o floating
+   question (holding :content, default :star), H hard, = girder, o floating
    star, - nothing."
-  ([level x y text] (row level x y text nil))
-  ([level x y text content]
-   (reduce
-    (fn [lv [i ch]]
-      (let [tx (+ x i)]
-        (case ch
-          \B (set-tile! lv tx y (brick-tile lv))
-          \Q (-> (set-tile! lv tx y t-question)
-                 (assoc :contents (assoc (:contents lv) (index lv tx y) (or content :star))))
-          \H (set-tile! lv tx y t-hard)
-          \= (set-tile! lv tx y t-girder)
-          \o (assoc lv :stars (conj (:stars lv) [tx y]))
-          lv)))
-    level
-    (map-indexed vector text))))
+  [level x y text & [{:keys [content]}]]
+  (reduce
+   (fn [lv [i ch]]
+     (let [tx (+ x i)]
+       (case ch
+         \B (set-tile! lv tx y (brick-tile lv))
+         \Q (-> (set-tile! lv tx y t-question)
+                (assoc :contents (assoc (:contents lv) (index lv tx y) (or content :star))))
+         \H (set-tile! lv tx y t-hard)
+         \= (set-tile! lv tx y t-girder)
+         \o (assoc lv :stars (conj (:stars lv) [tx y]))
+         lv)))
+   level
+   (map-indexed vector text)))
 
 (defn block
-  "A question block (or a brick when `brick?`) holding `content`."
-  ([level x y content] (block level x y content false))
-  ([level x y content brick?]
-   (set-tile! level x y (if brick? (brick-tile level) t-question))
-   (assoc level :contents (assoc (:contents level) (index level x y) content))))
+  "A question block (or a brick when :brick?) holding `content`."
+  [level x y content & [{:keys [brick?]}]]
+  (set-tile! level x y (if brick? (brick-tile level) t-question))
+  (assoc level :contents (assoc (:contents level) (index level x y) content)))
 
 (defn star-line
   "`n` floating stars in a row from (x, y)."
@@ -172,36 +169,34 @@
   (assoc level :stars (into (:stars level) (map (fn [i] [(+ x i) y]) (range n)))))
 
 (defn pipe
-  "A pipe two columns wide and `height` tall standing on row `base` (default 13)."
-  ([level x height] (pipe level x height 13))
-  ([level x height base]
-   (let [top (- base height)]
-     (set-tile! level x top t-pipe-tl)
-     (set-tile! level (inc x) top t-pipe-tr)
-     (doseq [y (range (inc top) base)]
-       (set-tile! level x y t-pipe-l)
-       (set-tile! level (inc x) y t-pipe-r))
-     level)))
+  "A pipe two columns wide and `height` tall standing on row :base (default 13)."
+  [level x height & [{:keys [base] :or {base 13}}]]
+  (let [top (- base height)]
+    (set-tile! level x top t-pipe-tl)
+    (set-tile! level (inc x) top t-pipe-tr)
+    (doseq [y (range (inc top) base)]
+      (set-tile! level x y t-pipe-l)
+      (set-tile! level (inc x) y t-pipe-r))
+    level))
 
 (defn stairs
-  "Hard-block stairs `height` columns wide, rising to the right when `up?`."
-  ([level x height] (stairs level x height true 13))
-  ([level x height up? base]
-   (doseq [i (range height)
-           j (range (if up? (inc i) (- height i)))]
-     (set-tile! level (+ x i) (- base 1 j) t-hard))
-   level))
+  "Hard-block stairs `height` columns wide on row :base (default 13), rising
+   to the right unless :up? is false."
+  [level x height & [{:keys [up? base] :or {up? true base 13}}]]
+  (doseq [i (range height)
+          j (range (if up? (inc i) (- height i)))]
+    (set-tile! level (+ x i) (- base 1 j) t-hard))
+  level)
 
 (defn enemy
-  "Add a spawn at column x, row y (default 12) of kind :bug or :shellbot."
-  ([level x] (enemy level x :bug 12))
-  ([level x kind] (enemy level x kind 12))
-  ([level x kind y]
-   (assoc level :spawns (conj (:spawns level) [x y kind]))))
+  "Add a spawn at column x of :kind :bug (the default) or :shellbot, on
+   row :y (default 12)."
+  [level x & [{:keys [kind y] :or {kind :bug y 12}}]]
+  (assoc level :spawns (conj (:spawns level) [x y kind])))
 
 (defn- decor-block
-  "Add `n` decor tiles starting at `first-id`, `cols` wide, from (x, y)."
-  [level x y n cols first-id]
+  "Add :n decor tiles starting at :first-id, :cols wide, from (:x, :y)."
+  [level {:keys [x y n cols first-id]}]
   (assoc level :decor
          (reduce (fn [d i]
                    (assoc d (index level (+ x (rem i cols)) (+ y (quot i cols)))
@@ -212,17 +207,17 @@
 (defn hill
   "A six-tile hill, three wide and two tall, from row 11."
   [level x]
-  (decor-block level x 11 6 3 t-hill))
+  (decor-block level {:x x :y 11 :n 6 :cols 3 :first-id t-hill}))
 
 (defn bush
   "A three-tile bush on the row above ground."
   [level x]
-  (decor-block level x 12 3 3 t-bush))
+  (decor-block level {:x x :y 12 :n 3 :cols 3 :first-id t-bush}))
 
 (defn cloud
   "A six-tile cloud with its top left corner at (x, y)."
   [level x y]
-  (decor-block level x y 6 3 t-cloud))
+  (decor-block level {:x x :y y :n 6 :cols 3 :first-id t-cloud}))
 
 (defn flag
   "A flag pole at column x and the castle five columns to its right."
@@ -262,15 +257,15 @@
   (if (:big? player) big-h small-h))
 
 (defn new-player
-  "A player at (x, y) of `character`, small or `big?`."
-  [x y character big?]
+  "A player at (x, y) of `character`, small unless :big?."
+  [x y character & [{:keys [big?]}]]
   (->Player (double x) (double y) 0.0 0.0 6 false character (boolean big?) 1 false
             0.0 0.0 0.0 0.0 nil 0
             0.0 false false))
 
 (defn new-enemy
-  "An enemy with id `id` at (x, y) of `kind`, walking left and not yet active."
-  [id x y kind]
+  "An enemy with :id at (:x, :y) of :kind, walking left and not yet active."
+  [{:keys [id x y kind]}]
   (->Enemy id (double x) (double y) -18.0 0.0 6 7 kind :walk 0.0 false 0.0 true))
 
 (defn new-item
@@ -367,10 +362,10 @@
   [level session]
   (let [[sx sy] (:start level)
         big? (boolean (:big? session))
-        player (new-player (+ (* sx tile) 1) 0 (:character session) big?)
+        player (new-player (+ (* sx tile) 1) 0 (:character session) {:big? big?})
         player (assoc player :y (double (- (* (inc sy) tile) (player-h player))))
         enemies (vec (map-indexed (fn [i [x y kind]]
-                                    (new-enemy i (+ (* x tile) 1) (- (* (inc y) tile) 7) kind))
+                                    (new-enemy {:id i :x (+ (* x tile) 1) :y (- (* (inc y) tile) 7) :kind kind}))
                                   (:spawns level)))]
     (->World level session player enemies [] [] [] 0.0 (double (:time level)) 0.0
              :play 0.0
