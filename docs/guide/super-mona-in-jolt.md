@@ -350,5 +350,6 @@ rung has been tried yet.
 Martin Woodward, MIT license
 ([github.com/martinwoodward/super-mona](https://github.com/martinwoodward/super-mona)),
 ported from MicroPython to Clojure. The Mona sprites derive from the badge's
-Flappy Mona (badger/home, MIT). `NOTICE` at the root of the repository carries
-the same line.
+Flappy Mona (badger/home, MIT). The MIT copyright and permission notice is in
+`jolt-mona/LICENSE.super-mona`, and `NOTICE` at the root of the repository
+carries the same credit.

@@ -6,7 +6,13 @@ Third-party code:
 - vendor/raylib: raylib 6.0 by Ramon Santamaria (@raysan5) and contributors,
   zlib/libpng license, see vendor/raylib/LICENSE. Copied unmodified from the
   raylib 6.0 release source tree.
-- jolt-mona/assets and the game's rules and stages: Super Mona by Martin Woodward, MIT license (https://github.com/martinwoodward/super-mona), ported from MicroPython to Clojure. The Mona sprites derive from the badge's Flappy Mona (badger/home, MIT).
+- jolt-mona/assets and the game's rules and stages: Super Mona by Martin
+  Woodward, MIT license (https://github.com/martinwoodward/super-mona),
+  ported from MicroPython to Clojure. Copyright (c) 2026 Martin Woodward; the
+  license text is in jolt-mona/LICENSE.super-mona. The Mona sprites derive
+  from the Flappy Mona artwork in badger/home (https://github.com/badger/home,
+  MIT License, (c) Pimoroni & GitHub), as Super Mona's own README credits
+  them. Super Mona's sound and tunes in jolt-mona are new for this port.
 
 Linked at build time (not vendored), from the devkitPro devkitppc image:
 libogc, wii-sdl2 2.28.5, wii-opengx 0.17.0. Their licenses ship with

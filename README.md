@@ -36,7 +36,8 @@ Wii](docs/guide/running-on-your-wii.md) has the details.
 
 Three games for the kids, each for up to four players and each using the
 Wiimote a different way, plus [Super Mona in jolt](docs/guide/super-mona-in-jolt.md),
-a Clojure platformer played with the remote held sideways:
+Martin Woodward's [Super Mona](https://github.com/martinwoodward/super-mona)
+badge platformer ported to Clojure and played with the remote held sideways:
 
 - **[Balloon Pop](docs/guide/balloon-pop.md)**: point at the TV and press A to
   pop balloons. Gold ones are worth 5.
@@ -128,7 +129,7 @@ Wii.
 
 - [Balloon Pop in Clojure](docs/guide/balloon-pop-in-clojure.md): the same
   game on jolt, measured against the C version
-- [Super Mona in jolt](docs/guide/super-mona-in-jolt.md): a badge platformer ported to Clojure on the Wii, with its frame cost
+- [Super Mona in jolt](docs/guide/super-mona-in-jolt.md): Martin Woodward's badge platformer ported to Clojure on the Wii, with its frame cost
 - [Balloon Pop](docs/guide/balloon-pop.md), [Star Catcher](docs/guide/star-catcher.md)
   and [Shake Race](docs/guide/shake-race.md): how to play, and how each is built
 - [Wiimote input](docs/guide/wiimote-input.md): the shared input module, tilt
@@ -175,5 +176,8 @@ vendor/raylib/  raylib 6.0 source, unmodified
 
 ## License
 
-EPL-2.0, see [LICENSE](LICENSE). raylib is under its own zlib/libpng license,
-and the full attribution list is in [NOTICE](NOTICE).
+EPL-2.0, see [LICENSE](LICENSE). raylib is under its own zlib/libpng license.
+Super Mona's rules, stages and art come from Martin Woodward's Super Mona
+under the MIT license, whose copyright and permission notice is in
+[jolt-mona/LICENSE.super-mona](jolt-mona/LICENSE.super-mona). The full
+attribution list is in [NOTICE](NOTICE).
