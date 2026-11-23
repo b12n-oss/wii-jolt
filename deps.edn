@@ -857,6 +857,8 @@
        (expect nm (demo-pass? nm demo) "title, then the robot demo scores at least 3 times, no crash")
        (expect (str nm "-wiimote") (scripted-pass? nm scripted)
                "a scripted Wiimote presses A to join, the round starts, and player 1 scores in it")
+       (when (= nm "starcatcher")
+         (expect "starcatcher-sound" (sound-pass? "starcatcher" demo) "the game rendered music (snd-music > 3000) and effects (sfx > 0) during the demo"))
        (when (= nm "jolt-mona")
          (expect "jolt-mona-sound" (sound-pass? "jolt-mona" demo) "the shim rendered music (snd-music > 3000) and effects (sfx > 0) during the demo")
          (expect "jolt-mona-sound-wiimote" (sound-pass? "jolt-mona" scripted) "the shim rendered music (snd-music > 3000) and effects (sfx > 0) during the scripted run")))

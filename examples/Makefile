@@ -9,7 +9,7 @@ PORTS   := $(DEVKITPRO)/portlibs
 RAYLIB  := ../vendor/raylib
 RLWII   := ../raylib-wii/build
 
-CFLAGS  := -O2 -Wall $(MACHDEP) -I$(RAYLIB) -Icommon \
+CFLAGS  := -O2 -Wall $(MACHDEP) -I$(RAYLIB) -Icommon -I../jolt-gfx \
            -I$(PORTS)/wii/include -I$(PORTS)/ppc/include -I$(LIBOGC_INC)
 LDFLAGS := $(MACHDEP) -Wl,-Map,$(OUT)/$(APP).map \
            -Wl,--wrap=KEYBOARD_Init -Wl,--wrap=KEYBOARD_GetEvent
@@ -19,14 +19,14 @@ LIBS    := $(RLWII)/wii_shim.o -L$(RLWII) -lraylib \
            -lwiikeyboard -logc -lstdc++ -lm
 
 # every app also gets examples/common (shared Wiimote input)
-SRCS    := $(wildcard $(APP)/*.c) $(wildcard common/*.c)
+SRCS    := $(wildcard $(APP)/*.c) $(wildcard common/*.c) ../jolt-gfx/snd.c ../jolt-gfx/snd_wii.c
 
 all: $(OUT)/$(APP).dol
 
 $(OUT):
 	mkdir -p $(OUT)
 
-$(OUT)/$(APP).elf: $(SRCS) $(wildcard common/*.h) $(wildcard $(APP)/*.h) $(RLWII)/libraylib.a | $(OUT)
+$(OUT)/$(APP).elf: $(SRCS) $(wildcard common/*.h) $(wildcard $(APP)/*.h) ../jolt-gfx/snd.h ../jolt-gfx/snd_wii.h $(RLWII)/libraylib.a | $(OUT)
 	$(CC) $(CFLAGS) $(SRCS) $(LDFLAGS) $(LIBS) -o $@
 
 $(OUT)/$(APP).dol: $(OUT)/$(APP).elf
