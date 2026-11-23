@@ -190,9 +190,10 @@
 (def ^:private wave-values {:pulse 0 :tri 1 :noise 2})
 
 (defn- c-name
-  "The upper-case C macro suffix of keyword k, as in :1up to 1UP."
+  "The upper-case C macro suffix of keyword k, as in :1up to 1UP. A hyphen
+   becomes an underscore, so :catch-1 is CATCH_1."
   [k]
-  (str/upper-case (name k)))
+  (str/replace (str/upper-case (name k)) "-" "_"))
 
 (defn- join
   "Joins the strings in coll with sep."
