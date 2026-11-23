@@ -128,6 +128,32 @@ defined the aliases plus `JOLT_NARROW_HASH=1` in the build script; a jolt
 older than the merge fails at init on the Wii with "variable murmur3-seed is
 not bound".
 
+## jolt 0.8.29 hashes differently on the Wii
+
+jolt 0.8.29 (released 2026-11-23) boots and runs everything here, but on the
+Wii its string and keyword hashes no longer match Clojure's. jolt-hello's last
+line is how `jolt verify` caught it:
+
+| | Mac, and JVM Clojure | Wii build, jolt 0.8.29 |
+|---|---|---|
+| `(hash :wii)` | 1768971391 | 582562539 |
+| `(hash "wii")` | -1182153146 | 104228450 |
+
+Maps and sets still work, because the program agrees with itself. Only the
+values moved. The change came from one jolt commit that made the 32-bit hash
+multiply a single multiplication. On a 64-bit Mac the operands are fixnums.
+On the Wii they're bignums, and the cross-compiled build gets some of those
+products wrong. Splitting the multiply again, as it was before, brings the
+right values back, and `jolt verify` passes 18/18 with that change. The fix is
+[jolt-lang/jolt#1831](https://github.com/jolt-lang/jolt/pull/1831). Until a release
+carries it, build the Wii games with jolt 0.8.28.
+
+The multiply underneath is still wrong for Clojure code. On the Wii build,
+`(* (bigint -862048943) (bigint 461845907))` comes out as
+-1585479290398231171 instead of -398133775958226301, while Chez evaluating
+the same product on the console gets it right. Until that's fixed in jolt,
+don't trust bigint multiplication in a jolt program on the Wii.
+
 ## The console tee, and a libogc surprise
 
 The first jolt-hello screenshot showed only the last line of output, with a
