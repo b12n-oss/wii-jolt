@@ -425,7 +425,7 @@
           (when-not (zero? (:exit (shell {:continue true} "cmp" (str repo-root "/.work/mona_music.h") "jolt-gfx/mona_music.h")))
             (binding [*out* *err*] (println "mona_music.h is stale: run scripts/music-to-c"))
             (System/exit 1))
-          (sh! "cc" "-std=c99" "-Wall" "-Wextra" "-Werror" "-Ijolt-gfx" "jolt-gfx/jolt_snd.c"
+          (sh! "cc" "-std=c99" "-Wall" "-Wextra" "-Werror" "-Ijolt-gfx" "jolt-gfx/snd.c"
                "jolt-gfx/test/snd_test.c" "-lm" "-o" (str repo-root "/.work/snd_test"))
           (sh! (str repo-root "/.work/snd_test"))
           (doseq [[nm _ _ _ lang] games :when (= lang :c)]
