@@ -1,9 +1,24 @@
 #!/usr/bin/env bash
-# Write jolt-gfx/mona_music.h (or $1) from jolt-mona/src/mona/music.clj.
+# Write a generated sound header from its note data:
+#   scripts/music-to-c [mona|starcatcher|shakerace] [out]
+# With no game, or mona, writes jolt-gfx/mona_music.h (or $out) from
+# jolt-mona/src/mona/music.clj. starcatcher writes
+# examples/starcatcher/starcatcher_music.h from examples/music/src/music/starcatcher.clj.
+# shakerace writes examples/shakerace/shakerace_music.h from
+# examples/music/src/music/shakerace.clj.
 set -euo pipefail
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
-OUT="${1:-$ROOT/jolt-gfx/mona_music.h}"
+GAME=mona
+case "${1:-}" in
+  mona|starcatcher|shakerace) GAME="$1"; shift ;;
+esac
+case "$GAME" in
+  mona) DIR=jolt-mona; NS=mona.music; DEFAULT="$ROOT/jolt-gfx/mona_music.h" ;;
+  starcatcher) DIR=examples/music; NS=music.starcatcher; DEFAULT="$ROOT/examples/starcatcher/starcatcher_music.h" ;;
+  shakerace) DIR=examples/music; NS=music.shakerace; DEFAULT="$ROOT/examples/shakerace/shakerace_music.h" ;;
+esac
+OUT="${1:-$DEFAULT}"
 case "$OUT" in /*) ;; *) OUT="$PWD/$OUT" ;; esac
-# jolt-mona/deps.edn puts src on the path.
-cd "$ROOT/jolt-mona"
-exec jolt -m mona.music "$OUT"
+# Each project's deps.edn puts its src on the path.
+cd "$ROOT/$DIR"
+exec jolt -m "$NS" "$OUT"

@@ -55,6 +55,15 @@ round timer, rumble that stops when the round ends, and the demo.
 `examples/starcatcher/main.c` turns the Wiimote into a steering value and
 draws the night sky.
 
+Sound comes from the synthesiser the three games share (`jolt-gfx/snd.c`, on
+AESND through `snd_wii.c`). The tunes are note data in
+`examples/music/src/music/starcatcher.clj`, and `scripts/music-to-c starcatcher`
+turns them into `examples/starcatcher/starcatcher_music.h`: a title, a play and
+a results tune, a beep and a GO for the countdown, and four catch notes, one
+per player. `settings.txt` with `sound=0` mutes it. `jolt verify` checks the
+scripted run through the synthesiser's own stats (`starcatcher-sound`), in
+Dolphin only.
+
 Steering reads the accelerometer's y axis, the remote's long axis, which is
 the one gravity moves along when you tip a sideways remote
 (`game_tilt_steer`). The default direction came from Dolphin, and

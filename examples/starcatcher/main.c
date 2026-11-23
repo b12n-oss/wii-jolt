@@ -6,6 +6,8 @@
 #include "wiimote.h"
 #include "ui.h"
 #include "settings.h"
+#include "snd_wii.h"
+#include "starcatcher_music.h"
 #include <SDL2/SDL_main.h>     // SDL's main runs first and calls WPAD_Init (see wiimote.h)
 #include <gccore.h>
 #include <wiiuse/wpad.h>
@@ -277,6 +279,30 @@ static void log_events(const Game *g, Mode *last_mode, int last_score[MAX_PLAYER
     }
 }
 
+// Sound cues, beside the mode and catch detection in log_events. Effects play
+// in demo mode too; only the rumble stays off there.
+static int countdown_second = -1;   // the last countdown second that beeped
+
+static void play_cues(const Game *g, Mode prev_mode, const int prev_score[MAX_PLAYERS])
+{
+    if (g->mode != prev_mode) {
+        countdown_second = -1;
+        switch (g->mode) {
+        case MODE_TITLE:
+        case MODE_DEMO:      sndw_music(SONG_TITLE, 1); break;
+        case MODE_COUNTDOWN: break;
+        case MODE_PLAY:      sndw_sfx(SFX_GO); sndw_music(SONG_PLAY, 1); break;
+        case MODE_RESULTS:   sndw_music(SONG_RESULTS, 0); break;
+        }
+    }
+    if (g->mode == MODE_COUNTDOWN && (int)g->mode_time != countdown_second) {
+        countdown_second = (int)g->mode_time;
+        sndw_sfx(SFX_BEEP);
+    }
+    for (int p = 0; p < MAX_PLAYERS; p++)
+        if (g->players[p].score > prev_score[p]) sndw_sfx(SFX_CATCH_1 + p);
+}
+
 int main(int argc, char *argv[])
 {
     (void)argc;
@@ -287,16 +313,23 @@ int main(int argc, char *argv[])
     settings_path(settings_file, sizeof settings_file, argv[0], "starcatcher");
     float saved = settings_load(settings_file, "tilt_sign", TILT_SIGN_DEFAULT);
     tilt_sign = saved > 0 ? 1.0f : -1.0f;
+    int sound_on = settings_load(settings_file, "sound", 1) != 0;
+    if (!snd_start(sc_effects, SC_EFFECTS, sc_instruments,
+                   (int)(sizeof sc_instruments / sizeof sc_instruments[0]), sc_songs, SC_SONGS))
+        printf("starcatcher: sound failed to start\n");
+    sndw_volume(sound_on ? 255 : 0, sound_on ? 255 : 0);
+    sndw_music(SONG_TITLE, 1);   // the first mode is the title, and no mode change announces it
 
     Game g;
     game_init(&g, (uint32_t)gettime());
-    printf("starcatcher: start tilt_sign=%d settings=%s\n", (int)tilt_sign, settings_file);
+    printf("starcatcher: start tilt_sign=%d sound=%d settings=%s\n", (int)tilt_sign, sound_on, settings_file);
 
     Remote remotes[WIIMOTE_MAX] = { 0 };
     PlayerInput in[MAX_PLAYERS] = { 0 };
     Mode last_mode = g.mode;
     int last_score[MAX_PLAYERS] = { 0 };
     float t = 0;
+    int frames = 0;
 
     while (!WindowShouldClose()) {
         float dt = GetFrameTime();
@@ -310,7 +343,15 @@ int main(int argc, char *argv[])
         game_update(&g, in, dt);
         for (int p = 0; p < MAX_PLAYERS; p++)
             wiimote_rumble(p, g.players[p].rumble > 0 && g.mode != MODE_DEMO);
+        play_cues(&g, last_mode, last_score);
         log_events(&g, &last_mode, last_score);
+
+        if (++frames == 300) {
+            uint32_t st = sndw_stats();
+            printf("starcatcher: frames n=300 snd-peak=%u sfx=%u snd-music=%u\n",
+                   (unsigned)(st & 0x7FFF), (unsigned)((st >> 15) & 0xFF), (unsigned)sndw_music_peak());
+            frames = 0;
+        }
 
         BeginDrawing();
         draw(&g, t);

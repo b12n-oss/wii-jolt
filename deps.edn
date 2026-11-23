@@ -421,20 +421,33 @@
           (sh! "cc" "-std=c99" "-Wall" "-Wextra" "-Werror" "-Iexamples/common" "examples/common/settings.c"
                "examples/common/test/test_settings.c" "-lm" "-o" (str repo-root "/.work/test_settings"))
           (sh! (str repo-root "/.work/test_settings") (str repo-root "/.work/test_settings.tmp"))
-          (sh! "scripts/music-to-c" (str repo-root "/.work/mona_music.h"))
-          (when-not (zero? (:exit (shell {:continue true} "cmp" (str repo-root "/.work/mona_music.h") "jolt-gfx/mona_music.h")))
-            (binding [*out* *err*] (println "mona_music.h is stale: run scripts/music-to-c"))
-            (System/exit 1))
-          (sh! "cc" "-std=c99" "-Wall" "-Wextra" "-Werror" "-Ijolt-gfx" "jolt-gfx/jolt_snd.c"
+          (doseq [[game header source] [["mona" "jolt-gfx/mona_music.h" "jolt-mona/src/mona/music.clj"]
+                                        ["starcatcher" "examples/starcatcher/starcatcher_music.h" "examples/music/src/music/starcatcher.clj"]
+                                        ["shakerace" "examples/shakerace/shakerace_music.h" "examples/music/src/music/shakerace.clj"]]]
+            (let [fresh (str repo-root "/.work/" game "_music.h")]
+              (sh! "scripts/music-to-c" game fresh)
+              (when-not (zero? (:exit (shell {:continue true} "cmp" fresh header)))
+                (binding [*out* *err*] (println (str (fs/file-name header) " is stale: run scripts/music-to-c " game)))
+                (System/exit 1))))
+          (sh! "cc" "-std=c99" "-Wall" "-Wextra" "-Werror" "-Ijolt-gfx" "jolt-gfx/snd.c"
                "jolt-gfx/test/snd_test.c" "-lm" "-o" (str repo-root "/.work/snd_test"))
           (sh! (str repo-root "/.work/snd_test"))
+          (sh! "cc" "-std=c99" "-Wall" "-Wextra" "-Werror" "-Ijolt-gfx" "jolt-gfx/snd.c"
+               "jolt-gfx/test/snd_sc_test.c" "-lm" "-o" (str repo-root "/.work/snd_sc_test"))
+          (sh! (str repo-root "/.work/snd_sc_test"))
+          (sh! "cc" "-std=c99" "-Wall" "-Wextra" "-Werror" "-Ijolt-gfx" "jolt-gfx/snd.c"
+               "jolt-gfx/test/snd_sr_test.c" "-lm" "-o" (str repo-root "/.work/snd_sr_test"))
+          (sh! (str repo-root "/.work/snd_sr_test"))
           (doseq [[nm _ _ _ lang] games :when (= lang :c)]
            (let [bin (str repo-root "/.work/test_" nm)]
              (fs/create-dirs (str repo-root "/.work"))
              (sh! "cc" "-std=c99" "-Wall" "-Wextra" "-Werror" (str "-Iexamples/" nm)
                   (str "examples/" nm "/game.c") (str "examples/" nm "/test/test_game.c") "-lm" "-o" bin)
              (sh! bin)))
-          (doseq [[dir ns-name] [["jolt-balloons" "balloons.rules-test"] ["jolt-balloons" "balloons.draw-test"] ["jolt-gfx" "wii.frame-stats-test"] ["jolt-mona" "mona.rules-test"] ["jolt-mona" "mona.levels-test"] ["jolt-mona" "mona.draw-test"] ["jolt-mona" "mona.app-test"] ["jolt-mona" "mona.music-test"] ["jolt-mona" "mona.sound-test"]]]
+          (sh! "cc" "-std=c99" "-Wall" "-Wextra" "-Werror" "-Iexamples/shakerace"
+               "examples/shakerace/test/test_tempo.c" "-o" (str repo-root "/.work/test_tempo"))
+          (sh! (str repo-root "/.work/test_tempo"))
+          (doseq [[dir ns-name] [["jolt-balloons" "balloons.rules-test"] ["jolt-balloons" "balloons.draw-test"] ["jolt-gfx" "wii.frame-stats-test"] ["jolt-mona" "mona.rules-test"] ["jolt-mona" "mona.levels-test"] ["jolt-mona" "mona.draw-test"] ["jolt-mona" "mona.app-test"] ["jolt-mona" "mona.music-test"] ["jolt-mona" "mona.sound-test"] ["examples/music" "music.starcatcher-test"] ["examples/music" "music.shakerace-test"]]]
             (let [r (shell {:dir (str repo-root "/" dir) :continue true}
                            "jolt" "-A:test" "-m" ns-name)]
               (when-not (zero? (:exit r))
@@ -847,6 +860,10 @@
        (expect nm (demo-pass? nm demo) "title, then the robot demo scores at least 3 times, no crash")
        (expect (str nm "-wiimote") (scripted-pass? nm scripted)
                "a scripted Wiimote presses A to join, the round starts, and player 1 scores in it")
+       (when (= nm "starcatcher")
+         (expect "starcatcher-sound" (sound-pass? "starcatcher" demo) "the game rendered music (snd-music > 3000) and effects (sfx > 0) during the demo"))
+       (when (= nm "shakerace")
+         (expect "shakerace-sound" (sound-pass? "shakerace" scripted) "the game rendered music (snd-music > 3000) and effects (sfx > 0) during the scripted run"))
        (when (= nm "jolt-mona")
          (expect "jolt-mona-sound" (sound-pass? "jolt-mona" demo) "the shim rendered music (snd-music > 3000) and effects (sfx > 0) during the demo")
          (expect "jolt-mona-sound-wiimote" (sound-pass? "jolt-mona" scripted) "the shim rendered music (snd-music > 3000) and effects (sfx > 0) during the scripted run")))

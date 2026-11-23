@@ -6,6 +6,9 @@
 #include "wiimote.h"
 #include "ui.h"
 #include "settings.h"
+#include "snd_wii.h"
+#include "shakerace_music.h"
+#include "tempo.h"
 #include <SDL2/SDL_main.h>     // SDL's main runs first and calls WPAD_Init (see wiimote.h)
 #include <gccore.h>
 #include <wiiuse/wpad.h>
@@ -236,6 +239,58 @@ static void log_events(const Game *g, Mode *last_mode, bool last_finished[MAX_PL
     }
 }
 
+// Sound cues, beside the mode and finish detection in log_events. Effects play
+// in demo mode too; only the rumble stays off there.
+static int countdown_second = -1;   // the last countdown second that beeped
+static int sent_tempo = 100;        // the last tempo sent to the race tune
+
+// The leader is the fastest runner still racing this round.
+static float leader_speed(const Game *g)
+{
+    float best = 0;
+    for (int p = 0; p < MAX_PLAYERS; p++) {
+        const Player *pl = &g->players[p];
+        if (pl->joined && !pl->finished && pl->speed > best) best = pl->speed;
+    }
+    return best;
+}
+
+static void play_cues(const Game *g, Mode prev_mode, const bool prev_finished[MAX_PLAYERS])
+{
+    if (g->mode != prev_mode) {
+        countdown_second = -1;
+        if (prev_mode == MODE_RACE && sent_tempo != 100) {
+            sent_tempo = 100;
+            sndw_music_tempo(100);
+            printf("shakerace: tempo 100\n");
+        }
+        switch (g->mode) {
+        case MODE_TITLE:
+        case MODE_DEMO:      sndw_music(SONG_TITLE, 1); break;
+        case MODE_COUNTDOWN: break;
+        case MODE_RACE:      sndw_sfx(SFX_GO); sndw_music(SONG_RACE, 1); break;
+        case MODE_RESULTS:   sndw_music(SONG_RESULTS, 0); break;
+        }
+    }
+    if (g->mode == MODE_COUNTDOWN && (int)g->mode_time != countdown_second) {
+        countdown_second = (int)g->mode_time;
+        sndw_sfx(SFX_BEEP);
+    }
+    for (int p = 0; p < MAX_PLAYERS; p++) {
+        const Player *pl = &g->players[p];
+        if (pl->finished && !prev_finished[p] && pl->place >= 1 && pl->place <= 4)
+            sndw_sfx(SFX_FINISH_1 + pl->place - 1);
+    }
+    if (g->mode == MODE_RACE) {
+        int pct = race_tempo_pct(leader_speed(g), MAX_SPEED);
+        if (pct != sent_tempo) {
+            sent_tempo = pct;
+            sndw_music_tempo(pct);
+            printf("shakerace: tempo %d\n", pct);
+        }
+    }
+}
+
 int main(int argc, char *argv[])
 {
     (void)argc;
@@ -247,16 +302,24 @@ int main(int argc, char *argv[])
     shake_level = (int)settings_load(settings_file, "shake_level", SHAKE_LEVEL_DEFAULT);
     if (shake_level < SHAKE_LEVEL_MIN || shake_level > SHAKE_LEVEL_MAX) shake_level = SHAKE_LEVEL_DEFAULT;
 
+    int sound_on = settings_load(settings_file, "sound", 1) != 0;
+    if (!snd_start(sr_effects, SR_EFFECTS, sr_instruments,
+                   (int)(sizeof sr_instruments / sizeof sr_instruments[0]), sr_songs, SR_SONGS))
+        printf("shakerace: sound failed to start\n");
+    sndw_volume(sound_on ? 255 : 0, sound_on ? 255 : 0);
+    sndw_music(SONG_TITLE, 1);   // the first mode is the title, and no mode change announces it
+
     Game g;
     game_init(&g, (uint32_t)gettime());
     g.shake_scale = game_shake_scale(shake_level);
-    printf("shakerace: start shake_level=%d settings=%s\n", shake_level, settings_file);
+    printf("shakerace: start shake_level=%d sound=%d settings=%s\n", shake_level, sound_on, settings_file);
 
     Remote remotes[WIIMOTE_MAX] = { 0 };
     PlayerInput in[MAX_PLAYERS] = { 0 };
     Mode last_mode = g.mode;
     bool last_finished[MAX_PLAYERS] = { 0 };
     float t = 0;
+    int frames = 0;
 
     while (!WindowShouldClose()) {
         float dt = GetFrameTime();
@@ -270,7 +333,15 @@ int main(int argc, char *argv[])
         game_update(&g, in, dt);
         for (int p = 0; p < MAX_PLAYERS; p++)
             wiimote_rumble(p, g.players[p].rumble > 0 && g.mode != MODE_DEMO);
+        play_cues(&g, last_mode, last_finished);
         log_events(&g, &last_mode, last_finished);
+
+        if (++frames == 300) {
+            uint32_t st = sndw_stats();
+            printf("shakerace: frames n=300 snd-peak=%u sfx=%u snd-music=%u\n",
+                   (unsigned)(st & 0x7FFF), (unsigned)((st >> 15) & 0xFF), (unsigned)sndw_music_peak());
+            frames = 0;
+        }
 
         BeginDrawing();
         draw(&g, t);
