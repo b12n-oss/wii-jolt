@@ -421,10 +421,10 @@
           (sh! "cc" "-std=c99" "-Wall" "-Wextra" "-Werror" "-Iexamples/common" "examples/common/settings.c"
                "examples/common/test/test_settings.c" "-lm" "-o" (str repo-root "/.work/test_settings"))
           (sh! (str repo-root "/.work/test_settings") (str repo-root "/.work/test_settings.tmp"))
-          (doseq [[game header] [["mona" "jolt-gfx/mona_music.h"]
-                                 ["starcatcher" "examples/starcatcher/starcatcher_music.h"]
-                                 ["shakerace" "examples/shakerace/shakerace_music.h"]]
-                  :when (fs/exists? (str repo-root "/" header))]
+          (doseq [[game header source] [["mona" "jolt-gfx/mona_music.h" "jolt-mona/src/mona/music.clj"]
+                                        ["starcatcher" "examples/starcatcher/starcatcher_music.h" "examples/music/src/music/starcatcher.clj"]
+                                        ["shakerace" "examples/shakerace/shakerace_music.h" "examples/music/src/music/shakerace.clj"]]
+                  :when (fs/exists? (str repo-root "/" source))]
             (let [fresh (str repo-root "/.work/" game "_music.h")]
               (sh! "scripts/music-to-c" game fresh)
               (when-not (zero? (:exit (shell {:continue true} "cmp" fresh header)))
