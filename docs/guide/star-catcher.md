@@ -61,7 +61,7 @@ AESND through `snd_wii.c`). The tunes are note data in
 turns them into `examples/starcatcher/starcatcher_music.h`: a title, a play and
 a results tune, a beep and a GO for the countdown, and four catch notes, one
 per player. `settings.txt` with `sound=0` mutes it. `jolt verify` checks the
-scripted run through the synthesiser's own stats (`starcatcher-sound`), in
+demo run through the synthesiser's own stats (`starcatcher-sound`), in
 Dolphin only.
 
 Steering reads the accelerometer's y axis, the remote's long axis, which is

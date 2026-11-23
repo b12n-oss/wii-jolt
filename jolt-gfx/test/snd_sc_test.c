@@ -1,5 +1,7 @@
 // Host test: Star Catcher's four catch chimes triggered back to back must all
-// finish within a second and be audible. Separate from snd_test.c because the
+// finish within a second and be audible. Only two channels are tonal, so this
+// shows the synth neither stalls nor goes quiet when four arrive at once, not
+// that four play together. Separate from snd_test.c because the
 // two generated headers define the same SFX_ names. Built by `jolt test`.
 #include <stdio.h>
 #include "snd.h"

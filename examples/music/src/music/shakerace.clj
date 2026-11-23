@@ -18,7 +18,8 @@
   "One entry per effect-ids id. A step is [f0 f1 ms vol]: the frequency slides
    from f0 to f1 Hz over ms milliseconds at volume vol (0..15). The finish
    stings start higher for each place, so a couch can hear who got in first
-   to last, and they alternate channels so two close finishes both sound."
+   to last, and they alternate between the two tonal channels, so two close finishes both
+   sound and a third at once takes the older one."
   [{:wave :pulse :duty 2 :chan 0 :attack 0 :release 20
     :steps [[1000 1000 100 12]]}                                ; :beep, under 150 ms
    {:wave :pulse :duty 1 :chan 0 :attack 0 :release 30
@@ -98,6 +99,7 @@
   (chip/emit-header {:prefix "sr"
                      :source "examples/music/src/music/shakerace.clj"
                      :include "snd.h"
+                     :regen "scripts/music-to-c shakerace"
                      :effect-ids effect-ids :song-ids song-ids
                      :effects effects :instruments instruments :songs songs}))
 

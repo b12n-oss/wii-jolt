@@ -149,18 +149,19 @@ state only: no allocation, no floats, no calls into Chez.
 A four-track sequencer plays the tunes (pulse 1, pulse 2, triangle, and drums
 on the noise voice). It can loop, pause on a row, and change tempo from the
 next row. The core is plain C99, so `jolt test` builds and checks it with a host
-`cc`. The Wii glue sits behind `__wii__`, and `jg_snd_register` in
-`snd_wii.c` puts the stream on AESND, and `jolt_snd.c` registers Super Mona's
-exports the same way `register_all` registers the graphics ones. Star Catcher
+`cc`. The Wii glue sits behind `__wii__`. `snd_wii.c` puts the stream on
+AESND, and `jg_snd_register` in `jolt_snd.c` registers Super Mona's exports
+the same way `register_all` registers the graphics ones. Star Catcher
 and Shake Race link the same `snd.c` and `snd_wii.c`, and their tunes live in
 `examples/music/`.
 
 ### The note language
 
-The note language is `chip.music` (`jolt-gfx/src/chip/music.clj`), and Super Mona's tunes are data in `jolt-mona/src/mona/music.clj`. Each pattern is two bars
-of 4/4 on 32 rows, and a track is a string of notes, each with an optional `:` and
-row count: `g4:2` is G in octave 4 held for two rows, `-` is a rest and a bare
-note is one row. Drums are `k`, `s` and `h`. A pattern is a map of its four
+The note language is `chip.music` (`jolt-gfx/src/chip/music.clj`), and Super
+Mona's tunes are data in `jolt-mona/src/mona/music.clj`. Each pattern is two
+bars of 4/4 on 32 rows, and a track is a string of notes, each with an optional
+`:` and row count: `g4:2` is G in octave 4 held for two rows, `-` is a rest and
+a bare note is one row. Drums are `k`, `s` and `h`. A pattern is a map of its four
 tracks, the two pulse voices, the triangle and the noise channel. This is the
 first pattern of the title tune:
 
@@ -179,8 +180,8 @@ order index to loop back to. The ten songs are `title`, `day`, `dusk`, `cloud`,
 
 `scripts/music-to-c` reads `mona.music` and writes `jolt-gfx/mona_music.h`, the
 tables the shim links. `scripts/music-to-c starcatcher` and `shakerace` do the
-same for the other two games, writing `examples/<game>/<game>_music.h`. The header is committed. A `jolt test` gate regenerates
-it and fails when the committed copy is stale, so editing a tune means running
+same for the other two games, writing `examples/<game>/<game>_music.h`. Each header is committed. A `jolt test` gate
+regenerates it and fails when the committed copy is stale, so editing a tune means running
 `scripts/music-to-c` and committing both files. The Makefile makes
 `jolt_snd.o` depend on the header, so a changed tune rebuilds the shim.
 

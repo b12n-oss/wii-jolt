@@ -163,6 +163,8 @@ localhost.
 raylib-wii/     builds vendor/raylib as libraylib.a for the Wii, plus wii_shim.c
 examples/       raylib apps: the games (balloons, starcatcher, shakerace, each
                 with host tests), hello, and common/ (Wiimote input, UI bits)
+examples/music/ the C games' tunes and effects as note data, compiled to each
+                game's header by scripts/music-to-c
 chez-wii/       Chez kernel build, the chez test app, and the runtime objects
                 that jolt-built programs link (console, TLS hooks, POSIX stubs)
 jolt-hello/     a Clojure program, with its expected output
