@@ -1,5 +1,7 @@
 // Host test: Shake Race's four finish stings triggered back to back, then its
-// race song, must render and be audible. Separate from snd_test.c because the
+// race song, must render and be audible. Only two channels are tonal, so this
+// shows the synth neither stalls nor goes quiet when four arrive at once, not
+// that four play together. Separate from snd_test.c because the
 // generated headers define the same SFX_ names. Built by `jolt test`.
 #include <stdio.h>
 #include "snd.h"

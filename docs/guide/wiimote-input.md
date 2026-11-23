@@ -146,8 +146,9 @@ steering. In Shake Race, + and − set the shake power. Neither works during a
 round.
 
 Both games also read `sound` from the same file. `sound=0` mutes the game, and
-any other value, or no line at all, leaves it on. There is no button for it, so
-edit `settings.txt` on the SD card.
+any other value, or no line at all, leaves it on. There is no button for it in these two, so edit `settings.txt` on the SD card.
+Super Mona does mute with `-` on its title, and saves the choice as
+`mona_sound`.
 
 `examples/common/settings.c` keeps the choice in `settings.txt` beside the
 game's `boot.dol`. The Homebrew Channel launches a game with `argv[0]` set to
