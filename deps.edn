@@ -863,7 +863,7 @@
        (when (= nm "starcatcher")
          (expect "starcatcher-sound" (sound-pass? "starcatcher" demo) "the game rendered music (snd-music > 3000) and effects (sfx > 0) during the demo"))
        (when (= nm "shakerace")
-         (expect "shakerace-sound" (sound-pass? "shakerace" demo) "the game rendered music (snd-music > 3000) and effects (sfx > 0) during the demo"))
+         (expect "shakerace-sound" (sound-pass? "shakerace" scripted) "the game rendered music (snd-music > 3000) and effects (sfx > 0) during the scripted run"))
        (when (= nm "jolt-mona")
          (expect "jolt-mona-sound" (sound-pass? "jolt-mona" demo) "the shim rendered music (snd-music > 3000) and effects (sfx > 0) during the demo")
          (expect "jolt-mona-sound-wiimote" (sound-pass? "jolt-mona" scripted) "the shim rendered music (snd-music > 3000) and effects (sfx > 0) during the scripted run")))

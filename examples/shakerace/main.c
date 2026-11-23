@@ -259,7 +259,11 @@ static void play_cues(const Game *g, Mode prev_mode, const bool prev_finished[MA
 {
     if (g->mode != prev_mode) {
         countdown_second = -1;
-        if (prev_mode == MODE_RACE && sent_tempo != 100) { sent_tempo = 100; sndw_music_tempo(100); }
+        if (prev_mode == MODE_RACE && sent_tempo != 100) {
+            sent_tempo = 100;
+            sndw_music_tempo(100);
+            printf("shakerace: tempo 100\n");
+        }
         switch (g->mode) {
         case MODE_TITLE:
         case MODE_DEMO:      sndw_music(SONG_TITLE, 1); break;
