@@ -49,6 +49,11 @@ badge platformer ported to Clojure and played with the remote held sideways:
 - **Super Mona sound**: chip-style effects on every event and an original tune
   for each screen and stage theme, synthesised in the C shim on libogc's AESND
   and checked in Dolphin through the shim's own stats.
+- **Star Catcher and Shake Race sound**: the same synthesiser, linked into the
+  C games. Each has its own original title, play and results tunes plus beeps,
+  catch notes and finish stings. Shake Race's race tune speeds up from 100 to
+  160 percent as the leader gets faster. Put `sound=0` in `settings.txt` to
+  mute either game.
 
 Super Mona with sound: [a one-minute Dolphin recording](docs/demos/super-mona-sound.mp4)
 (made by `jolt demo:jolt-mona-video`).
@@ -164,12 +169,12 @@ jolt-hello/     a Clojure program, with its expected output
 jolt-balloons/  Balloon Pop in Clojure, its tests and MEASUREMENTS.md
 jolt-mona/      Super Mona in Clojure, its tests and MEASUREMENTS.md
 jolt-gfx/       the C shim and Clojure wrappers that give jolt raylib and Wiimotes;
-                jolt_snd.c is its sound synthesiser and mona_music.h the tune
-                tables generated for it
+                snd.c is the sound synthesiser the three games share, snd_wii.c
+                puts it on AESND, and jolt_snd.c is Super Mona's exports of it
 patches/        chez-wii.patch, applied to Chez v10.4.1 by scripts/setup-chez
 scripts/        dkp (run in the devkitPPC image), wii-cc, dolphin-shot,
                 dolphin-auto-wiimote, dolphin-demo-video (records a demo with
-                its audio), music-to-c (writes mona_music.h from the note data),
+                its audio), music-to-c (writes each game's music header from its note data),
                 setup-chez, make-pack, jolt-wii-build
 vendor/raylib/  raylib 6.0 source, unmodified
 ```

@@ -145,6 +145,10 @@ changed from the remote, without a rebuild. In Star Catcher, − flips the
 steering. In Shake Race, + and − set the shake power. Neither works during a
 round.
 
+Both games also read `sound` from the same file. `sound=0` mutes the game, and
+any other value, or no line at all, leaves it on. There is no button for it, so
+edit `settings.txt` on the SD card.
+
 `examples/common/settings.c` keeps the choice in `settings.txt` beside the
 game's `boot.dol`. The Homebrew Channel launches a game with `argv[0]` set to
 its path (`usb:/apps/starcatcher/boot.dol`), and SDL's `main` passes it

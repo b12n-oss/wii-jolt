@@ -93,6 +93,22 @@ held still creeps forward, the dead zone in `game.h` is the number to raise
 instead. [Wiimote input](wiimote-input.md) has the measurements behind
 these numbers.
 
+## Sound
+
+The synthesiser is the one the three games share (`jolt-gfx/snd.c`, on AESND
+through `snd_wii.c`). The tunes are note data in
+`examples/music/src/music/shakerace.clj`, and `scripts/music-to-c shakerace`
+writes `examples/shakerace/shakerace_music.h` from it. There is a title, a race
+and a results tune, a beep and a GO for the countdown, and a finish sting for
+each place.
+
+The race tune follows the leader. `race_tempo_pct` in `tempo.h` gives 100
+percent while the fastest runner who hasn't finished stands still and 160 at
+top speed, in steps of 5, and `test_tempo.c` checks it on the Mac. The tempo
+returns to 100 when the race ends. `settings.txt` with `sound=0` mutes the
+game, and the `shakerace-sound` check in `jolt verify` reads the synthesiser's
+stats from the scripted run, in Dolphin only.
+
 ## Ideas for next time
 
 - Hurdles: press A at the right moment to jump.

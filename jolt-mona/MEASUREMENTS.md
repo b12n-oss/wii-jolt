@@ -161,7 +161,7 @@ Steady-state frames, same build flags as the Rung 0 section: the demo's windows 
 
 ## Sound (2026-11-07)
 
-Super Mona now plays ten chip tunes and seventeen effects through the shim's synthesiser (`jolt-gfx/jolt_snd.c`). One 45 s demo run from `jolt run:jolt-mona` on the sound build (branch `feat/mona-sound`, shim build `69c095a-dirty`), Dolphin only, the same build flags as the Rung 0 section. The `jolt verify` run that gated the sound passed all 18 checks, but its demo log was overwritten by later runs, so these figures come from the separate `jolt run:jolt-mona` made afterwards.
+Super Mona now plays ten chip tunes and seventeen effects through the shim's synthesiser (`jolt-gfx/snd.c` since the C games shared it, `jolt_snd.c` when this was measured). One 45 s demo run from `jolt run:jolt-mona` on the sound build (branch `feat/mona-sound`, shim build `69c095a-dirty`), Dolphin only, the same build flags as the Rung 0 section. The `jolt verify` run that gated the sound passed all 18 checks, but its demo log was overwritten by later runs, so these figures come from the separate `jolt run:jolt-mona` made afterwards.
 
 Work medians of the windows 601 to 2100, against the previous section's:
 
