@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}wii-jolt: Clojure on the Nintendo Wii{% endblock %}
+{% block body-class %}home{% endblock %}
+
+{# Page-scoped styles for the games grid. Uses only the engine's theme
+   tokens, so it follows light and dark like the rest of the site. #}
+{% block head %}
+<style>
+  .game-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+    gap: 1.25rem;
+  }
+  .game-grid figure { margin: 0; }
+  .game-grid a { text-decoration: none; color: inherit; }
+  .game-grid img {
+    width: 100%;
+    aspect-ratio: 1280 / 1016;
+    object-fit: cover;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: var(--bg-raised);
+  }
+  .game-grid figcaption {
+    color: var(--text-dim);
+    font-size: 0.875rem;
+    margin-top: 0.5rem;
+  }
+  .game-grid figcaption strong { color: var(--text); }
+  #how .feature-grid + p { margin-top: 1.5rem; }
+</style>
+{% endblock %}
+
+{% block content %}
+<header class="hero">
+  <div class="hero-inner">
+    <h1>Clojure on the Nintendo Wii.</h1>
+    <p class="tagline">
+      <strong>wii-jolt</strong> runs stock raylib 6.0, Chez Scheme and Clojure
+      through Jolt on a Wii. Everything builds on a Mac with devkitPro in
+      Docker, gets tested in the Dolphin emulator, and plays on the real
+      console from the Homebrew Channel.
+    </p>
+    <div class="hero-actions">
+      <a class="btn btn-primary" href="{{site-base}}/guide/getting-started.html">Get started</a>
+      <a class="btn" href="{{site-base}}/guide/running-on-your-wii.html">Run it on your Wii</a>
+    </div>
+  </div>
+</header>
+
+<section id="games" class="surface">
+  <div class="inner">
+    <h2>Four games, up to four players</h2>
+    <div class="game-grid">
+      <figure>
+        <a href="{{site-base}}/guide/balloon-pop-in-clojure.html">
+          <img src="{{site-base}}/images/jolt-balloons-play.png" alt="Balloon Pop in Clojure: balloons rising past crosshairs aimed with the Wiimote" loading="lazy">
+          <figcaption><strong>Balloon Pop</strong>, in Clojure. Point at the TV and press A.</figcaption>
+        </a>
+      </figure>
+      <figure>
+        <a href="{{site-base}}/guide/super-mona-in-jolt.html">
+          <img src="{{site-base}}/images/jolt-mona-demo.gif" alt="Super Mona in Clojure: Mona running and jumping across a level" loading="lazy">
+          <figcaption><strong>Super Mona</strong>, in Clojure. Martin Woodward's badge platformer, 32 stages.</figcaption>
+        </a>
+      </figure>
+      <figure>
+        <a href="{{site-base}}/guide/star-catcher.html">
+          <img src="{{site-base}}/images/starcatcher-wiimote.png" alt="Star Catcher: a basket steered by tilting the Wiimote under falling stars" loading="lazy">
+          <figcaption><strong>Star Catcher</strong>, in C. Tip the remote to steer.</figcaption>
+        </a>
+      </figure>
+      <figure>
+        <a href="{{site-base}}/guide/shake-race.html">
+          <img src="{{site-base}}/images/shakerace-demo.png" alt="Shake Race: four runners on a track, each moved by shaking a Wiimote" loading="lazy">
+          <figcaption><strong>Shake Race</strong>, in C. Shake the remote to run.</figcaption>
+        </a>
+      </figure>
+    </div>
+  </div>
+</section>
+
+<section id="how">
+  <div class="inner">
+    <h2>How it fits together</h2>
+    <div class="feature-grid">
+      <div class="feat">
+        <h4>raylib</h4>
+        <p>Stock raylib 6.0 with no source changes, drawing through SDL2 and OpenGX, the OpenGL 1.x layer devkitPro ships for the Wii's GPU. <a href="{{site-base}}/guide/raylib-on-the-wii.html">raylib on the Wii</a></p>
+      </div>
+      <div class="feat">
+        <h4>Chez Scheme</h4>
+        <p>Chez's portable bytecode target, <code>tpb32b</code>, fits the Wii's 32-bit big-endian PowerPC. The C kernel needed a short patch and libogc's missing thread-local storage hooks. <a href="{{site-base}}/guide/chez-scheme-on-the-wii.html">Chez Scheme on the Wii</a></p>
+      </div>
+      <div class="feat">
+        <h4>Jolt</h4>
+        <p>Jolt cross-compiles Clojure through Chez with <code>jolt build --target tpb32b</code>, and the fixes it needed for a 32-bit target are upstream. <a href="{{site-base}}/guide/jolt-on-the-wii.html">Jolt on the Wii</a></p>
+      </div>
+      <div class="feat">
+        <h4>The real console</h4>
+        <p>The Wii's CPU traps a misaligned double load that Dolphin lets through, so the first console run stopped every Jolt build at boot. With the kernel fix, Balloon Pop and Super Mona play with a real Wiimote.</p>
+      </div>
+    </div>
+    <p>
+      The <a href="{{site-base}}/guide/index.html">guide</a> reads best in order,
+      from the toolchain through each layer to the games. The project went open
+      source live at clj-aus #2, and the
+      <a href="https://github.com/burinc/presentations/blob/main/20261124-clj-aus-meetup/clojure-on-the-wii-clj-aus-meetup.pdf">slides from that talk</a>
+      tell the story.
+    </p>
+  </div>
+</section>
+{% endblock %}

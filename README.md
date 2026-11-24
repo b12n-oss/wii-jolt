@@ -153,9 +153,11 @@ Wii.
   links
 - [Roadmap](ROADMAP.md): what's next, starting with real hardware
 
-`jolt site:serve` builds the docs into a local site through
-[docs-engine](https://github.com/jlt-commons/docs-engine) and serves it on
-localhost.
+The docs are published at <https://b12n-oss.github.io/wii-jolt/>.
+`.github/workflows/site.yml` builds them through
+[docs-engine](https://github.com/jlt-commons/docs-engine) on every pull
+request, checks the result with `docs/check-site.sh`, and deploys from `main`.
+`jolt site:serve` builds the same site and serves it on localhost.
 
 ## Layout
 
