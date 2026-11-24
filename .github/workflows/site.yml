@@ -1,0 +1,37 @@
+name: Site
+
+# Builds the documentation site and publishes it to GitHub Pages. The build
+# lives in jlt-commons/ci-builds, shared by every project; what stays here is
+# this project's own: docs/, docs/site.edn, the base path below and the
+# assertions in docs/check-site.sh.
+#
+# Builds on every pull request, and publishes to GitHub Pages from main.
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Deploys must not race; pull request builds cancel their own earlier runs.
+concurrency:
+  group: site-${{ github.ref }}
+  cancel-in-progress: ${{ github.ref != 'refs/heads/main' }}
+
+jobs:
+  site:
+    uses: jlt-commons/ci-builds/.github/workflows/site.yml@main
+    with:
+      base-path: /wii-jolt
+      # Pinned rather than trusting the shared workflow's defaults. v0.4.8 is
+      # the engine release the site was built and checked with locally, and
+      # 0.8.27 is the jolt the engine's own CI builds v0.4.8 under.
+      docs-engine-ref: v0.4.8
+      jolt-version: "0.8.27"
+    permissions:
+      contents: read
+      pages: write
+      id-token: write

@@ -1,4 +1,5 @@
 {:base-path   "/wii-jolt"
  :title       "wii-jolt"
  :description "raylib, Chez Scheme and Clojure (via jolt) running on the Nintendo Wii, built on a Mac with devkitPro and tested in Dolphin."
- :asset-dirs  ["images"]}
+ :asset-dirs  ["images"]
+ :home-template "home.html"}
